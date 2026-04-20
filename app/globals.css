@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #E8761A;
+  --dark: #1C1917;
+  --text: #F5EFE6;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #1C1917;
+  color: #F5EFE6;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
