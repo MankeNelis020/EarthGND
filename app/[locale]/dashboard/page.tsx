@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 import { Link } from '@/i18n/navigation';
 
 interface Calculation {
@@ -13,7 +14,8 @@ interface Calculation {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
