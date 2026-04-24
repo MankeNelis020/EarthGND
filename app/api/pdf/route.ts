@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import React from 'react';
-import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -50,7 +51,8 @@ export async function POST(request: NextRequest) {
     const pdfBuffer: Buffer = await renderToBuffer(element as Parameters<typeof renderToBuffer>[0]);
 
     // Store in Supabase Storage if user is authenticated
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
     const { data: { user } } = await supabase.auth.getUser();
 
     let pdfUrl: string | null = null;
