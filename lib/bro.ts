@@ -9,11 +9,13 @@ export interface BroDepthSample {
 export interface BroResult {
   samples: BroDepthSample[];
   dominantRho: number;
+  dominantLithoClass: number;
+  hasData: boolean;
+  estimatedPh: number;
 }
 
 const BRO_DEPTHS = [-1, -3, -5, -10, -20];
 
-// Map lithoClass description keywords to class numbers (simplified)
 function parseLithoClass(description: string): number {
   const lower = description.toLowerCase();
   if (lower.includes('veen') || lower.includes('peat')) return 5;
@@ -23,41 +25,64 @@ function parseLithoClass(description: string): number {
   if (lower.includes('zand') || lower.includes('sand')) return 2;
   if (lower.includes('grind') || lower.includes('gravel')) return 1;
   if (lower.includes('steen') || lower.includes('rock')) return 6;
-  return 3; // default: loam
+  return 3;
 }
 
-export async function fetchBroSoilData(rdX: number, rdY: number): Promise<BroResult> {
+function estimatePh(lithoClass: number): number {
+  if (lithoClass === 5) return 4.8;
+  if (lithoClass === 2) return 5.8;
+  if (lithoClass === 1) return 7.4;
+  if (lithoClass === 6) return 7.6;
+  return 6.6;
+}
+
+export async function fetchBroSoilData(rdX: number, rdY: number, mode: 'free' | 'pro' = 'pro'): Promise<BroResult> {
   const samples: BroDepthSample[] = [];
+
+  const baseX = mode === 'free' ? Math.round(rdX / 500) * 500 : rdX;
+  const baseY = mode === 'free' ? Math.round(rdY / 500) * 500 : rdY;
 
   for (const depth of BRO_DEPTHS) {
     try {
-      const url = `https://publiek.broservices.nl/sr/cpt/v1/objects?bbox=${rdX - 500},${rdY - 500},${rdX + 500},${rdY + 500}&observedProperty=soilclass&depth=${depth}`;
+      const url = `https://publiek.broservices.nl/sr/cpt/v1/objects?bbox=${baseX - 500},${baseY - 500},${baseX + 500},${baseY + 500}&observedProperty=soilclass&depth=${depth}`;
       const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-
-      if (!res.ok) {
-        samples.push({ depth, lithoClass: 3, rho: lithoClassToRho(3) });
-        continue;
-      }
+      if (!res.ok) continue;
 
       const data = await res.json();
       const feature = data?.features?.[0];
       const lithoDesc: string = feature?.properties?.soilclass ?? '';
-      const lithoClass = lithoDesc ? parseLithoClass(lithoDesc) : 3;
+      if (!lithoDesc) continue;
 
+      const lithoClass = parseLithoClass(lithoDesc);
       samples.push({ depth, lithoClass, rho: lithoClassToRho(lithoClass) });
     } catch {
-      samples.push({ depth, lithoClass: 3, rho: lithoClassToRho(3) });
+      // handled via fallback below
     }
   }
 
-  // Use dominant rho (most common) as the representative value
-  const rhoCounts: Record<number, number> = {};
-  samples.forEach((s) => {
-    rhoCounts[s.rho] = (rhoCounts[s.rho] ?? 0) + 1;
-  });
-  const dominantRho = parseInt(
-    Object.entries(rhoCounts).sort((a, b) => b[1] - a[1])[0][0]
-  );
+  if (samples.length === 0) {
+    return {
+      samples: [],
+      dominantRho: 125,
+      dominantLithoClass: 3,
+      hasData: false,
+      estimatedPh: 6.6,
+    };
+  }
 
-  return { samples, dominantRho };
+  const classCounts: Record<number, number> = {};
+  samples.forEach((s) => {
+    classCounts[s.lithoClass] = (classCounts[s.lithoClass] ?? 0) + 1;
+  });
+
+  const dominantLithoClass = Number(Object.entries(classCounts).sort((a, b) => b[1] - a[1])[0][0]);
+  const dominantRho = lithoClassToRho(dominantLithoClass);
+
+  return {
+    samples,
+    dominantRho,
+    dominantLithoClass,
+    hasData: true,
+    estimatedPh: estimatePh(dominantLithoClass),
+  };
 }
