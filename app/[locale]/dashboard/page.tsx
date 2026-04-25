@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { Link } from '@/i18n/navigation';
 import { PLANS } from '@/lib/plans';
+import { LogoutButton } from '@/components/ui/LogoutButton';
 
 interface Calculation {
   id: string;
@@ -221,19 +222,7 @@ export default async function DashboardPage({
             </div>
           </div>
           <div className="mt-5 border-t border-white/6 pt-5">
-            <form action="/auth/signout" method="post">
-              <button
-                type="button"
-                onClick={async () => {
-                  const { createClient: cc } = await import('@/utils/supabase/client');
-                  await cc().auth.signOut();
-                  window.location.href = '/';
-                }}
-                className="text-sm text-white/40 hover:text-white transition-colors"
-              >
-                Uitloggen
-              </button>
-            </form>
+            <LogoutButton />
           </div>
         </div>
       </div>
