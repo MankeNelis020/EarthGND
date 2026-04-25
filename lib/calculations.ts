@@ -273,3 +273,41 @@ export const LITHO_CLASS_TO_RHO: Record<number, number> = {
 export function lithoClassToRho(lithoClass: number): number {
   return LITHO_CLASS_TO_RHO[lithoClass] ?? 125;
 }
+
+// ─── Risk class (NEN 62305 / EN 50522) ───────────────────────────────────────
+
+export type RiskClass = 'I' | 'II' | 'III' | 'IV';
+
+export interface RiskClassResult {
+  riskClass: RiskClass;
+  label: string;
+  color: string; // tailwind bg color token
+  description: string;
+}
+
+export function calcRiskClass(rho: number): RiskClassResult {
+  if (rho <= 50) return {
+    riskClass: 'I',
+    label: 'Klasse I — Laag risico',
+    color: 'green',
+    description: 'Zeer geleidende grond (klei, nat). Aarding eenvoudig haalbaar.',
+  };
+  if (rho <= 150) return {
+    riskClass: 'II',
+    label: 'Klasse II — Gemiddeld risico',
+    color: 'yellow',
+    description: 'Gemiddeld geleidende grond (leem, vochtig zand). Standaard aardpen volstaat.',
+  };
+  if (rho <= 500) return {
+    riskClass: 'III',
+    label: 'Klasse III — Verhoogd risico',
+    color: 'orange',
+    description: 'Matig geleidende grond (droog zand). Diepere pen of meerdere pennen nodig.',
+  };
+  return {
+    riskClass: 'IV',
+    label: 'Klasse IV — Hoog risico',
+    color: 'red',
+    description: 'Slecht geleidende grond (veen, rots). Specialistische aardingsoplossing vereist.',
+  };
+}

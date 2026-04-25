@@ -3,12 +3,15 @@
 import { useState } from 'react';
 import {
   calcOhmWizard,
+  calcRiskClass,
   type CustomerType,
   type InstallationType,
   type GridSystem,
   type BreakerType,
   type OhmWizardResult,
 } from '@/lib/calculations';
+import { PostcodeInput } from './PostcodeInput';
+import { useCalculator } from '@/lib/context/CalculatorContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -199,10 +202,18 @@ function DoneRow({
 
 // ─── Result card ──────────────────────────────────────────────────────────────
 
-function ResultCard({ result, onReset }: { result: OhmWizardResult; onReset: () => void }) {
+function ResultCard({ result, onReset, rho }: { result: OhmWizardResult; onReset: () => void; rho: number | null }) {
   const r = result.maxResistance;
   const display =
     r < 1 ? r.toFixed(2) : r < 10 ? r.toFixed(1) : r >= 1000 ? r.toFixed(0) : r.toFixed(1);
+
+  const riskClass = rho != null ? calcRiskClass(rho) : null;
+  const riskColorMap: Record<string, string> = {
+    green: 'border-green-500/40 bg-green-500/5 text-green-400',
+    yellow: 'border-yellow-500/40 bg-yellow-500/5 text-yellow-400',
+    orange: 'border-orange-500/40 bg-orange-500/5 text-orange-400',
+    red: 'border-red-500/40 bg-red-500/5 text-red-400',
+  };
 
   return (
     <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-b from-orange-500/5 to-zinc-900/80 p-6">
@@ -235,6 +246,17 @@ function ResultCard({ result, onReset }: { result: OhmWizardResult; onReset: () 
         <span className="text-sm font-semibold text-zinc-200">{result.norm}</span>
       </div>
 
+      {/* Risk class */}
+      {riskClass && (
+        <div className={`mb-4 flex items-start gap-3 rounded-xl border p-3 ${riskColorMap[riskClass.color]}`}>
+          <span className="shrink-0 font-black text-lg">{riskClass.riskClass}</span>
+          <div>
+            <p className="text-xs font-semibold">{riskClass.label}</p>
+            <p className="mt-0.5 text-xs opacity-80">{riskClass.description}</p>
+          </div>
+        </div>
+      )}
+
       {/* Practical indication */}
       <div className="mb-5 flex gap-3 rounded-xl bg-zinc-800/50 p-4">
         <span className="text-xl shrink-0">💡</span>
@@ -254,6 +276,7 @@ function ResultCard({ result, onReset }: { result: OhmWizardResult; onReset: () 
 // ─── Main wizard ──────────────────────────────────────────────────────────────
 
 export function OhmCalculator() {
+  const { soilData } = useCalculator();
   const [state, setState] = useState<WizardState>(EMPTY);
   const [editingStep, setEditingStep] = useState<StepId | null>(null);
 
@@ -328,10 +351,15 @@ export function OhmCalculator() {
     }
   }
 
+  const activeRho = soilData?.dominantRho ?? null;
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Postcode / soil section */}
+      <PostcodeInput />
+
       {/* Completed steps summary */}
       {completedSteps.map((step) => (
         <DoneRow
@@ -533,7 +561,7 @@ export function OhmCalculator() {
 
       {/* Result */}
       {active === 'result' && result && (
-        <ResultCard result={result} onReset={() => setState(EMPTY)} />
+        <ResultCard result={result} onReset={() => setState(EMPTY)} rho={activeRho} />
       )}
     </div>
   );
