@@ -1,163 +1,254 @@
 'use client';
 
-import { useState } from 'react';
-import { calcDiepte, calcRiskClass, type DiepteResult } from '@/lib/calculations';
+import { useEffect, useState } from 'react';
+import { Link } from '@/i18n/navigation';
+import { createClient } from '@/utils/supabase/client';
+import type { User } from '@supabase/supabase-js';
 import { PostcodeInput } from './PostcodeInput';
 import { useCalculator } from '@/lib/context/CalculatorContext';
+import type { DiepteResult, RiskClassResult } from '@/lib/calculations';
 
-const ROD_DIAMETER = 0.014; // fixed: standard 14mm grounding rod
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Scenarios {
+  gunstig:   DiepteResult;
+  gemiddeld: DiepteResult;
+  ongunstig: DiepteResult;
+}
+
+interface ParallelAdvice {
+  aantalPennen: number;
+  minAfstand: number;
+}
+
+interface CalcResult {
+  scenarios: Scenarios;
+  riskClass: RiskClassResult;
+  parallelAdvice: ParallelAdvice | null;
+  creditsRemaining: number;
+}
+
+interface Profile {
+  plan: string;
+  credits_left: number;
+  credits_reset: string | null;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const TARGET_PRESETS = [
-  { label: 'Bliksem', value: 10, norm: 'NEN 62305' },
-  { label: 'TT-woning', value: 30, norm: 'NEN 1010' },
+  { label: 'Bliksem',    value: 10,  norm: 'NEN 62305' },
+  { label: 'TT-woning',  value: 30,  norm: 'NEN 1010' },
   { label: 'TT-aardlek', value: 166, norm: 'NEN 1010' },
-  { label: 'Utiliteit', value: 5, norm: 'NEN 50522' },
+  { label: 'Utiliteit',  value: 5,   norm: 'NEN 50522' },
 ];
 
-function RhoChip({ label, value, active, onClick }: { label: string; value: number; active: boolean; onClick: () => void }) {
+const riskBorder: Record<string, string> = {
+  green:  'border-green-500/30 bg-green-500/5',
+  yellow: 'border-yellow-500/30 bg-yellow-500/5',
+  orange: 'border-orange-500/30 bg-orange-500/5',
+  red:    'border-red-500/30 bg-red-500/5',
+};
+
+const riskText: Record<string, string> = {
+  green: 'text-green-400', yellow: 'text-yellow-400', orange: 'text-orange-400', red: 'text-red-400',
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className={`rounded-lg border px-3 py-2 text-left text-xs transition-all ${
-        active
-          ? 'border-orange-500 bg-orange-500/15 text-orange-400'
-          : 'border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:border-zinc-500'
-      }`}
-    >
-      <span className="block font-semibold">{label}</span>
-      <span className="block text-zinc-500 mt-0.5">{value} Ω·m</span>
-    </button>
+    <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/30">
+      {children}
+    </p>
   );
 }
 
-function ResultSection({ result, targetResistance, rho }: { result: DiepteResult; targetResistance: number; rho: number }) {
-  const riskClass = calcRiskClass(rho);
-  const riskColorMap: Record<string, string> = {
-    green: 'border-green-500/40 bg-green-500/5 text-green-400',
-    yellow: 'border-yellow-500/40 bg-yellow-500/5 text-yellow-400',
-    orange: 'border-orange-500/40 bg-orange-500/5 text-orange-400',
-    red: 'border-red-500/40 bg-red-500/5 text-red-400',
-  };
-
-  const depthTip =
-    result.depth <= 1.5 ? 'Standaard aardpen (1,5 m) volstaat.' :
-    result.depth <= 3 ? 'Één langere aardpen (3 m) vereist.' :
-    result.depth <= 6 ? 'Meerdere aardpennen parallel aanbevolen.' :
-    'Diepboring of aardmat noodzakelijk — advies specialist inwinnen.';
-
+function ScenarioCard({
+  label,
+  sublabel,
+  depth,
+  resistance,
+  correction,
+  dimmed,
+}: {
+  label: string;
+  sublabel: string;
+  depth: number;
+  resistance: number;
+  correction: number;
+  dimmed?: boolean;
+}) {
   return (
-    <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-b from-orange-500/5 to-zinc-900/80 p-6">
-      <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-orange-500">
-        Resultaat
+    <div className={`rounded-xl border p-4 transition-opacity ${dimmed ? 'border-white/5 opacity-50' : 'border-white/10'}`}>
+      <p className="mb-0.5 text-xs font-semibold text-white/60">{label}</p>
+      <p className="mb-3 text-[11px] text-white/30">{sublabel}</p>
+      <div className="flex items-baseline gap-1 mb-1">
+        <span className="font-condensed text-3xl font-black text-white">{depth.toFixed(2)}</span>
+        <span className="text-sm text-white/40">m</span>
       </div>
-
-      <div className="mb-5 flex items-end gap-2">
-        <span className="text-5xl font-black text-white">{result.depth.toFixed(2)}</span>
-        <span className="mb-1.5 text-2xl font-light text-zinc-400">m</span>
-        <span className="mb-1.5 ml-1 text-sm text-zinc-500">benodigde penlengtte</span>
-      </div>
-
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/60 p-3">
-          <p className="text-xs text-zinc-500 mb-1">Berekende weerstand</p>
-          <p className="font-mono text-lg font-bold text-orange-400">{result.achievedResistance} Ω</p>
-          <p className="text-xs text-zinc-600 mt-0.5">doel: ≤ {targetResistance} Ω</p>
-        </div>
-        <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/60 p-3">
-          <p className="text-xs text-zinc-500 mb-1">Pendiameter (vast)</p>
-          <p className="font-mono text-lg font-bold text-zinc-300">Ø {(ROD_DIAMETER * 1000).toFixed(0)} mm</p>
-          <p className="text-xs text-zinc-600 mt-0.5">NEN-standaard</p>
-        </div>
-      </div>
-
-      {/* Correction factors */}
-      <div className="mb-4 rounded-xl border border-zinc-700/50 bg-zinc-900/60 p-3">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Correctiefactoren</p>
-        <div className="flex gap-4 text-sm">
-          <span className="text-zinc-400">Grondwater: <strong className="text-zinc-200">×{result.correctionGroundwater}</strong></span>
-          <span className="text-zinc-400">pH: <strong className="text-zinc-200">×{result.correctionPh}</strong></span>
-        </div>
-      </div>
-
-      {/* Risk class */}
-      <div className={`mb-4 flex items-start gap-3 rounded-xl border p-3 ${riskColorMap[riskClass.color]}`}>
-        <span className="shrink-0 font-black text-lg">{riskClass.riskClass}</span>
-        <div>
-          <p className="text-xs font-semibold">{riskClass.label}</p>
-          <p className="mt-0.5 text-xs opacity-80">{riskClass.description}</p>
-        </div>
-      </div>
-
-      {/* Tip */}
-      <div className="flex gap-3 rounded-xl bg-zinc-800/50 p-4">
-        <span className="text-xl shrink-0">💡</span>
-        <p className="text-sm leading-relaxed text-zinc-300">{depthTip}</p>
+      <div className="flex items-center gap-2 text-xs text-white/40">
+        <span>{resistance.toFixed(2)} Ω berekend</span>
+        <span className="text-white/20">·</span>
+        <span>correctie ×{correction}</span>
       </div>
     </div>
   );
 }
 
-export function DiepteCalculator() {
-  const { soilData } = useCalculator();
+function LoginGate() {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/3 p-8 text-center">
+      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5">
+        <svg className="h-5 w-5 text-white/40" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18 10h-1V7A5 5 0 0 0 7 7v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-6 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3-7H9V7a3 3 0 0 1 6 0v3z"/>
+        </svg>
+      </div>
+      <h3 className="mb-2 font-condensed text-xl font-bold text-white">Inloggen vereist</h3>
+      <p className="mb-5 text-sm text-white/50">
+        De Pendiepte Calculator is beschikbaar voor abonnees. Meld je aan om door te gaan.
+      </p>
+      <div className="flex flex-col items-center gap-2">
+        <Link
+          href="/login"
+          className="rounded-lg bg-[#E8761A] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#d06510] transition-colors"
+        >
+          Inloggen of registreren
+        </Link>
+        <Link href="/pricing" className="text-xs text-white/40 hover:text-white/70 transition-colors">
+          Bekijk tarieven en plannen
+        </Link>
+      </div>
+    </div>
+  );
+}
 
-  const [targetResistance, setTargetResistance] = useState(10);
+function CreditsGate({ plan }: { plan: string }) {
+  return (
+    <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-8 text-center">
+      <h3 className="mb-2 font-condensed text-xl font-bold text-white">Geen credits</h3>
+      <p className="mb-5 text-sm text-white/50">
+        {plan === 'gratis'
+          ? 'De Pendiepte Calculator vereist een abonnement of losse credits.'
+          : 'Je credits zijn op. Koop credits bij of upgrade je plan.'}
+      </p>
+      <div className="flex flex-col items-center gap-2">
+        <Link
+          href="/pricing"
+          className="rounded-lg bg-[#E8761A] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#d06510] transition-colors"
+        >
+          {plan === 'gratis' ? 'Bekijk tarieven' : 'Credits bijkopen'}
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function DiepteCalculator() {
+  const { soilData, postcode } = useCalculator();
+
+  const [user, setUser] = useState<User | null | 'loading'>('loading');
+  const [profile, setProfile] = useState<Profile | null>(null);
+
   const [rho, setRho] = useState(125);
+  const [targetResistance, setTargetResistance] = useState(10);
   const [groundwaterDepth, setGroundwaterDepth] = useState(3);
   const [ph, setPh] = useState(6.5);
-  const [result, setResult] = useState<DiepteResult | null>(null);
 
-  function handleRhoChange(newRho: number) {
-    setRho(newRho);
-    setResult(null);
-  }
+  const [calcResult, setCalcResult] = useState<CalcResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  function handleGroundwaterChange(depth: number | null) {
-    if (depth != null) {
-      setGroundwaterDepth(depth);
-      setResult(null);
-    }
-  }
-
-  function handleCalculate() {
-    const res = calcDiepte({
-      rho,
-      targetResistance,
-      rodDiameter: ROD_DIAMETER,
-      groundwaterDepth,
-      ph,
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      if (data.user) {
+        supabase.from('profiles').select('plan, credits_left, credits_reset').eq('id', data.user.id).single()
+          .then(({ data: p }) => { if (p) setProfile(p as Profile); });
+      }
     });
-    setResult(res);
+  }, []);
+
+  // Sync rho from BRO data
+  useEffect(() => {
+    if (soilData?.dominantRho) setRho(soilData.dominantRho);
+  }, [soilData]);
+
+  useEffect(() => {
+    if (soilData?.groundwaterDepth != null) setGroundwaterDepth(soilData.groundwaterDepth);
+  }, [soilData]);
+
+  if (user === 'loading') {
+    return <div className="h-64 animate-pulse rounded-2xl border border-white/8 bg-white/3" />;
+  }
+
+  if (!user) return <LoginGate />;
+  if (profile && profile.credits_left <= 0) return <CreditsGate plan={profile.plan} />;
+
+  async function handleCalculate() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/diepte/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rho, targetResistance, groundwaterDepth, ph, postcode: postcode || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Berekening mislukt');
+        return;
+      }
+      setCalcResult(data);
+      if (profile) setProfile((p) => p ? { ...p, credits_left: data.creditsRemaining } : p);
+    } catch {
+      setError('Verbindingsfout — probeer opnieuw.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   const activeRho = soilData?.dominantRho ?? rho;
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Postcode / soil lookup */}
-      <PostcodeInput onRhoChange={handleRhoChange} onGroundwaterChange={handleGroundwaterChange} />
+      {/* Soil / postcode lookup */}
+      <PostcodeInput onRhoChange={setRho} onGroundwaterChange={(d) => d != null && setGroundwaterDepth(d)} />
+
+      {/* Credits indicator */}
+      {profile && (
+        <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/3 px-4 py-2.5">
+          <span className="h-2 w-2 rounded-full bg-[#E8761A]" />
+          <span className="text-xs text-white/60">
+            <strong className="text-white">{profile.credits_left} credits</strong> beschikbaar — {profile.plan} plan
+          </span>
+          <Link href="/pricing" className="ml-auto text-xs text-[#E8761A] hover:underline">Bijkopen</Link>
+        </div>
+      )}
 
       {/* Parameters */}
-      <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
-        <h3 className="mb-4 text-sm font-semibold text-zinc-300">Parameters</h3>
+      <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+        <SectionLabel>Parameters</SectionLabel>
 
         {/* Target resistance presets */}
         <div className="mb-4">
-          <label className="mb-2 block text-xs font-medium text-zinc-500">
-            Doelweerstand (Ω)
-          </label>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 mb-2">
+          <p className="mb-2 text-xs text-white/50">Doelweerstand</p>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 mb-3">
             {TARGET_PRESETS.map((p) => (
               <button
                 key={p.value}
-                onClick={() => { setTargetResistance(p.value); setResult(null); }}
+                onClick={() => { setTargetResistance(p.value); setCalcResult(null); }}
                 className={`rounded-lg border px-3 py-2 text-left text-xs transition-all ${
                   targetResistance === p.value
-                    ? 'border-orange-500 bg-orange-500/15 text-orange-400'
-                    : 'border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:border-zinc-500'
+                    ? 'border-[#E8761A] bg-[#E8761A]/10 text-[#E8761A]'
+                    : 'border-white/8 bg-white/3 text-white/60 hover:border-white/15 hover:text-white'
                 }`}
               >
                 <span className="block font-semibold">{p.label}</span>
-                <span className="block text-zinc-500 mt-0.5">≤ {p.value} Ω — {p.norm}</span>
+                <span className="block text-white/30 mt-0.5">≤ {p.value} Ω · {p.norm}</span>
               </button>
             ))}
           </div>
@@ -165,87 +256,189 @@ export function DiepteCalculator() {
             <input
               type="number"
               min="0.1"
-              step="0.1"
+              step="0.5"
               value={targetResistance}
-              onChange={(e) => { setTargetResistance(Number(e.target.value)); setResult(null); }}
-              className="w-28 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white focus:border-orange-500 focus:outline-none"
+              onChange={(e) => { setTargetResistance(Number(e.target.value)); setCalcResult(null); }}
+              className="w-28 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
             />
-            <span className="text-sm text-zinc-500">Ω  —  handmatig invoeren</span>
+            <span className="text-sm text-white/40">Ω — handmatig</span>
           </div>
         </div>
 
-        {/* Soil resistivity (rho) */}
+        {/* Rho */}
         <div className="mb-4">
-          <label className="mb-2 block text-xs font-medium text-zinc-500">
-            Bodemweerstand ρ (Ω·m)
-            {soilData && <span className="ml-2 text-green-400">↳ uit BRO: {soilData.dominantRho} Ω·m</span>}
-          </label>
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6 mb-2">
-            {[30, 60, 125, 300, 2000, 4000].map((v, i) => (
-              <RhoChip
-                key={v}
-                label={['Klei', 'Leem', 'Zand', 'Dr. zand', 'Veen', 'Rots'][i]}
-                value={v}
-                active={activeRho === v}
-                onClick={() => { setRho(v); setResult(null); }}
-              />
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
+          <p className="mb-2 text-xs text-white/50">
+            Bodemweerstand ρ
+            {soilData && <span className="ml-2 text-green-400">← BRO: {soilData.dominantRho} Ω·m</span>}
+          </p>
+          <div className="flex items-center gap-3">
             <input
-              type="number"
-              min="1"
+              type="range"
+              min="10"
+              max="5000"
+              step="10"
               value={activeRho}
-              onChange={(e) => { setRho(Number(e.target.value)); setResult(null); }}
-              className="w-28 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white focus:border-orange-500 focus:outline-none"
+              onChange={(e) => { setRho(Number(e.target.value)); setCalcResult(null); }}
+              className="flex-1 accent-[#E8761A]"
             />
-            <span className="text-sm text-zinc-500">Ω·m</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min="1"
+                value={activeRho}
+                onChange={(e) => { setRho(Number(e.target.value)); setCalcResult(null); }}
+                className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+              />
+              <span className="text-xs text-white/40">Ω·m</span>
+            </div>
           </div>
         </div>
 
         {/* Groundwater + pH */}
-        <div className="grid grid-cols-2 gap-4 mb-5">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="mb-2 block text-xs font-medium text-zinc-500">
-              Grondwaterdiepte (m)
-              {soilData?.groundwaterDepth != null && (
-                <span className="ml-2 text-green-400">↳ BRO: {soilData.groundwaterDepth.toFixed(1)} m</span>
-              )}
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.5"
-              value={groundwaterDepth}
-              onChange={(e) => { setGroundwaterDepth(Number(e.target.value)); setResult(null); }}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white focus:border-orange-500 focus:outline-none"
-            />
+            <p className="mb-2 text-xs text-white/50">
+              Grondwater diepte
+              {soilData?.groundwaterDepth != null && <span className="ml-1 text-green-400">← BRO</span>}
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                max="20"
+                step="0.5"
+                value={groundwaterDepth}
+                onChange={(e) => { setGroundwaterDepth(Number(e.target.value)); setCalcResult(null); }}
+                className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+              />
+              <span className="text-xs text-white/40">m</span>
+            </div>
           </div>
           <div>
-            <label className="mb-2 block text-xs font-medium text-zinc-500">pH-waarde grond</label>
-            <input
-              type="number"
-              min="0"
-              max="14"
-              step="0.1"
-              value={ph}
-              onChange={(e) => { setPh(Number(e.target.value)); setResult(null); }}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white focus:border-orange-500 focus:outline-none"
-            />
+            <p className="mb-2 text-xs text-white/50">Bodem pH</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                max="14"
+                step="0.1"
+                value={ph}
+                onChange={(e) => { setPh(Number(e.target.value)); setCalcResult(null); }}
+                className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+              />
+              <span className="text-xs text-white/40">pH</span>
+            </div>
           </div>
         </div>
-
-        <button
-          onClick={handleCalculate}
-          className="w-full rounded-xl bg-orange-500 py-3 text-sm font-semibold text-white transition-opacity hover:bg-orange-400"
-        >
-          Bereken penlengtte
-        </button>
       </div>
 
+      {/* Calculate */}
+      <button
+        onClick={handleCalculate}
+        disabled={loading}
+        className="rounded-2xl bg-[#E8761A] py-4 text-sm font-bold text-white transition-opacity hover:bg-[#d06510] disabled:opacity-50"
+      >
+        {loading ? 'Berekening...' : `Bereken pendiepte  — 1 credit`}
+      </button>
+
+      {error && (
+        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+
       {/* Result */}
-      {result && (
-        <ResultSection result={result} targetResistance={targetResistance} rho={activeRho} />
+      {calcResult && (
+        <div className="flex flex-col gap-3">
+          {/* Three scenarios */}
+          <div className="rounded-2xl border border-white/10 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">
+                Drie scenario&apos;s
+              </span>
+              <span className="text-xs text-white/30">ρ = {activeRho} Ω·m  ·  doelweerstand ≤ {targetResistance} Ω</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <ScenarioCard
+                label="Gunstig"
+                sublabel={`ρ = ${Math.round(activeRho * 0.7)} Ω·m — natte winter`}
+                depth={calcResult.scenarios.gunstig.depth}
+                resistance={calcResult.scenarios.gunstig.achievedResistance}
+                correction={calcResult.scenarios.gunstig.correctionGroundwater}
+              />
+              <ScenarioCard
+                label="Gemiddeld"
+                sublabel={`ρ = ${activeRho} Ω·m — norm situatie`}
+                depth={calcResult.scenarios.gemiddeld.depth}
+                resistance={calcResult.scenarios.gemiddeld.achievedResistance}
+                correction={calcResult.scenarios.gemiddeld.correctionGroundwater}
+              />
+              <ScenarioCard
+                label="Ongunstig"
+                sublabel={`ρ = ${Math.round(activeRho * 1.5)} Ω·m — droge zomer`}
+                depth={calcResult.scenarios.ongunstig.depth}
+                resistance={calcResult.scenarios.ongunstig.achievedResistance}
+                correction={calcResult.scenarios.ongunstig.correctionGroundwater}
+                dimmed
+              />
+            </div>
+          </div>
+
+          {/* Correction factors */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-white/8 bg-white/3 p-3">
+              <p className="text-xs text-white/40 mb-1">Grondwatercorrectie</p>
+              <p className="font-mono text-lg font-bold text-white">
+                ×{calcResult.scenarios.gemiddeld.correctionGroundwater}
+              </p>
+              <p className="text-[11px] text-white/30 mt-0.5">
+                {groundwaterDepth < 2 ? 'Hoog GW — gunstig' : groundwaterDepth > 5 ? 'Diep GW — ongunstig' : 'Normaal'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/8 bg-white/3 p-3">
+              <p className="text-xs text-white/40 mb-1">pH-correctie</p>
+              <p className="font-mono text-lg font-bold text-white">
+                ×{calcResult.scenarios.gemiddeld.correctionPh}
+              </p>
+              <p className="text-[11px] text-white/30 mt-0.5">
+                {ph < 5 ? 'Zuur — corrosief' : ph > 8.5 ? 'Basisch — gunstig' : 'Neutraal'}
+              </p>
+            </div>
+          </div>
+
+          {/* Parallel rod advice */}
+          {calcResult.parallelAdvice && (
+            <div className="rounded-xl border border-orange-500/25 bg-orange-500/5 p-4">
+              <p className="mb-1 text-sm font-semibold text-orange-400">Parallelschakeling aanbevolen</p>
+              <p className="text-xs text-white/60">
+                Pendiepte exceeds 12 m. Gebruik {calcResult.parallelAdvice.aantalPennen} aardpennen parallel
+                met een minimale onderlinge afstand van {calcResult.parallelAdvice.minAfstand} m.
+              </p>
+            </div>
+          )}
+
+          {/* Risk class */}
+          <div className={`rounded-2xl border p-5 ${riskBorder[calcResult.riskClass.color]}`}>
+            <div className="flex items-start gap-4">
+              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border ${riskBorder[calcResult.riskClass.color]}`}>
+                <span className={`font-condensed text-2xl font-black ${riskText[calcResult.riskClass.color]}`}>
+                  {calcResult.riskClass.riskClass}
+                </span>
+              </div>
+              <div>
+                <p className={`font-condensed text-lg font-bold ${riskText[calcResult.riskClass.color]}`}>
+                  {calcResult.riskClass.label}
+                </p>
+                <p className="mt-1 text-sm text-white/60">{calcResult.riskClass.description}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Disclaimer */}
+          <p className="text-[11px] leading-relaxed text-white/25">
+            Indicatieve schatting op basis van de Dwight-formule en BRO bodemdata. Meet altijd ter plaatse na installatie conform NEN 3140.
+          </p>
+        </div>
       )}
     </div>
   );

@@ -285,6 +285,105 @@ export interface RiskClassResult {
   description: string;
 }
 
+// ─── Four-layer Ohm output ────────────────────────────────────────────────────
+
+export interface OhmLayersInput {
+  installationType: InstallationType;
+  gridSystem: GridSystem;
+  rcdCurrent?: number; // A
+  breakerType?: BreakerType;
+  breakerAmps?: number;
+  voltageLimit?: 25 | 50;
+}
+
+export interface OhmLayersResult {
+  wettelijkMax: number;
+  praktischMax: number;
+  ontwerpdoel: number;
+  streefwaarde: number;
+  norm: string;
+  formula: string;
+  formulaSteps: string[];
+}
+
+function r2(n: number): number {
+  if (n < 1) return Math.round(n * 100) / 100;
+  if (n < 10) return Math.round(n * 10) / 10;
+  return Math.round(n);
+}
+
+export function calcOhmLayers(input: OhmLayersInput): OhmLayersResult {
+  const wizard = calcOhmWizard({
+    customerType: 'particulier',
+    installationType: input.installationType,
+    gridSystem: input.gridSystem,
+    rcdPresent: input.rcdCurrent != null,
+    rcdCurrent: input.rcdCurrent,
+    breakerType: input.breakerType,
+    breakerAmps: input.breakerAmps,
+    voltageLimit: input.voltageLimit ?? 50,
+  });
+
+  const wettelijkMax = wizard.maxResistance;
+  const praktischMax = r2(wettelijkMax * 0.75);
+
+  const ontwerpdoelCap: Record<InstallationType, number> = {
+    woning: 30,
+    utiliteit: 10,
+    industrieel: 5,
+    bliksem: 10,
+    medisch: 0.1,
+  };
+
+  const ontwerpdoel = r2(Math.min(wettelijkMax * 0.5, ontwerpdoelCap[input.installationType] ?? 30));
+  const streefwaarde = r2(Math.min(ontwerpdoel, 30));
+
+  return { wettelijkMax, praktischMax, ontwerpdoel, streefwaarde, norm: wizard.norm, formula: wizard.formula, formulaSteps: wizard.formulaSteps };
+}
+
+// ─── Diepte Risk Class (multi-factor) ────────────────────────────────────────
+
+export interface DiepteRiskInput {
+  rho: number;
+  groundwaterDepth: number;
+  ph: number;
+  depth: number;
+}
+
+export function calcDiepteRiskClass(input: DiepteRiskInput): RiskClassResult {
+  let score = 0;
+
+  if (input.rho > 500)       score += 3;
+  else if (input.rho > 150)  score += 2;
+  else if (input.rho > 50)   score += 1;
+
+  if (input.groundwaterDepth > 5) score += 1;
+  if (input.ph < 5)               score += 1;
+  else if (input.ph > 8.5)        score += 0.5;
+  if (input.depth > 12)           score += 1;
+
+  if (score <= 1) return {
+    riskClass: 'I', color: 'green',
+    label: 'Klasse I — Laag risico',
+    description: 'Gunstige bodemcondities. Standaard aardpen volstaat, lage corrosiekans.',
+  };
+  if (score <= 3) return {
+    riskClass: 'II', color: 'yellow',
+    label: 'Klasse II — Gemiddeld risico',
+    description: 'Normaal haalbaar. Licht verhoogde diepte of periodieke controle aanbevolen.',
+  };
+  if (score <= 5) return {
+    riskClass: 'III', color: 'orange',
+    label: 'Klasse III — Verhoogd risico',
+    description: 'Meerdere pennen of specialistische aardmat aanbevolen. pH-meting ter plaatse vereist.',
+  };
+  return {
+    riskClass: 'IV', color: 'red',
+    label: 'Klasse IV — Hoog risico',
+    description: 'Slecht geleidende of corrosieve grond. Specialistische oplossing vereist — diepboring of aardmat.',
+  };
+}
+
 export function calcRiskClass(rho: number): RiskClassResult {
   if (rho <= 50) return {
     riskClass: 'I',
