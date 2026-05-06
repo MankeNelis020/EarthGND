@@ -49,6 +49,7 @@ const styles = `
   .modal-section { margin-bottom: 20px; }
   .modal-section-title { font-size: 0.78rem; font-weight: 700; color: #00d4aa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid #1e293b; }
   .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .modal-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
   .form-group { }
   .form-group-full { grid-column: 1 / -1; }
   .form-label { display: block; font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -75,6 +76,7 @@ const styles = `
   @media (max-width: 900px) {
     .charts-grid { grid-template-columns: 1fr; }
     .modal-grid { grid-template-columns: 1fr; }
+    .modal-grid-3 { grid-template-columns: 1fr 1fr; }
   }
 `;
 
@@ -127,7 +129,7 @@ function MeetpuntGrafiek({ data, velden, title }) {
       <ResponsiveContainer width="100%" height={180}>
         <LineChart data={sorted} margin={{ top: 4, right: 8, left: -20, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-          <XAxis dataKey="week_na_operatie" tick={{ fill: '#64748b', fontSize: 10 }} />
+          <XAxis dataKey="week_na_operatie" tick={{ fill: '#64748b', fontSize: 10 }} label={{ value: 'Wk', position: 'insideRight', fill: '#475569', fontSize: 10 }} />
           <YAxis tick={{ fill: '#64748b', fontSize: 10 }} />
           <Tooltip contentStyle={{ background: '#141c2e', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11 }} />
           <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
@@ -358,7 +360,6 @@ export default function PatientDetail() {
   return (
     <>
       <style>{styles}</style>
-
       {(showModal || editMeetpunt) && (
         <MeetpuntModal
           patientId={id}
@@ -367,6 +368,26 @@ export default function PatientDetail() {
           onClose={() => { setShowModal(false); setEditMeetpunt(null); }}
         />
       )}
+
+      <div className="patient-header">
+        <div>
+          <h1 className="patient-name">{patient.naam}</h1>
+          <div className="patient-meta">
+            <PhaseBadge fase={patient.fase} size="lg" />
+            <span className="meta-item"><strong>Graft:</strong> {patient.graft}</span>
+            <span className="meta-item"><strong>Zijde:</strong> {patient.zijde}</span>
+            <span className="meta-item"><strong>Operatie:</strong> {patient.operatiedatum}</span>
+            {patient.geboortejaar && (
+              <span className="meta-item"><strong>Leeftijd:</strong> {new Date().getFullYear() - patient.geboortejaar} jaar</span>
+            )}
+          </div>
+        </div>
+        <div className="btn-row">
+          <button className="btn-primary" onClick={() => setShowModal(true)}>+ Meetpunt</button>
+          <button className="btn-secondary" onClick={startEditPatient}>Bewerken</button>
+          <button className="btn-danger" onClick={verwijderPatient}>Archiveren</button>
+        </div>
+      </div>
 
       {showEditPatient && (
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowEditPatient(false); }}>
@@ -404,26 +425,6 @@ export default function PatientDetail() {
         </div>
       )}
 
-      <div className="patient-header">
-        <div>
-          <h1 className="patient-name">{patient.naam}</h1>
-          <div className="patient-meta">
-            <PhaseBadge fase={patient.fase} size="lg" />
-            <span className="meta-item"><strong>Graft:</strong> {patient.graft}</span>
-            <span className="meta-item"><strong>Zijde:</strong> {patient.zijde}</span>
-            <span className="meta-item"><strong>Operatie:</strong> {patient.operatiedatum}</span>
-            {patient.geboortejaar && (
-              <span className="meta-item"><strong>Leeftijd:</strong> {new Date().getFullYear() - patient.geboortejaar} jaar</span>
-            )}
-          </div>
-        </div>
-        <div className="btn-row">
-          <button className="btn-primary" onClick={() => setShowModal(true)}>+ Meetpunt</button>
-          <button className="btn-secondary" onClick={startEditPatient}>Bewerken</button>
-          <button className="btn-danger" onClick={verwijderPatient}>Archiveren</button>
-        </div>
-      </div>
-
       <div className="section-title">Laatste meetwaarden</div>
       <div className="metrics-grid">
         <MetricCard label="Kracht" value={fmt(laatste?.kracht_pct)} unit="%" curr={laatste?.kracht_pct} prev={vorige?.kracht_pct} />
@@ -450,8 +451,6 @@ export default function PatientDetail() {
         <MeetpuntGrafiek data={meetpunten} title="KOOS / IKDC / Lysholm" velden={[{key:'koos_score',label:'KOOS'},{key:'ikdc_score',label:'IKDC'},{key:'lysholm_score',label:'Lysholm'}]} />
         <MeetpuntGrafiek data={meetpunten} title="Single leg hop & Balans" velden={[{key:'single_leg_hop_pct',label:'SL Hop %'},{key:'balans_score',label:'Balans'}]} />
         <MeetpuntGrafiek data={meetpunten} title="Sportbelasting & RTS" velden={[{key:'sportbelasting_pct',label:'Sportbelasting %'},{key:'rts_bereidheid',label:'RTS bereidheid'}]} />
-        <MeetpuntGrafiek data={meetpunten} title="Q/H ratio & Looppatroon" velden={[{key:'quad_ham_ratio',label:'Q/H ratio'},{key:'looppatroon_score',label:'Looppatroon'}]} />
-        <MeetpuntGrafiek data={meetpunten} title="Zwelling & Sportbelasting" velden={[{key:'zwelling_cm',label:'Zwelling (cm)'},{key:'sportbelasting_pct',label:'Sportbelasting %'}]} />
       </div>
 
       {patient.notities && (

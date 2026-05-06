@@ -36,6 +36,7 @@ const styles = `
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .success-msg { background: #064e3b; border: 1px solid #065f46; color: #6ee7b7; padding: 10px 14px; border-radius: 8px; font-size: 0.82rem; margin-bottom: 14px; }
   .error-msg { background: #450a0a; border: 1px solid #7f1d1d; color: #fca5a5; padding: 10px 14px; border-radius: 8px; font-size: 0.82rem; margin-bottom: 14px; }
+  .divider { height: 1px; background: #1e293b; margin: 20px 0; }
   @media (max-width: 900px) { .sections-grid { grid-template-columns: 1fr; } }
 `;
 
@@ -115,9 +116,6 @@ export default function Beheer() {
         <div>
           <div className="card">
             <div className="card-title">Medewerkers</div>
-            {gebruikers.length === 0 && (
-              <div style={{ color: '#64748b', fontSize: '0.85rem' }}>Geen medewerkers gevonden</div>
-            )}
             {gebruikers.map(u => (
               <div className="user-row" key={u.id}>
                 <div>
