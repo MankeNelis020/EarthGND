@@ -163,11 +163,11 @@ export function DiepteCalculator() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
       setUser(data.user);
       if (data.user) {
         supabase.from('profiles').select('plan, credits_left, credits_reset').eq('id', data.user.id).single()
-          .then(({ data: p }) => { if (p) setProfile(p as Profile); });
+          .then(({ data: p }: { data: Profile | null }) => { if (p) setProfile(p); });
       }
     });
   }, []);

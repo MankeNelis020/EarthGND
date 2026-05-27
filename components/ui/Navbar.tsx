@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link, useRouter, usePathname } from '@/i18n/navigation';
 import { useLocale } from 'next-intl';
 import { createClient } from '@/utils/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface Profile {
   plan: string;
@@ -22,12 +22,12 @@ export function Navbar() {
   useEffect(() => {
     const supabase = createClient();
 
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
       setUser(data.user);
       if (data.user) fetchProfile(data.user.id, supabase);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_e: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
       if (session?.user) fetchProfile(session.user.id, supabase);
       else setProfile(null);
