@@ -1,76 +1,124 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import { Link, usePathname } from '@/i18n/navigation';
-import { useRouter } from '@/i18n/navigation';
-import { createClient } from '@/utils/supabase/client';
-import { User } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
+import { Link, useRouter, usePathname } from '@/i18n/navigation';
+import { useLocale } from 'next-intl';
+import { createClient } from '@/utils/supabase/client';
+import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
+
+interface Profile {
+  plan: string;
+  credits_left: number;
+}
 
 export function Navbar() {
-  const t = useTranslations('nav');
+  const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+
+    supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
+      setUser(data.user);
+      if (data.user) fetchProfile(data.user.id, supabase);
     });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_e: AuthChangeEvent, session: Session | null) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id, supabase);
+      else setProfile(null);
+    });
+
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  async function fetchProfile(userId: string, supabase: ReturnType<typeof createClient>) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('plan, credits_left')
+      .eq('id', userId)
+      .single();
+    if (data) setProfile(data as Profile);
+  }
+
+  function switchLocale(newLocale: string) {
+    router.replace(pathname, { locale: newLocale });
+  }
+
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await createClient().auth.signOut();
     router.push('/');
   }
 
-  const navLinks = [
-    { href: '/tool/ohm', label: 'Ohm' },
-    { href: '/tool/diepte', label: 'Diepte' },
-    { href: '/pricing', label: t('pricing') },
-  ];
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#1C1917]/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        <Link href="/" className="text-xl font-bold text-[#E8761A]">
-          EarthGND
+    <nav className="sticky top-0 z-50 border-b border-white/8 bg-[#111]/95 backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-0">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-0 py-4 select-none">
+          <span className="font-condensed text-xl font-bold tracking-tight text-white">Earth</span>
+          <span className="font-condensed text-xl font-bold tracking-tight text-[#E8761A]">GND</span>
+          <span className="ml-1.5 mt-0.5 text-[11px] font-semibold text-[#E8761A]/60 tracking-widest uppercase">Aarding</span>
         </Link>
 
-        <div className="hidden items-center gap-6 md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-sm transition-colors ${
-                pathname === link.href
-                  ? 'text-[#E8761A]'
-                  : 'text-[#F5EFE6]/70 hover:text-[#F5EFE6]'
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+        {/* Centre nav */}
+        <div className="hidden items-center gap-1 md:flex">
+          <NavLink href="/tool/ohm" label="Weerstand" active={isActive('/tool/ohm')} />
+          <NavLink
+            href="/tool/diepte"
+            label="Pendiepte"
+            active={isActive('/tool/diepte')}
+            locked={!user}
+          />
+          <NavLink href="/pricing" label="Tarieven" active={isActive('/pricing')} />
         </div>
 
+        {/* Right side */}
         <div className="flex items-center gap-3">
+          {/* Language switch */}
+          <div className="hidden items-center gap-0.5 md:flex">
+            <button
+              onClick={() => switchLocale('nl')}
+              className={`px-1.5 py-1 text-xs font-semibold transition-colors ${locale === 'nl' ? 'text-[#E8761A]' : 'text-white/40 hover:text-white/70'}`}
+            >
+              NL
+            </button>
+            <span className="text-white/20 text-xs">/</span>
+            <button
+              onClick={() => switchLocale('en')}
+              className={`px-1.5 py-1 text-xs font-semibold transition-colors ${locale === 'en' ? 'text-[#E8761A]' : 'text-white/40 hover:text-white/70'}`}
+            >
+              EN
+            </button>
+          </div>
+
           {user ? (
             <>
+              {profile && (
+                <Link
+                  href="/dashboard"
+                  className="hidden items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:border-white/20 transition-colors md:flex"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#E8761A]" />
+                  {profile.credits_left} credits
+                </Link>
+              )}
               <Link
                 href="/dashboard"
-                className="text-sm text-[#F5EFE6]/70 hover:text-[#F5EFE6] transition-colors"
+                className="hidden text-sm text-white/60 hover:text-white transition-colors md:block"
               >
-                {t('dashboard')}
+                Dashboard
               </Link>
               <button
                 onClick={handleLogout}
-                className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-[#F5EFE6]/70 hover:border-white/40 hover:text-[#F5EFE6] transition-colors"
+                className="hidden rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/60 hover:border-white/30 hover:text-white transition-colors md:block"
               >
-                {t('logout')}
+                Uitloggen
               </button>
             </>
           ) : (
@@ -78,11 +126,75 @@ export function Navbar() {
               href="/login"
               className="rounded-lg bg-[#E8761A] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#d06510] transition-colors"
             >
-              {t('login')}
+              Inloggen
             </Link>
           )}
+
+          {/* Mobile menu toggle */}
+          <button
+            className="rounded-lg border border-white/10 p-2 text-white/60 md:hidden"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Menu"
+          >
+            <div className="flex flex-col gap-1">
+              <span className={`block h-0.5 w-4 bg-current transition-transform ${menuOpen ? 'translate-y-1.5 rotate-45' : ''}`} />
+              <span className={`block h-0.5 w-4 bg-current transition-opacity ${menuOpen ? 'opacity-0' : ''}`} />
+              <span className={`block h-0.5 w-4 bg-current transition-transform ${menuOpen ? '-translate-y-1.5 -rotate-45' : ''}`} />
+            </div>
+          </button>
         </div>
       </div>
+
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div className="border-t border-white/8 bg-[#111] px-4 py-4 md:hidden">
+          <div className="flex flex-col gap-1">
+            <MobileLink href="/tool/ohm" label="Weerstand Calculator" onClick={() => setMenuOpen(false)} />
+            <MobileLink href="/tool/diepte" label={`Pendiepte Calculator${!user ? ' (inloggen vereist)' : ''}`} onClick={() => setMenuOpen(false)} />
+            <MobileLink href="/pricing" label="Tarieven" onClick={() => setMenuOpen(false)} />
+            {user && <MobileLink href="/dashboard" label="Dashboard" onClick={() => setMenuOpen(false)} />}
+            {!user && <MobileLink href="/login" label="Inloggen" onClick={() => setMenuOpen(false)} />}
+            {user && (
+              <button
+                onClick={() => { handleLogout(); setMenuOpen(false); }}
+                className="mt-2 w-full rounded-lg border border-white/10 py-2.5 text-sm text-white/60"
+              >
+                Uitloggen
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
+  );
+}
+
+function NavLink({ href, label, active, locked }: { href: string; label: string; active: boolean; locked?: boolean }) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+        active ? 'bg-white/8 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'
+      }`}
+    >
+      {label}
+      {locked && (
+        <svg className="h-3 w-3 text-white/30" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18 10h-1V7A5 5 0 0 0 7 7v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-6 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3-7H9V7a3 3 0 0 1 6 0v3z"/>
+        </svg>
+      )}
+    </Link>
+  );
+}
+
+function MobileLink({ href, label, onClick }: { href: string; label: string; onClick: () => void }) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="rounded-lg px-3 py-2.5 text-sm text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+    >
+      {label}
+    </Link>
   );
 }

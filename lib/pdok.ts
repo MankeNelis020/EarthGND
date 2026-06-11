@@ -1,46 +1,41 @@
 export interface PdokResult {
   postcode: string;
-  houseNumber?: string;
   lat: number;
   lon: number;
   rdX: number;
   rdY: number;
-  source: 'adres' | 'postcode';
+  straatnaam?: string;
+  huisnummer?: string;
+  woonplaats?: string;
 }
 
-function parsePoint(wkt?: string) {
-  const match = wkt?.match(/POINT\(([^ ]+) ([^)]+)\)/);
-  if (!match) return null;
-  return { x: parseFloat(match[1]), y: parseFloat(match[2]) };
-}
-
-export async function lookupPostcode(postcode: string, houseNumber?: string): Promise<PdokResult> {
+export async function lookupPostcode(postcode: string, huisnummer?: string): Promise<PdokResult> {
   const cleaned = postcode.replace(/\s/g, '').toUpperCase();
-  const query = houseNumber?.trim() ? `${cleaned} ${houseNumber.trim()}` : cleaned;
+  const query = huisnummer ? `${cleaned} ${huisnummer}` : cleaned;
+  const type = huisnummer ? 'adres' : 'postcode';
+  const fields = 'centroide_ll,centroide_rd,postcode,straatnaam,huisnummer,woonplaatsnaam';
 
-  const exactUrl = `https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${encodeURIComponent(query)}&fq=type:${houseNumber ? 'adres' : 'postcode'}&rows=1&fl=centroide_ll,centroide_rd,postcode,huis_nlt`;
+  const url = `https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${encodeURIComponent(query)}&fq=type:${type}&rows=1&fl=${fields}`;
 
-  const res = await fetch(exactUrl, { next: { revalidate: 86400 } });
+  const res = await fetch(url, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`PDOK request failed: ${res.status}`);
 
   const data = await res.json();
   const doc = data?.response?.docs?.[0];
-  if (!doc && houseNumber) {
-    return lookupPostcode(cleaned);
-  }
-  if (!doc) throw new Error('Postcode/adres niet gevonden');
+  if (!doc) throw new Error(huisnummer ? 'Adres niet gevonden' : 'Postcode niet gevonden');
 
-  const ll = parsePoint(doc.centroide_ll);
-  const rd = parsePoint(doc.centroide_rd);
-  if (!ll || !rd) throw new Error('Invalid PDOK response format');
+  const llMatch = doc.centroide_ll?.match(/POINT\(([^ ]+) ([^)]+)\)/);
+  const rdMatch = doc.centroide_rd?.match(/POINT\(([^ ]+) ([^)]+)\)/);
+  if (!llMatch || !rdMatch) throw new Error('Ongeldig PDOK response formaat');
 
   return {
     postcode: cleaned,
-    houseNumber: houseNumber?.trim() || undefined,
-    lon: ll.x,
-    lat: ll.y,
-    rdX: rd.x,
-    rdY: rd.y,
-    source: houseNumber ? 'adres' : 'postcode',
+    lon: parseFloat(llMatch[1]),
+    lat: parseFloat(llMatch[2]),
+    rdX: parseFloat(rdMatch[1]),
+    rdY: parseFloat(rdMatch[2]),
+    straatnaam: doc.straatnaam,
+    huisnummer: doc.huisnummer?.toString(),
+    woonplaats: doc.woonplaatsnaam,
   };
 }

@@ -6,18 +6,23 @@ import { routing } from './i18n/routing';
 const intlMiddleware = createIntlMiddleware(routing);
 
 export async function middleware(request: NextRequest) {
-  // Refresh Supabase session on every request
-  const supabaseResponse = createSupabaseMiddleware(request);
+  try {
+    // Refresh Supabase session on every request
+    const supabaseResponse = createSupabaseMiddleware(request);
 
-  // Then apply next-intl locale routing
-  const intlResponse = intlMiddleware(request);
+    // Then apply next-intl locale routing
+    const intlResponse = intlMiddleware(request);
 
-  // Merge cookies from both responses so session stays alive
-  supabaseResponse.cookies.getAll().forEach((cookie) => {
-    intlResponse.cookies.set(cookie.name, cookie.value);
-  });
+    // Merge cookies from both responses so session stays alive
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      intlResponse.cookies.set(cookie.name, cookie.value);
+    });
 
-  return intlResponse;
+    return intlResponse;
+  } catch {
+    // Fallback: just apply locale routing if Supabase middleware fails
+    return intlMiddleware(request);
+  }
 }
 
 export const config = {

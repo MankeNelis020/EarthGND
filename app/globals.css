@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,7 +17,7 @@ html {
 body {
   background-color: #1C1917;
   color: #F5EFE6;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Barlow', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 

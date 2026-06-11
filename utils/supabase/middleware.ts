@@ -11,9 +11,12 @@ export const createClient = (request: NextRequest) => {
     },
   });
 
+  // Skip Supabase session refresh if env vars are missing
+  if (!supabaseUrl || !supabaseKey) return supabaseResponse;
+
   createServerClient(
-    supabaseUrl!,
-    supabaseKey!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {
