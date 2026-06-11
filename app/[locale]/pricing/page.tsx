@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
-import { PLANS, LOSSE_CREDITS, stripeConfigured } from '@/lib/plans';
+import { PLANS, LOSSE_CREDITS } from '@/lib/plans';
 import { createClient } from '@/utils/supabase/client';
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +46,7 @@ const PLAN_FEATURES: Record<string, string[]> = {
 export default function PricingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
-  const stripeReady = stripeConfigured();
+  const stripeReady = true;
 
   async function handleCheckout(priceId: string, mode: 'subscription' | 'payment', key: string) {
     setLoading(key);
