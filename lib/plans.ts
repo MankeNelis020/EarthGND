@@ -2,7 +2,7 @@ export const PLANS = {
   gratis:  { label: 'Gratis',  prijs: 0,   credits: 0,   stripe_price_id: null },
   starter: { label: 'Starter', prijs: 10,  credits: 10,  stripe_price_id: process.env.STRIPE_PRICE_STARTER ?? 'price_starter' },
   basic:   { label: 'Basic',   prijs: 25,  credits: 25,  stripe_price_id: process.env.STRIPE_PRICE_BASIC   ?? 'price_basic' },
-  pro:     { label: 'Pro',     prijs: 75,  credits: 100, stripe_price_id: process.env.STRIPE_PRICE_PRO     ?? 'price_pro' },
+  pro:     { label: 'Pro',     prijs: 60,  credits: 100, stripe_price_id: process.env.STRIPE_PRICE_PRO     ?? 'price_pro' },
 } as const;
 
 export type PlanKey = keyof typeof PLANS;
