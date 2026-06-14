@@ -1,4 +1,6 @@
 import { lithoClassToRho } from './calculations';
+import { fetchGeoTopSamples } from './geotop';
+import { fetchBodemkaartSoilType } from './bodemkaart';
 
 export interface BroDepthSample {
   depth: number;
@@ -11,7 +13,8 @@ export interface BroResult {
   dominantRho: number;
   groundwaterDepth: number | null;
   source: 'bro' | 'fallback';
-  dataSource?: 'cpt' | 'bhrgt'; // which BRO source was used
+  /** Which data source produced the result, for UI and provenance. */
+  dataSource?: 'cpt' | 'bhrgt' | 'geotop' | 'bodemkaart';
   straatnaam?: string;
   huisnummer?: string;
   woonplaats?: string;
@@ -211,25 +214,37 @@ async function fetchGroundwaterDepth(rdX: number, rdY: number): Promise<number |
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
+/**
+ * Source priority (highest to lowest confidence):
+ *   1. CPT (measured qc values, exact location)
+ *   2. BHR-GT (observed soil description, adaptive radius 2→5→10 km)
+ *   3. GeoTOP (national 100m voxel model — graceful null when BRO is 503)
+ *   4. Bodemkaart (national soil map polygon in Supabase — requires import)
+ *   5. Fallback (default sand, manual selection shown in UI)
+ *
+ * All sources run in parallel; the first non-null result in priority order wins.
+ */
 export async function fetchBroSoilData(
   rdX: number,
   rdY: number,
   lat: number,
   lon: number,
 ): Promise<BroResult> {
-  // Run CPT, BHR-GT and groundwater in parallel; CPT is preferred when available
-  const [cptSamples, bhrgtSamples, groundwaterDepth] = await Promise.all([
-    fetchBroCptSamples(lat, lon),
-    fetchBhrGtSamples(lat, lon),
-    fetchGroundwaterDepth(rdX, rdY),
-  ]);
+  const [cptSamples, bhrgtSamples, geotopSamples, bodemkaartSamples, groundwaterDepth] =
+    await Promise.all([
+      fetchBroCptSamples(lat, lon),
+      fetchBhrGtSamples(lat, lon),
+      fetchGeoTopSamples(rdX, rdY),
+      fetchBodemkaartSoilType(rdX, rdY),
+      fetchGroundwaterDepth(rdX, rdY),
+    ]);
 
-  const samples = cptSamples ?? bhrgtSamples;
-  const dataSource: 'cpt' | 'bhrgt' | undefined = cptSamples
-    ? 'cpt'
-    : bhrgtSamples
-    ? 'bhrgt'
-    : undefined;
+  const [samples, dataSource] =
+    cptSamples        ? ([cptSamples,        'cpt']        as const) :
+    bhrgtSamples      ? ([bhrgtSamples,      'bhrgt']      as const) :
+    geotopSamples     ? ([geotopSamples,     'geotop']     as const) :
+    bodemkaartSamples ? ([bodemkaartSamples, 'bodemkaart'] as const) :
+                        ([null,              undefined]     as const);
 
   if (!samples) {
     const fallbackSamples = BRO_DEPTHS.map((d) => ({
@@ -241,9 +256,7 @@ export async function fetchBroSoilData(
   }
 
   const rhoCounts: Record<number, number> = {};
-  samples.forEach((s) => {
-    rhoCounts[s.rho] = (rhoCounts[s.rho] ?? 0) + 1;
-  });
+  samples.forEach((s) => { rhoCounts[s.rho] = (rhoCounts[s.rho] ?? 0) + 1; });
   const dominantRho = parseInt(Object.entries(rhoCounts).sort((a, b) => b[1] - a[1])[0][0]);
 
   return { samples, dominantRho, groundwaterDepth, source: 'bro', dataSource };
