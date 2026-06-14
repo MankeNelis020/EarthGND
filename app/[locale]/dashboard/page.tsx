@@ -14,6 +14,16 @@ interface Calculation {
   created_at: string;
 }
 
+interface Rapport {
+  id: string;
+  status: 'concept' | 'ondertekend';
+  locatie: string | null;
+  opdrachtgever: string | null;
+  systeemtype: string | null;
+  datum_uitvoering: string | null;
+  updated_at: string;
+}
+
 interface Profile {
   plan: string;
   credits_left: number;
@@ -50,13 +60,15 @@ export default async function DashboardPage({
 
   const params = await searchParams;
 
-  const [{ data: profileRaw }, { data: calculations }] = await Promise.all([
+  const [{ data: profileRaw }, { data: calculations }, { data: rapports }] = await Promise.all([
     supabase.from('profiles').select('plan, credits_left, credits_reset, email, created_at').eq('id', user.id).single(),
     supabase.from('calculations').select('id, tool, postcode, risicoklasse, pdf_url, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
+    supabase.from('inspection_reports').select('id, status, locatie, opdrachtgever, systeemtype, datum_uitvoering, updated_at').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(8),
   ]);
 
   const profile = profileRaw as Profile | null;
   const calcs = (calculations as Calculation[]) ?? [];
+  const rapporten = (rapports as Rapport[]) ?? [];
 
   const planConfig = PLANS[(profile?.plan ?? 'gratis') as keyof typeof PLANS];
   const totalCredits = planConfig.credits;
@@ -114,7 +126,7 @@ export default async function DashboardPage({
         </div>
 
         {/* Quick links */}
-        <div className="mb-6 grid grid-cols-2 gap-3">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Link
             href="/tool/ohm"
             className="group flex items-center gap-3 rounded-xl border border-white/8 bg-[#111] px-4 py-4 hover:border-white/15 transition-colors"
@@ -143,6 +155,81 @@ export default async function DashboardPage({
               <p className="text-xs text-white/40">Calculator openen</p>
             </div>
           </Link>
+          <Link
+            href="/rapport/nieuw"
+            className="group flex items-center gap-3 rounded-xl border border-[#E8761A]/20 bg-[#E8761A]/5 px-4 py-4 hover:border-[#E8761A]/35 transition-colors col-span-2 sm:col-span-1"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#E8761A]/20 bg-[#E8761A]/10">
+              <svg className="h-4 w-4 text-[#E8761A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <line x1="9" y1="15" x2="15" y2="15" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[#E8761A] group-hover:text-[#f08530] transition-colors">Opleverrapport</p>
+              <p className="text-xs text-white/40">Nieuw rapport aanmaken</p>
+            </div>
+          </Link>
+        </div>
+
+        {/* Rapport history */}
+        <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
+          <div className="flex items-center justify-between border-b border-white/6 px-6 py-4">
+            <h2 className="font-condensed text-lg font-bold text-white">Opleverrapporten</h2>
+            <Link
+              href="/rapport/nieuw"
+              className="rounded-lg border border-[#E8761A]/30 px-3 py-1.5 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
+            >
+              + Nieuw
+            </Link>
+          </div>
+
+          {rapporten.length === 0 ? (
+            <div className="px-6 py-10 text-center">
+              <p className="mb-3 text-sm text-white/40">Nog geen opleverrapporten</p>
+              <Link href="/rapport/nieuw" className="text-xs text-[#E8761A] hover:underline">
+                Maak uw eerste NEN 1010 deel 6 rapport aan
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {rapporten.map((r) => (
+                <Link
+                  key={r.id}
+                  href={`/rapport/${r.id}`}
+                  className="flex items-center gap-4 px-6 py-4 hover:bg-white/3 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                        r.status === 'ondertekend'
+                          ? 'border-green-500/30 bg-green-500/10 text-green-400'
+                          : 'border-yellow-500/20 bg-yellow-500/8 text-yellow-400'
+                      }`}>
+                        {r.status === 'ondertekend' ? 'Ondertekend' : 'Concept'}
+                      </span>
+                      {r.systeemtype && (
+                        <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-white/40">
+                          {r.systeemtype}
+                        </span>
+                      )}
+                    </div>
+                    <p className="truncate text-sm font-semibold text-white">
+                      {r.locatie ?? r.opdrachtgever ?? 'Naamloos rapport'}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-xs text-white/30">
+                    {new Date(r.updated_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
+                  </div>
+                  <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Calculation history */}
