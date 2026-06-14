@@ -78,6 +78,7 @@ export function CalculatorProvider({ children }: { children: ReactNode }) {
   async function fetchSoilData(pc: string, hn?: string) {
     setSoilLoading(true);
     setSoilError('');
+    setSoilDataRaw(null); // clear stale data immediately so old results don't linger
     try {
       const params = new URLSearchParams({ postcode: pc });
       if (hn) params.set('huisnummer', hn);

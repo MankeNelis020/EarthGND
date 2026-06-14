@@ -26,11 +26,16 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
   const [manualRho, setManualRho] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(true);
 
-  const activeRho = soilData ? soilData.dominantRho : manualRho;
+  // When BRO returns a fallback, auto-highlight the matching manual button
+  // so there's never a "badge shown but nothing selected" state.
+  const effectiveManualRho = manualRho ?? (soilData?.source === 'fallback' ? soilData.dominantRho : null);
+
+  const activeRho = soilData ? soilData.dominantRho : effectiveManualRho;
   const riskClass = activeRho != null ? calcRiskClass(activeRho) : null;
 
   function handleFetch() {
     if (!postcode.trim()) return;
+    setManualRho(null); // reset manual pick on new lookup
     fetchSoilData(postcode.trim(), huisnummer.trim() || undefined);
   }
 
@@ -62,7 +67,10 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
       >
         <span className="text-base">📍</span>
         <span className="text-sm font-semibold text-zinc-200">Locatie & grondgegevens</span>
-        {soilData && (
+        {soilLoading && (
+          <span className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-orange-500/30 border-t-orange-500" />
+        )}
+        {soilData && !soilLoading && (
           <span className="ml-2 rounded-full border border-green-500/40 bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-400">
             BRO ✓
           </span>
@@ -108,120 +116,125 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
             </div>
           </div>
 
-          {/* Address confirmation — like a shipping label: shows resolved address or
-              falls back to raw postcode+huisnummer for older cached results */}
-          {soilData && (
-            <p className="mb-2 text-[11px] text-zinc-500 tracking-wide">
-              {soilData.straatnaam
-                ? [soilData.straatnaam, soilData.huisnummer].filter(Boolean).join(' ') +
-                  (soilData.woonplaats ? `, ${soilData.woonplaats}` : '')
-                : [postcode.toUpperCase(), huisnummer].filter(Boolean).join(' ')}
-            </p>
-          )}
-
-          {soilError && (
-            <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
-              {soilError}
-            </p>
-          )}
-
-          {/* BRO result */}
-          {soilData && !isPro && soilData.source === 'bro' && (
-            <div className="mb-3 rounded-xl border border-orange-500/30 bg-orange-500/5 p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-orange-400">
-                  Regionale schatting (gratis)
-                </span>
-                <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-xs text-orange-400">
-                  BRO data
-                </span>
-              </div>
-              <p className="mb-3 text-xs text-zinc-400">
-                Grondsoort voor uw regio. Exacte per-adres meting is beschikbaar met Pro.
-              </p>
-              <SoilTable samples={soilData.samples} />
-              <div className="mt-3 flex items-center gap-3">
-                <button
-                  onClick={handleSoilDataApply}
-                  className="rounded-lg bg-orange-500 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-400"
-                >
-                  Toepassen (ρ = {soilData.dominantRho} Ω·m)
-                </button>
-                <a
-                  href="/pricing"
-                  className="text-xs text-zinc-500 underline hover:text-orange-400"
-                >
-                  Upgrade voor exacte meting →
-                </a>
-              </div>
+          {/* Loading skeleton — replaces old data while new fetch is in progress */}
+          {soilLoading && (
+            <div className="mb-3 space-y-2 animate-pulse">
+              <div className="h-3 w-40 rounded bg-zinc-800" />
+              <div className="h-20 rounded-xl bg-zinc-800/70" />
             </div>
           )}
 
-          {soilData && isPro && (
-            <div className="mb-3 rounded-xl border border-green-500/30 bg-green-500/5 p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-green-400">
-                  Exacte BRO meting — Pro
-                </span>
-                {soilData.groundwaterDepth != null && (
-                  <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                    GW: {soilData.groundwaterDepth.toFixed(1)} m
-                  </span>
-                )}
-              </div>
-              <SoilTable samples={soilData.samples} />
-              <button
-                onClick={handleSoilDataApply}
-                className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-500"
-              >
-                Toepassen (ρ = {soilData.dominantRho} Ω·m)
-              </button>
-            </div>
-          )}
+          {!soilLoading && (
+            <>
+              {/* Address confirmation */}
+              {soilData && (
+                <p className="mb-2 text-[11px] text-zinc-500 tracking-wide">
+                  {soilData.straatnaam
+                    ? [soilData.straatnaam, soilData.huisnummer].filter(Boolean).join(' ') +
+                      (soilData.woonplaats ? `, ${soilData.woonplaats}` : '')
+                    : [postcode.toUpperCase(), huisnummer].filter(Boolean).join(' ')}
+                </p>
+              )}
 
-          {/* Fallback: no BRO or no postcode yet */}
-          {(!soilData || soilData.source === 'fallback') && (
-            <div>
-              {soilData?.source === 'fallback' && (
-                <p className="mb-2 text-xs text-zinc-500">
-                  Geen BRO-data beschikbaar voor dit adres. Kies grondsoort handmatig:
+              {soilError && (
+                <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                  {soilError}
                 </p>
               )}
-              {!soilData && !soilError && (
-                <p className="mb-2 text-xs text-zinc-500">
-                  Of kies grondsoort handmatig:
-                </p>
+
+              {/* BRO result — free tier */}
+              {soilData && !isPro && soilData.source === 'bro' && (
+                <div className="mb-3 rounded-xl border border-orange-500/30 bg-orange-500/5 p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-orange-400">
+                      Regionale schatting (gratis)
+                    </span>
+                    <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-xs text-orange-400">
+                      BRO data
+                    </span>
+                  </div>
+                  <p className="mb-3 text-xs text-zinc-400">
+                    Grondsoort voor uw regio. Exacte per-adres meting is beschikbaar met Pro.
+                  </p>
+                  <SoilTable samples={soilData.samples} />
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      onClick={handleSoilDataApply}
+                      className="rounded-lg bg-orange-500 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-400"
+                    >
+                      Toepassen (ρ = {soilData.dominantRho} Ω·m)
+                    </button>
+                    <a href="/pricing" className="text-xs text-zinc-500 underline hover:text-orange-400">
+                      Upgrade voor exacte meting →
+                    </a>
+                  </div>
+                </div>
               )}
-              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-                {MANUAL_RHO_OPTIONS.map((opt) => (
+
+              {/* BRO result — pro tier */}
+              {soilData && isPro && (
+                <div className="mb-3 rounded-xl border border-green-500/30 bg-green-500/5 p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-green-400">
+                      Exacte BRO meting — Pro
+                    </span>
+                    {soilData.groundwaterDepth != null && (
+                      <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                        GW: {soilData.groundwaterDepth.toFixed(1)} m
+                      </span>
+                    )}
+                  </div>
+                  <SoilTable samples={soilData.samples} />
                   <button
-                    key={opt.rho}
-                    onClick={() => handleManualSelect(opt.rho)}
-                    className={`rounded-lg border px-2.5 py-2 text-center text-xs font-medium transition-all ${
-                      manualRho === opt.rho
-                        ? 'border-orange-500 bg-orange-500/15 text-orange-400'
-                        : 'border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:border-zinc-500'
-                    }`}
+                    onClick={handleSoilDataApply}
+                    className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-500"
                   >
-                    <span className="block font-semibold">{opt.label}</span>
-                    <span className="block text-zinc-500 mt-0.5">{opt.rho} Ω·m</span>
+                    Toepassen (ρ = {soilData.dominantRho} Ω·m)
                   </button>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              )}
 
-          {/* Risk class badge */}
-          {riskClass && (
-            <div
-              className={`mt-4 flex items-start gap-3 rounded-xl border p-3 ${riskColorMap[riskClass.color]}`}
-            >
-              <span className="shrink-0 font-black text-lg">{riskClass.riskClass}</span>
-              <div>
-                <p className="text-xs font-semibold">{riskClass.label}</p>
-                <p className="mt-0.5 text-xs opacity-80">{riskClass.description}</p>
-              </div>
-            </div>
+              {/* Handmatige keuze: geen BRO-data, of fallback */}
+              {(!soilData || soilData.source === 'fallback') && (
+                <div>
+                  {soilData?.source === 'fallback' && (
+                    <p className="mb-2 text-xs text-zinc-500">
+                      Geen BRO-data beschikbaar voor dit adres. Kies grondsoort handmatig:
+                    </p>
+                  )}
+                  {!soilData && !soilError && (
+                    <p className="mb-2 text-xs text-zinc-500">Of kies grondsoort handmatig:</p>
+                  )}
+                  <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                    {MANUAL_RHO_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.rho}
+                        onClick={() => handleManualSelect(opt.rho)}
+                        className={`rounded-lg border px-2.5 py-2 text-center text-xs font-medium transition-all ${
+                          effectiveManualRho === opt.rho
+                            ? 'border-orange-500 bg-orange-500/15 text-orange-400'
+                            : 'border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:border-zinc-500'
+                        }`}
+                      >
+                        <span className="block font-semibold">{opt.label}</span>
+                        <span className="block text-zinc-500 mt-0.5">{opt.rho} Ω·m</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Risk class badge */}
+              {riskClass && (
+                <div className={`mt-4 flex items-start gap-3 rounded-xl border p-3 ${riskColorMap[riskClass.color]}`}>
+                  <span className="shrink-0 font-black text-lg">{riskClass.riskClass}</span>
+                  <div>
+                    <p className="text-xs font-semibold">{riskClass.label}</p>
+                    <p className="mt-0.5 text-xs opacity-80">{riskClass.description}</p>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
