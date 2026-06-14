@@ -33,7 +33,7 @@ export default function LoginPage() {
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://earthgnd.com/auth/callback',
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     if (authError) {
