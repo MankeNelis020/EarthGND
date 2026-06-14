@@ -108,11 +108,14 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
             </div>
           </div>
 
-          {/* Address confirmation */}
-          {soilData && (soilData.straatnaam || soilData.woonplaats) && (
+          {/* Address confirmation — like a shipping label: shows resolved address or
+              falls back to raw postcode+huisnummer for older cached results */}
+          {soilData && (
             <p className="mb-2 text-[11px] text-zinc-500 tracking-wide">
-              {[soilData.straatnaam, soilData.huisnummer].filter(Boolean).join(' ')}
-              {soilData.woonplaats ? `, ${soilData.woonplaats}` : ''}
+              {soilData.straatnaam
+                ? [soilData.straatnaam, soilData.huisnummer].filter(Boolean).join(' ') +
+                  (soilData.woonplaats ? `, ${soilData.woonplaats}` : '')
+                : [postcode.toUpperCase(), huisnummer].filter(Boolean).join(' ')}
             </p>
           )}
 
