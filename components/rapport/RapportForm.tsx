@@ -5,6 +5,7 @@ import type {
   InspectionReport, Meting, Bevinding,
   Systeemtype, PassFail, BevindingPrioriteit,
 } from '@/lib/types/rapport';
+import { KlicWidget } from '@/components/tools/KlicWidget';
 import {
   NORM_PARAMS, VERPLICHTE_METINGEN, OPTIONELE_METINGEN,
   isVerplicht, toetsMeting, berekenAanrakingsspanning,
@@ -572,6 +573,12 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
               </Field>
             </div>
           </SectionCard>
+
+          {/* KLIC-melding koppelen */}
+          <KlicWidget
+            rapportId={report.id}
+            initialKlicId={report.klic_melding_id}
+          />
 
           <SectionCard title="Uitvoerder">
             <Field label="Naam installateur" required>
