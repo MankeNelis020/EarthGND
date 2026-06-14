@@ -110,14 +110,24 @@ function bhrgtLayerToLithoClass(sizeFraction: string, organicClass: string): num
   }
 }
 
+// Tries progressively larger radii (2 → 5 → 10 km) so rural areas are covered.
+// Returns null only when no usable boring exists within 10 km.
 async function fetchBhrGtSamples(lat: number, lon: number): Promise<BroDepthSample[] | null> {
+  for (const radius of [2, 5, 10]) {
+    const result = await tryBhrGtAtRadius(lat, lon, radius);
+    if (result) return result;
+  }
+  return null;
+}
+
+async function tryBhrGtAtRadius(lat: number, lon: number, radius: number): Promise<BroDepthSample[] | null> {
   try {
     const searchRes = await fetch('https://publiek.broservices.nl/sr/bhrgt/v2/characteristics/searches', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         requestReference: 'earthgnd',
-        area: { enclosingCircle: { center: { lat, lon }, radius: 2.0 } },
+        area: { enclosingCircle: { center: { lat, lon }, radius } },
       }),
       signal: AbortSignal.timeout(8000),
     });
@@ -160,9 +170,7 @@ async function fetchBhrGtSamples(lat: number, lon: number): Promise<BroDepthSamp
         if (!layers.length) continue;
 
         const lastLayer = layers[layers.length - 1];
-
         return BRO_DEPTHS.map((targetDepth) => {
-          // Find the layer that contains this depth; extrapolate deepest for deeper targets
           const layer =
             layers.find((l) => l.upperBoundary <= targetDepth && targetDepth < l.lowerBoundary) ??
             lastLayer;
@@ -173,7 +181,7 @@ async function fetchBhrGtSamples(lat: number, lon: number): Promise<BroDepthSamp
       }
     }
   } catch {
-    // timeout or network error
+    // timeout or network error at this radius
   }
   return null;
 }
