@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { getStripe } from '@/lib/stripe';
-import { stripeConfigured } from '@/lib/plans';
+import { stripeConfigured, PLANS, LOSSE_CREDITS } from '@/lib/plans';
+
+function resolvePriceId(planKey: string): string | null {
+  if (planKey in PLANS) {
+    return PLANS[planKey as keyof typeof PLANS].stripe_price_id ?? null;
+  }
+  if (planKey in LOSSE_CREDITS) {
+    return LOSSE_CREDITS[planKey as keyof typeof LOSSE_CREDITS].stripe_price_id ?? null;
+  }
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   if (!stripeConfigured()) {
@@ -17,8 +27,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
   }
 
-  const body = await request.json();
-  const { priceId, mode = 'subscription' } = body as { priceId: string; mode?: 'subscription' | 'payment' };
+  const body = await request.json() as { planKey: string; mode?: 'subscription' | 'payment' };
+  const { planKey, mode = 'subscription' } = body;
+
+  const priceId = resolvePriceId(planKey);
+  if (!priceId) {
+    return NextResponse.json({ error: `Onbekend plan: ${planKey}` }, { status: 400 });
+  }
 
   const stripe = getStripe();
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://earthgnd.com';
@@ -29,8 +44,8 @@ export async function POST(request: NextRequest) {
       line_items: [{ price: priceId, quantity: 1 }],
       customer_email: user.email,
       metadata: { userId: user.id },
-      success_url: `${baseUrl}/dashboard?checkout=success`,
-      cancel_url: `${baseUrl}/pricing`,
+      success_url: `${baseUrl}/nl/dashboard?checkout=success`,
+      cancel_url: `${baseUrl}/nl/pricing`,
     });
 
     return NextResponse.json({ url: session.url });
