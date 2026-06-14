@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     let lat: number;
     let lon: number;
     let cacheKey: string;
+    let addressData: { straatnaam?: string; huisnummer?: string; woonplaats?: string } = {};
 
     if (rdXParam && rdYParam && latParam && lonParam) {
       rdX = parseFloat(rdXParam);
@@ -36,6 +37,11 @@ export async function GET(request: NextRequest) {
       rdY = coords.rdY;
       lat = coords.lat;
       lon = coords.lon;
+      addressData = {
+        straatnaam: coords.straatnaam,
+        huisnummer: coords.huisnummer,
+        woonplaats: coords.woonplaats,
+      };
     } else {
       return NextResponse.json({ error: 'postcode or rdX/rdY/lat/lon required' }, { status: 400 });
     }
@@ -44,8 +50,9 @@ export async function GET(request: NextRequest) {
     if (cached) return NextResponse.json(cached);
 
     const broData = await fetchBroSoilData(rdX, rdY, lat, lon);
-    await cacheSet(cacheKey, broData, BRO_TTL);
-    return NextResponse.json(broData);
+    const response = { ...broData, ...addressData };
+    await cacheSet(cacheKey, response, BRO_TTL);
+    return NextResponse.json(response);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });

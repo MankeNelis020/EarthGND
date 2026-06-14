@@ -11,6 +11,10 @@ export interface BroResult {
   dominantRho: number;
   groundwaterDepth: number | null; // metres below surface, null if unknown
   source: 'bro' | 'fallback';
+  // Address confirmation from PDOK (optional, only when fetched by postcode)
+  straatnaam?: string;
+  huisnummer?: string;
+  woonplaats?: string;
 }
 
 const BRO_DEPTHS = [1, 3, 5, 10, 20]; // positive metres from surface

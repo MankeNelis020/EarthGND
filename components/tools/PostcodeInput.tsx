@@ -108,6 +108,14 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
             </div>
           </div>
 
+          {/* Address confirmation */}
+          {soilData && (soilData.straatnaam || soilData.woonplaats) && (
+            <p className="mb-2 text-[11px] text-zinc-500 tracking-wide">
+              {[soilData.straatnaam, soilData.huisnummer].filter(Boolean).join(' ')}
+              {soilData.woonplaats ? `, ${soilData.woonplaats}` : ''}
+            </p>
+          )}
+
           {soilError && (
             <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
               {soilError}
