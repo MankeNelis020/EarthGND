@@ -585,17 +585,21 @@ export function OhmCalculator() {
                 </div>
               </div>
 
-              <div className="mt-5 rounded-xl border border-white/10 bg-white/3 p-4">
+              <div className="mt-5 rounded-xl border border-[#E8761A]/20 bg-[#E8761A]/5 p-4">
                 <p className="mb-1 text-sm font-semibold text-white">Hoe diep moet de aardpen?</p>
                 <p className="mb-3 text-xs text-white/50">
-                  De Pendiepte Calculator berekent de exacte penlengte op basis van uw bodem, grondwater en pH — onderbouwd met BRO bodemdata.
+                  De Pendiepte Calculator berekent de exacte penlengte voor Ra ≤ {fmtR(result.ontwerpdoel)} Ω
+                  op basis van uw locatie en BRO bodemdata. Inclusief Ra-haalbaarheidscheck.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Link href="/pricing" className="rounded-lg bg-[#E8761A] px-4 py-2 text-xs font-semibold text-white hover:bg-[#d06510] transition-colors">
-                    Bekijk tarieven
+                  <Link
+                    href={`/tool/diepte?target=${result.ontwerpdoel}&label=${encodeURIComponent(result.norm)}`}
+                    className="rounded-lg bg-[#E8761A] px-4 py-2 text-xs font-semibold text-white hover:bg-[#d06510] transition-colors"
+                  >
+                    → Bereken pendiepte voor Ra ≤ {fmtR(result.ontwerpdoel)} Ω
                   </Link>
                   <Link href="/pricing" className="rounded-lg border border-white/15 px-4 py-2 text-xs font-semibold text-white/70 hover:border-white/25 hover:text-white transition-colors">
-                    Direct 1 credit — 2,95
+                    Tarieven & credits
                   </Link>
                 </div>
               </div>
