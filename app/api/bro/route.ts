@@ -10,15 +10,22 @@ export async function GET(request: NextRequest) {
   const huisnummer = request.nextUrl.searchParams.get('huisnummer') ?? undefined;
   const rdXParam = request.nextUrl.searchParams.get('rdX');
   const rdYParam = request.nextUrl.searchParams.get('rdY');
+  const latParam = request.nextUrl.searchParams.get('lat');
+  const lonParam = request.nextUrl.searchParams.get('lon');
 
   try {
     let rdX: number;
     let rdY: number;
+    let lat: number;
+    let lon: number;
     let cacheKey: string;
+    let addressData: { straatnaam?: string; huisnummer?: string; woonplaats?: string } = {};
 
-    if (rdXParam && rdYParam) {
+    if (rdXParam && rdYParam && latParam && lonParam) {
       rdX = parseFloat(rdXParam);
       rdY = parseFloat(rdYParam);
+      lat = parseFloat(latParam);
+      lon = parseFloat(lonParam);
       cacheKey = `bro:rd:${Math.round(rdX)}:${Math.round(rdY)}`;
     } else if (postcode) {
       const cleaned = postcode.replace(/\s/g, '').toUpperCase();
@@ -28,16 +35,24 @@ export async function GET(request: NextRequest) {
       const coords = await lookupPostcode(postcode, huisnummer);
       rdX = coords.rdX;
       rdY = coords.rdY;
+      lat = coords.lat;
+      lon = coords.lon;
+      addressData = {
+        straatnaam: coords.straatnaam,
+        huisnummer: coords.huisnummer,
+        woonplaats: coords.woonplaats,
+      };
     } else {
-      return NextResponse.json({ error: 'postcode or rdX/rdY required' }, { status: 400 });
+      return NextResponse.json({ error: 'postcode or rdX/rdY/lat/lon required' }, { status: 400 });
     }
 
     const cached = await cacheGet(cacheKey);
     if (cached) return NextResponse.json(cached);
 
-    const broData = await fetchBroSoilData(rdX, rdY);
-    await cacheSet(cacheKey, broData, BRO_TTL);
-    return NextResponse.json(broData);
+    const broData = await fetchBroSoilData(rdX, rdY, lat, lon);
+    const response = { ...broData, ...addressData };
+    await cacheSet(cacheKey, response, BRO_TTL);
+    return NextResponse.json(response);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });
