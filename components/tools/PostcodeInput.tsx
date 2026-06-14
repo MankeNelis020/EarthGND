@@ -150,13 +150,20 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                       Regionale schatting (gratis)
                     </span>
                     <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-xs text-orange-400">
-                      {soilData.dataSource === 'cpt' ? 'CPT sondering' : 'BRO boring'}
+                      {soilData.dataSource === 'cpt' ? 'CPT sondering' :
+                       soilData.dataSource === 'bhrgt' ? 'BRO boring' :
+                       soilData.dataSource === 'geotop' ? 'GeoTOP model' :
+                       'Bodemkaart'}
                     </span>
                   </div>
                   <p className="mb-3 text-xs text-zinc-400">
                     {soilData.dataSource === 'cpt'
                       ? 'Grondsoort op basis van een nabijgelegen conuspenetratietest.'
-                      : 'Grondsoort op basis van een nabijgelegen geotechnische boring.'}
+                      : soilData.dataSource === 'bhrgt'
+                      ? 'Grondsoort op basis van een nabijgelegen geotechnische boring.'
+                      : soilData.dataSource === 'geotop'
+                      ? 'Grondsoort uit het nationaal GeoTOP voxelmodel (TNO/BRO).'
+                      : 'Grondsoort uit de Bodemkaart 1:50.000 (oppervlaktelaag).'}
                     {' '}Exacte per-adres meting beschikbaar met Pro.
                   </p>
                   <SoilTable samples={soilData.samples} />
@@ -179,7 +186,10 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                 <div className="mb-3 rounded-xl border border-green-500/30 bg-green-500/5 p-4">
                   <div className="mb-2 flex items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wider text-green-400">
-                      {soilData.dataSource === 'cpt' ? 'CPT sondering — Pro' : 'BRO boring — Pro'}
+                      {soilData.dataSource === 'cpt' ? 'CPT sondering — Pro' :
+                       soilData.dataSource === 'bhrgt' ? 'BRO boring — Pro' :
+                       soilData.dataSource === 'geotop' ? 'GeoTOP model — Pro' :
+                       'Bodemkaart — Pro'}
                     </span>
                     {soilData.groundwaterDepth != null && (
                       <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
