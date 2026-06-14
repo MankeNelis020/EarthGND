@@ -48,8 +48,8 @@ export default function PricingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const stripeReady = true;
 
-  async function handleCheckout(priceId: string, mode: 'subscription' | 'payment', key: string) {
-    setLoading(key);
+  async function handleCheckout(planKey: string, mode: 'subscription' | 'payment') {
+    setLoading(planKey);
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -58,10 +58,14 @@ export default function PricingPage() {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId, mode }),
+        body: JSON.stringify({ planKey, mode }),
       });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      const data = await res.json() as { url?: string; error?: string };
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error('Checkout fout:', data.error);
+      }
     } finally {
       setLoading(null);
     }
@@ -142,8 +146,8 @@ export default function PricingPage() {
                     </a>
                   ) : (
                     <button
-                      onClick={() => plan.stripe_price_id && handleCheckout(plan.stripe_price_id, 'subscription', key)}
-                      disabled={!stripeReady || loading === key || !plan.stripe_price_id}
+                      onClick={() => handleCheckout(key, 'subscription')}
+                      disabled={!stripeReady || loading === key}
                       title={!stripeReady ? 'Betalingen worden binnenkort geactiveerd' : undefined}
                       className={`w-full rounded-xl py-2.5 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                         isBasic
@@ -181,7 +185,7 @@ export default function PricingPage() {
                 <div className="flex items-center gap-4">
                   <span className="font-condensed text-xl font-black text-[#E8761A]">€{item.prijs}</span>
                   <button
-                    onClick={() => item.stripe_price_id && handleCheckout(item.stripe_price_id, 'payment', item.key)}
+                    onClick={() => handleCheckout(item.key, 'payment')}
                     disabled={!stripeReady || loading === item.key}
                     title={!stripeReady ? 'Binnenkort beschikbaar' : undefined}
                     className="rounded-lg border border-white/15 px-4 py-2 text-xs font-semibold text-white hover:border-[#E8761A]/50 hover:text-[#E8761A] transition-colors disabled:opacity-40"
