@@ -117,8 +117,6 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
       rho: soil.rho,
       targetResistance,
       rodDiameter: 0.014,
-      groundwaterDepth: soil.groundwaterDepth,
-      ph: soil.ph,
     });
   }, [soil, targetResistance]);
 

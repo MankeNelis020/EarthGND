@@ -218,49 +218,136 @@ export function calcOhmWizard(input: OhmWizardInput): OhmWizardResult {
 // ─── Diepte Calculator (Dwight formula) ──────────────────────────────────────
 
 export interface DiepteInput {
-  rho: number;
+  rho: number;           // effective soil resistivity (Ω·m) — caller applies seasonal factor
   targetResistance: number;
-  rodDiameter: number;
-  groundwaterDepth: number;
-  ph: number;
+  rodDiameter?: number;  // default 0.014 m
 }
 
 export interface DiepteResult {
   depth: number;
   achievedResistance: number;
-  correctionGroundwater: number;
-  correctionPh: number;
 }
 
+// pH and groundwater are intentionally excluded from the resistance formula.
+// pH affects corrosion rate, not resistivity. Groundwater variation is already
+// captured by the three seasonal scenarios (rho × 0.7 / 1.0 / 1.5).
 export function calcDiepte(input: DiepteInput): DiepteResult {
-  const { rho, targetResistance, rodDiameter: d, groundwaterDepth, ph } = input;
-
-  let corrGroundwater: number;
-  if (groundwaterDepth < 2) corrGroundwater = 0.70;
-  else if (groundwaterDepth <= 5) corrGroundwater = 1.00;
-  else corrGroundwater = 1.35;
-
-  let corrPh: number;
-  if (ph < 5) corrPh = 1.20;
-  else if (ph <= 7.5) corrPh = 1.00;
-  else corrPh = 0.95;
-
-  const combinedCorrection = corrGroundwater * corrPh;
-  const effectiveTarget = targetResistance / combinedCorrection;
-
+  const d = input.rodDiameter ?? 0.014;
   let L = 1.0;
   let R = Infinity;
   for (let i = 0; i < 400; i++) {
-    R = (rho / (2 * Math.PI * L)) * Math.log((4 * L) / d);
-    if (R <= effectiveTarget) break;
+    R = (input.rho / (2 * Math.PI * L)) * Math.log((4 * L) / d);
+    if (R <= input.targetResistance) break;
     L += 0.25;
   }
-
   return {
     depth: Math.round(L * 100) / 100,
-    achievedResistance: Math.round(R * combinedCorrection * 100) / 100,
-    correctionGroundwater: corrGroundwater,
-    correctionPh: corrPh,
+    achievedResistance: Math.round(R * 100) / 100,
+  };
+}
+
+// ─── Lint-elektrode (horizontale strip, Dwight) ───────────────────────────────
+
+export interface LintInput {
+  rho: number;
+  targetResistance: number;
+  burialDepth?: number;       // default 0.8 m
+  conductorDiameter?: number; // default 0.01 m (10 mm)
+}
+
+export interface LintResult {
+  length: number;
+  achievedResistance: number;
+}
+
+// Dwight formula for a horizontal conductor at depth h, length L, radius r:
+// R = (ρ / 2πL) × [ln(2L/r) + ln(L/2h) − 2]
+export function calcLint(input: LintInput): LintResult {
+  const { rho, targetResistance } = input;
+  const h = input.burialDepth ?? 0.8;
+  const r = (input.conductorDiameter ?? 0.01) / 2;
+
+  let L = 2.0;
+  let R = Infinity;
+  for (let i = 0; i < 2000; i++) {
+    const term = Math.log(2 * L / r) + Math.log(L / (2 * h)) - 2;
+    if (term > 0) R = (rho / (2 * Math.PI * L)) * term;
+    if (R <= targetResistance) break;
+    L += 0.5;
+  }
+  return {
+    length: Math.round(L * 100) / 100,
+    achievedResistance: Math.round(Math.max(0, R) * 100) / 100,
+  };
+}
+
+// ─── Parallelle aardpennen (Schwarz/Dwight mutual resistance) ─────────────────
+
+export interface ParallelRaResult {
+  rParallel: number;
+  spacingMin: number; // minimum recommended spacing in m
+  rSingle: number;
+}
+
+// Parallel resistance of n identical vertical rods in a row, spaced `spacingMin` apart.
+// Uses the Schwarz formula: R_n = (n·R₁ + 2·ΣMᵢⱼ) / n²
+// Mutual resistance approximated by far-field: M(s) = ρ/(2π·s)
+export function calcParallelRa(
+  rho: number, L: number, rodDiameter: number, n: number,
+): ParallelRaResult {
+  const d = rodDiameter;
+  const R1 = (rho / (2 * Math.PI * L)) * Math.log((4 * L) / d);
+  const spacingMin = Math.ceil(2 * L); // min 2× rod length
+
+  let sumM = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const s = Math.abs(j - i) * spacingMin;
+      sumM += rho / (2 * Math.PI * s); // far-field mutual resistance (always positive)
+    }
+  }
+
+  const rParallel = Math.max(0.01, (n * R1 + 2 * sumM) / (n * n));
+  return {
+    rParallel: Math.round(rParallel * 100) / 100,
+    spacingMin,
+    rSingle: Math.round(R1 * 100) / 100,
+  };
+}
+
+// ─── Corrosieclassificatie (pH-gebaseerd) ─────────────────────────────────────
+
+export interface CorrosionClass {
+  label: string;
+  color: 'green' | 'yellow' | 'orange' | 'red';
+  lifetimeYears: string;
+  advies: string;
+}
+
+export function calcCorrosionClass(ph: number): CorrosionClass {
+  if (ph < 4.5) return {
+    label: 'Sterk corrosief',
+    color: 'red',
+    lifetimeYears: '5–10 jaar (staal)',
+    advies: 'Koper-gebonden pen (min. 70 μm Cu) of RVS 316 aanbevolen. Controleer conform NEN 3140 na 5 jaar.',
+  };
+  if (ph < 6) return {
+    label: 'Matig corrosief',
+    color: 'orange',
+    lifetimeYears: '15–20 jaar',
+    advies: 'Verzinkt staal (min. 85 μm) of koper-gebonden pen. Aanbevolen: RVS of Cu-bonded voor lange levensduur.',
+  };
+  if (ph <= 8) return {
+    label: 'Neutraal',
+    color: 'green',
+    lifetimeYears: '25+ jaar',
+    advies: 'Standaard thermisch verzinkt staal volstaat (min. 50 μm conform NEN-EN 50522).',
+  };
+  return {
+    label: 'Licht alkalisch',
+    color: 'green',
+    lifetimeYears: '30+ jaar',
+    advies: 'Minimale corrosie verwacht. Standaard verzinkt staal geschikt.',
   };
 }
 
