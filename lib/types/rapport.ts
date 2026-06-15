@@ -99,6 +99,7 @@ export interface InspectionReport {
 
   audit_trail?: AuditRecord[];
   pdf_url?: string;
+  klic_melding_id?: string | null;
   created_at: string;
   updated_at: string;
 }

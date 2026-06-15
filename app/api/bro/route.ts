@@ -28,10 +28,8 @@ export async function GET(request: NextRequest) {
       lon = parseFloat(lonParam);
       cacheKey = `bro:rd:${Math.round(rdX)}:${Math.round(rdY)}`;
     } else if (postcode) {
-      const cleaned = postcode.replace(/\s/g, '').toUpperCase();
-      cacheKey = huisnummer ? `bro:${cleaned}:${huisnummer}` : `bro:${cleaned}`;
-      const cached = await cacheGet(cacheKey);
-      if (cached) return NextResponse.json(cached);
+      // Always fetch address from PDOK (fast, Next.js-cached 24 h) so
+      // the confirmation shows even when BRO soil data is Redis-cached.
       const coords = await lookupPostcode(postcode, huisnummer);
       rdX = coords.rdX;
       rdY = coords.rdY;
@@ -42,12 +40,15 @@ export async function GET(request: NextRequest) {
         huisnummer: coords.huisnummer,
         woonplaats: coords.woonplaats,
       };
+      const cleaned = postcode.replace(/\s/g, '').toUpperCase();
+      cacheKey = huisnummer ? `bro:${cleaned}:${huisnummer}` : `bro:${cleaned}`;
     } else {
       return NextResponse.json({ error: 'postcode or rdX/rdY/lat/lon required' }, { status: 400 });
     }
 
+    // Check Redis cache for the heavy BRO soil data, but always merge in fresh address
     const cached = await cacheGet(cacheKey);
-    if (cached) return NextResponse.json(cached);
+    if (cached) return NextResponse.json({ ...cached, ...addressData });
 
     const broData = await fetchBroSoilData(rdX, rdY, lat, lon);
     const response = { ...broData, ...addressData };
