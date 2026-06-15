@@ -140,19 +140,41 @@ async function checkPdok(): Promise<SourceResult> {
 
 async function checkGroundwater(): Promise<SourceResult> {
   const t0 = Date.now();
+  const margin = 1500;
+  const bbox = `${TEST_RD_X - margin},${TEST_RD_Y - margin},${TEST_RD_X + margin},${TEST_RD_Y + margin}`;
+  const bboxCrs = 'http://www.opengis.net/def/crs/EPSG/0/28992';
+  const base = 'https://api.pdok.nl/tno/bro-grondwatermonitoring-in-samenhang-karakteristieken/ogc/v1/collections';
   try {
-    const margin = 1000;
-    const url = `https://api.pdok.nl/tno/bro-grondwatermonitoring-in-samenhang-karakteristieken/ogc/v1/collections/gm_gmw_monitoringtube/items?f=json&bbox=${TEST_RD_X - margin},${TEST_RD_Y - margin},${TEST_RD_X + margin},${TEST_RD_Y + margin}&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/28992&limit=5`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const [tubeRes, wellRes] = await Promise.all([
+      fetch(`${base}/gm_gmw_monitoringtube/items?f=json&bbox=${bbox}&bbox-crs=${bboxCrs}&limit=10`,
+        { signal: AbortSignal.timeout(7000) }),
+      fetch(`${base}/gm_gmw/items?f=json&bbox=${bbox}&bbox-crs=${bboxCrs}&limit=10`,
+        { signal: AbortSignal.timeout(7000) }),
+    ]);
     const latencyMs = Date.now() - t0;
-    if (!res.ok) return { status: 'down', latencyMs, detail: `HTTP ${res.status}` };
-    const data = await res.json();
-    const count = data?.features?.length ?? 0;
-    return {
-      status: count > 0 ? 'ok' : 'no_data',
-      latencyMs,
-      detail: count > 0 ? `${count} peilbuizen gevonden` : 'geen peilbuizen op testlocatie',
-    };
+    if (!tubeRes.ok || !wellRes.ok) return { status: 'down', latencyMs, detail: `HTTP ${tubeRes.status}/${wellRes.status}` };
+    const [tubeData, wellData] = await Promise.all([tubeRes.json(), wellRes.json()]);
+
+    const pkToMaaiveld = new Map<number, number>();
+    for (const f of wellData?.features ?? []) {
+      const pk = f.properties?.gm_gmw_pk;
+      const glp = f.properties?.ground_level_position;
+      if (typeof pk === 'number' && typeof glp === 'number') pkToMaaiveld.set(pk, glp);
+    }
+
+    const depths: number[] = [];
+    for (const f of tubeData?.features ?? []) {
+      const maaiveld = pkToMaaiveld.get(f.properties?.gm_gmw_fk);
+      const screenTop = f.properties?.screen_top_position;
+      if (typeof maaiveld === 'number' && typeof screenTop === 'number') {
+        const d = maaiveld - screenTop;
+        if (d > 0 && d < 10) depths.push(d);
+      }
+    }
+
+    if (!depths.length) return { status: 'no_data', latencyMs, detail: 'NAP-correctie lukt niet: geen overeenkomende peilbuizen' };
+    depths.sort((a, b) => a - b);
+    return { status: 'ok', latencyMs, detail: `GHG ≈ ${depths[0].toFixed(2)} m (NAP-gecorrigeerd, ${depths.length} peilbuizen)` };
   } catch (e) {
     return { status: 'timeout', latencyMs: Date.now() - t0, detail: String(e) };
   }

@@ -15,6 +15,13 @@ export interface BroResult {
   source: 'bro' | 'fallback';
   /** Which data source produced the result, for UI and provenance. */
   dataSource?: 'cpt' | 'bhrgt' | 'geotop' | 'bodemkaart';
+  /**
+   * How groundwaterDepth was derived:
+   *   'peilbuis' — computed from BRO GMW monitoring wells using correct NAP correction
+   *                (ground_level_position − screen_top_position)
+   *   null       — no monitoring wells found in the area; user should verify manually
+   */
+  gwSource?: 'peilbuis' | null;
   straatnaam?: string;
   huisnummer?: string;
   woonplaats?: string;
@@ -191,22 +198,68 @@ async function tryBhrGtAtRadius(lat: number, lon: number, radius: number): Promi
 
 // ─── Groundwater ──────────────────────────────────────────────────────────────
 
-async function fetchGroundwaterDepth(rdX: number, rdY: number): Promise<number | null> {
-  const margin = 1000;
-  try {
-    const url = `https://api.pdok.nl/tno/bro-grondwatermonitoring-in-samenhang-karakteristieken/ogc/v1/collections/gm_gmw_monitoringtube/items?f=json&bbox=${rdX - margin},${rdY - margin},${rdX + margin},${rdY + margin}&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/28992&limit=10`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) return null;
-    const data = await res.json();
+/**
+ * Fetch GHG (Gemiddeld Hoogste Grondwaterstand) from BRO monitoring wells.
+ *
+ * BUG FIX: screen_top_position is an NAP elevation (e.g. −6.2 m NAP), not a
+ * depth below surface. Using Math.abs() was wrong for low-lying polders:
+ *   Haarlemmermeer maaiveld ≈ NAP −3.5 m, screen_top ≈ NAP −6.2 m
+ *   Math.abs → 6.2 m  (was returned as GHG — wrong by ×5)
+ *   Correct  → −3.5 − (−6.2) = 2.7 m below surface
+ *
+ * Fix: fetch parent gm_gmw records (which carry ground_level_position, i.e.
+ * maaiveld NAP) in parallel and compute depth = maaiveld_NAP − screen_top_NAP.
+ */
+async function fetchGroundwaterDepth(rdX: number, rdY: number): Promise<{ depth: number; source: 'peilbuis' } | null> {
+  const margin = 1500;
+  const bbox = `${rdX - margin},${rdY - margin},${rdX + margin},${rdY + margin}`;
+  const bboxCrs = 'http://www.opengis.net/def/crs/EPSG/0/28992';
+  const base = 'https://api.pdok.nl/tno/bro-grondwatermonitoring-in-samenhang-karakteristieken/ogc/v1/collections';
 
-    const depths: number[] = (data?.features ?? [])
-      .map((f: { properties?: { screen_top_position?: number } }) => f.properties?.screen_top_position)
-      .filter((v: unknown): v is number => typeof v === 'number' && isFinite(v) && v < 0)
-      .map((v: number) => Math.abs(v));
+  try {
+    // Fetch tubes (screen_top_position) and wells (ground_level_position) in parallel.
+    const [tubeRes, wellRes] = await Promise.all([
+      fetch(`${base}/gm_gmw_monitoringtube/items?f=json&bbox=${bbox}&bbox-crs=${bboxCrs}&limit=30`,
+        { signal: AbortSignal.timeout(7000) }),
+      fetch(`${base}/gm_gmw/items?f=json&bbox=${bbox}&bbox-crs=${bboxCrs}&limit=30`,
+        { signal: AbortSignal.timeout(7000) }),
+    ]);
+    if (!tubeRes.ok || !wellRes.ok) return null;
+
+    const [tubeData, wellData] = await Promise.all([tubeRes.json(), wellRes.json()]);
+
+    // Build lookup: gm_gmw_pk → maaiveld NAP (m)
+    type WellFeature = { properties?: { gm_gmw_pk?: number; ground_level_position?: number } };
+    const maaiveldByPk = new Map<number, number>();
+    for (const f of (wellData?.features ?? []) as WellFeature[]) {
+      const pk  = f.properties?.gm_gmw_pk;
+      const glp = f.properties?.ground_level_position;
+      if (typeof pk === 'number' && typeof glp === 'number' && isFinite(glp)) {
+        maaiveldByPk.set(pk, glp);
+      }
+    }
+
+    // Compute depth below surface for each tube: maaiveld_NAP − screen_top_NAP.
+    // Only use shallow monitoring tubes (< 10 m) — deeper tubes track confined
+    // aquifers, not the phreatic water table relevant for grounding design.
+    type TubeFeature = { properties?: { gm_gmw_fk?: number; screen_top_position?: number } };
+    const depths: number[] = [];
+    for (const f of (tubeData?.features ?? []) as TubeFeature[]) {
+      const wellPk    = f.properties?.gm_gmw_fk;
+      const screenTop = f.properties?.screen_top_position;
+      if (typeof screenTop !== 'number' || !isFinite(screenTop)) continue;
+
+      const maaiveld = typeof wellPk === 'number' ? maaiveldByPk.get(wellPk) : undefined;
+      if (typeof maaiveld !== 'number') continue; // can't correct without maaiveld
+
+      const depth = maaiveld - screenTop; // both NAP m → result is positive depth below surface
+      if (depth > 0 && depth < 10) depths.push(depth); // sanity: 0–10 m = freatisch range
+    }
 
     if (!depths.length) return null;
+    // GHG = shallowest (most favourable = highest water table = lowest resistance).
     depths.sort((a, b) => a - b);
-    return depths[Math.floor(depths.length / 2)];
+    return { depth: depths[0], source: 'peilbuis' };
   } catch {
     return null;
   }
@@ -230,7 +283,7 @@ export async function fetchBroSoilData(
   lat: number,
   lon: number,
 ): Promise<BroResult> {
-  const [cptSamples, bhrgtSamples, geotopSamples, bodemkaartSamples, groundwaterDepth] =
+  const [cptSamples, bhrgtSamples, geotopSamples, bodemkaartSamples, gwResult] =
     await Promise.all([
       fetchBroCptSamples(lat, lon),
       fetchBhrGtSamples(lat, lon),
@@ -238,6 +291,9 @@ export async function fetchBroSoilData(
       fetchBodemkaartSoilType(rdX, rdY),
       fetchGroundwaterDepth(rdX, rdY),
     ]);
+
+  const groundwaterDepth = gwResult?.depth ?? null;
+  const gwSource = gwResult?.source ?? null;
 
   const [samples, dataSource] =
     cptSamples        ? ([cptSamples,        'cpt']        as const) :
@@ -252,12 +308,12 @@ export async function fetchBroSoilData(
       lithoClass: 3,
       rho: lithoClassToRho(3),
     }));
-    return { samples: fallbackSamples, dominantRho: 125, groundwaterDepth, source: 'fallback' };
+    return { samples: fallbackSamples, dominantRho: 125, groundwaterDepth, gwSource, source: 'fallback' };
   }
 
   const rhoCounts: Record<number, number> = {};
   samples.forEach((s) => { rhoCounts[s.rho] = (rhoCounts[s.rho] ?? 0) + 1; });
   const dominantRho = parseInt(Object.entries(rhoCounts).sort((a, b) => b[1] - a[1])[0][0]);
 
-  return { samples, dominantRho, groundwaterDepth, source: 'bro', dataSource };
+  return { samples, dominantRho, groundwaterDepth, gwSource, source: 'bro', dataSource };
 }

@@ -35,6 +35,7 @@ interface CalcResult {
   gwGunstig?: number;
   gwGemiddeld?: number;
   gwOngunstig?: number;
+  gwSource?: 'peilbuis' | null;
 }
 
 interface Profile { plan: string; credits_left: number; credits_reset: string | null }
@@ -691,15 +692,25 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
         <div className="mb-4">
           <p className="mb-2 text-xs text-white/50">
             GHG grondwaterstand
-            {soilData?.groundwaterDepth != null && <span className="ml-1 text-green-400">← BRO</span>}
+            {soilData?.groundwaterDepth != null && soilData.gwSource === 'peilbuis' && (
+              <span className="ml-1 text-green-400" title="Afgeleid uit BRO-peilbuizen via NAP-correctie (maaiveld_NAP − filterdiepte_NAP)">← peilbuis ✓</span>
+            )}
+            {soilData?.groundwaterDepth != null && !soilData.gwSource && (
+              <span className="ml-1 text-yellow-400" title="Grondwaterbron niet bepaald — controleer handmatig">← BRO (verifieer)</span>
+            )}
             <span className="ml-1 text-white/25">(bepaalt droog/nat-zone in berekening)</span>
           </p>
           <div className="flex items-center gap-2">
             <input type="number" min="0" max="20" step="0.5" value={groundwaterDepth}
               onChange={e => { setGw(Number(e.target.value)); setCalcResult(null); }}
               className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none" />
-            <span className="text-xs text-white/40">m</span>
+            <span className="text-xs text-white/40">m onder maaiveld</span>
           </div>
+          {soilData?.groundwaterDepth == null && (
+            <p className="mt-1 text-[10px] text-yellow-500/60">
+              Geen peilbuizen gevonden — controleer GHG via lokale bodemkaart of waterschap
+            </p>
+          )}
         </div>
 
         {/* pH */}
