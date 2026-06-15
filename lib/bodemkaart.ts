@@ -6,18 +6,22 @@
  * independent of BRO/PDOK uptime.
  *
  * SETUP (one-time): see supabase/bodemkaart_schema.sql.
- * Import the GeoPackage from PDOK into your Supabase database with:
+ * Import the GeoPackage with the 4-table JOIN (see schema for full command):
  *
  *   ogr2ogr -f PostgreSQL \
- *     "PG:host=<host> user=postgres password=<pw> dbname=postgres" \
- *     bodemkaart.gpkg bodemkaart_vlakken \
- *     -nln public.bodemkaart \
- *     -nlt MULTIPOLYGON \
- *     -t_srs EPSG:28992 \
- *     -select "bodemcode"
+ *     "PG:host=<host> port=5432 user=postgres password=<pw> dbname=postgres" \
+ *     BRO_DownloadBodemkaart.gpkg \
+ *     -nln public.bodemkaart -nlt MULTIPOLYGON -t_srs EPSG:28992 \
+ *     -lco GEOMETRY_NAME=geom \
+ *     -sql "SELECT a.geom, su.code AS bodemcode
+ *           FROM areaofpedologicalinterest a
+ *           JOIN soilarea sa ON sa.maparea_id = a.maparea_id
+ *           JOIN soilarea_soilunit sau
+ *             ON sau.maparea_id = sa.maparea_id
+ *            AND sau.soilunit_sequencenumber = 1
+ *           JOIN soil_units su ON su.code = sau.soilunit_code"
  *
- * GeoPackage download: https://service.pdok.nl/bro/bodemkaart/atom/v1_0/
- *   or https://downloads.pdok.nl/ → search "Bodemkaart 50000"
+ * GeoPackage download: https://service.pdok.nl/tno/bro-bodemkaart/atom/downloads/BRO_DownloadBodemkaart.gpkg
  */
 
 import { createClient } from '@supabase/supabase-js';
