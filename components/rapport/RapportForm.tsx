@@ -27,7 +27,7 @@ function Field({
         {required && <span className="ml-1 text-[#E8761A]">*</span>}
       </label>
       {children}
-      {hint && <p className="text-[10px] text-white/30">{hint}</p>}
+      {hint && <p className="text-[10px] text-white/70">{hint}</p>}
     </div>
   );
 }
@@ -98,7 +98,7 @@ function Textarea({
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
-      <p className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-white/30">{title}</p>
+      <p className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-white/70">{title}</p>
       <div className="space-y-4">{children}</div>
     </div>
   );
@@ -111,7 +111,7 @@ function PassFailBadge({ value }: { value?: PassFail | null }) {
   if (value === 'fail') return (
     <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400">AFWIJKING</span>
   );
-  return <span className="text-[10px] text-white/30">n.v.t.</span>;
+  return <span className="text-[10px] text-white/70">n.v.t.</span>;
 }
 
 function StapNav({
@@ -135,8 +135,8 @@ function StapNav({
             stap === s.key
               ? 'bg-[#E8761A] text-white'
               : locked && s.key !== 'delen'
-              ? 'text-white/20 cursor-default'
-              : 'text-white/50 hover:text-white'
+              ? 'text-white/70 cursor-default'
+              : 'text-white/70 hover:text-white'
           }`}
         >
           <span className="hidden sm:inline">{s.icon} </span>{s.label}
@@ -172,7 +172,7 @@ function MetingRow({
         <div>
           <span className="text-sm font-semibold text-white">{param.label}</span>
           {verplicht && <span className="ml-2 text-[10px] text-[#E8761A]">verplicht</span>}
-          <p className="mt-0.5 text-[10px] text-white/35">{param.beschrijving}</p>
+          <p className="mt-0.5 text-[10px] text-white/70">{param.beschrijving}</p>
         </div>
         <PassFailBadge value={pf} />
       </div>
@@ -216,10 +216,10 @@ function MetingRow({
       {meting.type === 'ra' && aanraking !== null && (
         <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
           <p className="text-[10px] text-blue-400 font-semibold mb-1">Rekenhulp aanrakingsspanning</p>
-          <p className="text-[10px] text-white/50">
+          <p className="text-[10px] text-white/70">
             Ra × IΔn = {meting.waarde} Ω × 30 mA = <strong className="text-white">{aanraking.toFixed(2)} V</strong>
           </p>
-          <p className="text-[10px] text-white/30 mt-0.5">
+          <p className="text-[10px] text-white/70 mt-0.5">
             De installateur toetst dit zelf aan de geldende UL-grens (25 V of 50 V).
           </p>
         </div>
@@ -433,7 +433,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
           <span className="text-green-400 text-lg">✓</span>
           <div>
             <p className="text-sm font-semibold text-green-400">Rapport ondertekend en vergrendeld</p>
-            <p className="text-xs text-white/40">Ondertekend door {report.conformiteit_naam} op {report.conformiteit_datum ? new Date(report.conformiteit_datum).toLocaleString('nl-NL') : '—'}</p>
+            <p className="text-xs text-white/60">Ondertekend door {report.conformiteit_naam} op {report.conformiteit_datum ? new Date(report.conformiteit_datum).toLocaleString('nl-NL') : '—'}</p>
           </div>
         </div>
       )}
@@ -443,7 +443,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
         <h1 className="font-condensed text-2xl font-black text-white">
           Opleverrapport
         </h1>
-        <span className={`text-[11px] ${saving ? 'text-white/40' : saveMsg === 'Opgeslagen' ? 'text-green-400' : saveMsg ? 'text-red-400' : 'text-white/20'}`}>
+        <span className={`text-[11px] ${saving ? 'text-white/60' : saveMsg === 'Opgeslagen' ? 'text-green-400' : saveMsg ? 'text-red-400' : 'text-white/70'}`}>
           {saving ? 'Opslaan…' : saveMsg || (locked ? 'Vergrendeld' : 'Concept')}
         </span>
       </div>
@@ -459,18 +459,18 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-blue-400">
                 Scan-context — indicatief, o.b.v. BRO-bodemdata (postcodeniveau)
               </p>
-              <p className="mb-3 text-[10px] text-white/30">
+              <p className="mb-3 text-[10px] text-white/70">
                 Lokale bodem kan afwijken. Definitieve aardingsweerstand wordt op locatie gemeten.
               </p>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {!!(scanCtx as Record<string, unknown>).rho && (
-                  <><span className="text-white/40">Bodemweerstand ρ</span><span className="text-white font-semibold">{String((scanCtx as Record<string, unknown>).rho)} Ω·m</span></>
+                  <><span className="text-white/60">Bodemweerstand ρ</span><span className="text-white font-semibold">{String((scanCtx as Record<string, unknown>).rho)} Ω·m</span></>
                 )}
                 {!!(scanCtx as Record<string, unknown>).voorspeld_diepte_m && (
-                  <><span className="text-white/40">Richtdiepte (indicatief)</span><span className="text-white font-semibold">{String((scanCtx as Record<string, unknown>).voorspeld_diepte_m)} m</span></>
+                  <><span className="text-white/60">Richtdiepte (indicatief)</span><span className="text-white font-semibold">{String((scanCtx as Record<string, unknown>).voorspeld_diepte_m)} m</span></>
                 )}
                 {!!(scanCtx as Record<string, unknown>).risicoklasse && (
-                  <><span className="text-white/40">Risicoklasse</span><span className="text-white font-semibold">Klasse {String((scanCtx as Record<string, unknown>).risicoklasse)}</span></>
+                  <><span className="text-white/60">Risicoklasse</span><span className="text-white font-semibold">Klasse {String((scanCtx as Record<string, unknown>).risicoklasse)}</span></>
                 )}
               </div>
             </div>
@@ -611,7 +611,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
           )}
 
           {report.systeemtype && metingen.length === 0 && (
-            <div className="rounded-xl border border-white/8 bg-white/3 px-4 py-8 text-center text-sm text-white/40">
+            <div className="rounded-xl border border-white/8 bg-white/3 px-4 py-8 text-center text-sm text-white/60">
               Geen metingen gevonden. Sla stap 1 op en open stap 2 opnieuw.
             </div>
           )}
@@ -650,13 +650,13 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
         <div className="space-y-4">
           <SectionCard title="Bevindingen / tekortkomingen">
             {bevindingen.length === 0 && !locked && (
-              <p className="text-sm text-white/40">Geen bevindingen — klik op &apos;Toevoegen&apos; als er tekortkomingen zijn.</p>
+              <p className="text-sm text-white/60">Geen bevindingen — klik op &apos;Toevoegen&apos; als er tekortkomingen zijn.</p>
             )}
 
             {bevindingen.map(b => (
               <div key={b.id} className="rounded-xl border border-white/8 bg-white/2 p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white/30">#{b.nummer}</span>
+                  <span className="text-xs font-bold text-white/70">#{b.nummer}</span>
                   <Select
                     value={b.prioriteit}
                     onChange={v => updateBevinding(b.id, { prioriteit: v as BevindingPrioriteit })}
@@ -668,7 +668,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
                     disabled={locked}
                   />
                   {!locked && (
-                    <button onClick={() => removeBevinding(b.id)} className="ml-auto text-white/30 hover:text-red-400 text-lg leading-none">×</button>
+                    <button onClick={() => removeBevinding(b.id)} className="ml-auto text-white/70 hover:text-red-400 text-lg leading-none">×</button>
                   )}
                 </div>
                 <Textarea
@@ -683,13 +683,13 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
             {!locked && (
               <button
                 onClick={addBevinding}
-                className="w-full rounded-xl border border-dashed border-white/15 py-3 text-sm text-white/40 hover:border-white/30 hover:text-white transition-colors"
+                className="w-full rounded-xl border border-dashed border-white/15 py-3 text-sm text-white/60 hover:border-white/30 hover:text-white transition-colors"
               >
                 + Bevinding toevoegen
               </button>
             )}
 
-            <div className="rounded-xl border border-white/6 bg-white/2 p-3 text-[10px] text-white/25">
+            <div className="rounded-xl border border-white/6 bg-white/2 p-3 text-[10px] text-white/60">
               Prioriteit A = direct herstellen · B = binnen afgesproken termijn · C = aanbeveling
             </div>
           </SectionCard>
@@ -739,7 +739,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
             <>
               {/* Summary */}
               <div className="rounded-2xl border border-white/8 bg-[#111] p-5 space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/30 mb-3">Samenvatting rapport</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70 mb-3">Samenvatting rapport</p>
                 {[
                   ['Locatie',     report.locatie],
                   ['Opdrachtgever', report.opdrachtgever],
@@ -750,7 +750,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
                   ['Bevindingen', `${bevindingen.length} stuks`],
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between text-sm">
-                    <span className="text-white/40">{k}</span>
+                    <span className="text-white/60">{k}</span>
                     <span className="text-white font-medium">{v || '—'}</span>
                   </div>
                 ))}
@@ -759,7 +759,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
               {/* Disclaimer */}
               <div className="rounded-xl border border-orange-500/25 bg-orange-500/5 p-4">
                 <p className="text-xs font-semibold text-orange-300 mb-2">Verantwoordelijkheidsverklaring</p>
-                <p className="text-[11px] text-white/50 leading-relaxed">
+                <p className="text-[11px] text-white/70 leading-relaxed">
                   EarthGND levert uitsluitend een digitale werkomgeving en rekenhulp. De onderstaande
                   conformiteitsverklaring is uw eigen professionele verklaring. U bent als installateur
                   volledig verantwoordelijk voor de juistheid van de ingevoerde meetwaarden en voor de
@@ -862,9 +862,9 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
             <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-6 space-y-3">
               <p className="text-sm font-semibold text-green-400">Rapport is ondertekend</p>
               <div className="space-y-1 text-sm">
-                <div className="flex justify-between"><span className="text-white/40">Naam</span><span className="text-white">{report.conformiteit_naam}</span></div>
-                <div className="flex justify-between"><span className="text-white/40">Erkenning</span><span className="text-white">{report.conformiteit_erkenning}</span></div>
-                <div className="flex justify-between"><span className="text-white/40">Op</span><span className="text-white">{report.conformiteit_datum ? new Date(report.conformiteit_datum).toLocaleString('nl-NL') : '—'}</span></div>
+                <div className="flex justify-between"><span className="text-white/60">Naam</span><span className="text-white">{report.conformiteit_naam}</span></div>
+                <div className="flex justify-between"><span className="text-white/60">Erkenning</span><span className="text-white">{report.conformiteit_erkenning}</span></div>
+                <div className="flex justify-between"><span className="text-white/60">Op</span><span className="text-white">{report.conformiteit_datum ? new Date(report.conformiteit_datum).toLocaleString('nl-NL') : '—'}</span></div>
               </div>
               <button
                 onClick={() => setStap('delen')}
@@ -894,7 +894,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
             >
               {pdfLoading ? 'PDF genereren…' : 'PDF downloaden'}
             </button>
-            <p className="text-[10px] text-white/25 text-center">
+            <p className="text-[10px] text-white/60 text-center">
               A4-formaat · NEN 1010 deel 6 layout · Inclusief scan-context, metingen en handtekening
             </p>
           </SectionCard>
@@ -912,7 +912,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
             </div>
           )}
 
-          <div className="rounded-xl border border-white/6 bg-white/2 p-4 text-[10px] text-white/25 leading-relaxed">
+          <div className="rounded-xl border border-white/6 bg-white/2 p-4 text-[10px] text-white/60 leading-relaxed">
             EarthGND levert deze PDF als rekenhulp. De conformiteitsverklaring is de professionele
             verklaring van de ondertekenende installateur. EarthGND aanvaardt geen aansprakelijkheid
             voor normconformiteit of juistheid van de meetwaarden.

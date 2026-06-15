@@ -151,7 +151,7 @@ export function KlicForm({ rapportId, onSaved, onCancel }: KlicFormProps) {
               className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition-colors ${
                 i < stepIndex  ? 'bg-[#E8761A] text-white cursor-pointer' :
                 i === stepIndex ? 'bg-[#E8761A]/20 border border-[#E8761A] text-[#E8761A]' :
-                                   'bg-white/5 text-white/30'
+                                   'bg-white/5 text-white/70'
               }`}
             >
               {i < stepIndex ? '✓' : i + 1}
@@ -161,7 +161,7 @@ export function KlicForm({ rapportId, onSaved, onCancel }: KlicFormProps) {
             )}
           </div>
         ))}
-        <span className="ml-2 text-xs text-white/40 shrink-0">{step}</span>
+        <span className="ml-2 text-xs text-white/60 shrink-0">{step}</span>
       </div>
 
       {/* Step content */}
@@ -182,7 +182,7 @@ export function KlicForm({ rapportId, onSaved, onCancel }: KlicFormProps) {
                 autoFocus
                 className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 text-base text-white placeholder-zinc-600 focus:border-[#E8761A] focus:outline-none"
               />
-              <p className="mt-1.5 text-xs text-white/30">
+              <p className="mt-1.5 text-xs text-white/70">
                 Staat op de KLIC-tekening of de bevestigingsmail van het Kadaster
               </p>
             </div>
@@ -248,7 +248,7 @@ export function KlicForm({ rapportId, onSaved, onCancel }: KlicFormProps) {
         {/* ── Stap 3: Netbeheerders ── */}
         {step === 'Netbeheerders' && (
           <>
-            <p className="text-xs text-white/40">Welke netbeheerders zijn aanwezig?</p>
+            <p className="text-xs text-white/60">Welke netbeheerders zijn aanwezig?</p>
             <div className="grid grid-cols-2 gap-2">
               {COMMON_NETBEHEERDERS.map(nb => (
                 <button
@@ -296,7 +296,7 @@ export function KlicForm({ rapportId, onSaved, onCancel }: KlicFormProps) {
         {/* ── Stap 4: Kabels & leidingen ── */}
         {step === 'Kabels' && (
           <>
-            <p className="text-xs text-white/40">Welke kabels/leidingen zijn aanwezig?</p>
+            <p className="text-xs text-white/60">Welke kabels/leidingen zijn aanwezig?</p>
             <div className="grid grid-cols-2 gap-3">
               {UTILITEIT_LABELS.map(({ key, label, icon }) => (
                 <button
@@ -305,7 +305,7 @@ export function KlicForm({ rapportId, onSaved, onCancel }: KlicFormProps) {
                   className={`flex items-center gap-3 rounded-xl border px-4 py-3.5 text-sm font-medium transition-all ${
                     utiliteiten[key]
                       ? 'border-[#E8761A] bg-[#E8761A]/10 text-white'
-                      : 'border-zinc-700 bg-zinc-900 text-white/50'
+                      : 'border-zinc-700 bg-zinc-900 text-white/70'
                   }`}
                 >
                   <span className="text-xl">{icon}</span>
@@ -338,7 +338,7 @@ export function KlicForm({ rapportId, onSaved, onCancel }: KlicFormProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-white">Veilig graven mogelijk</p>
-                  <p className="text-xs text-white/40 mt-0.5">Is grondbewerking veilig uitvoerbaar op deze locatie?</p>
+                  <p className="text-xs text-white/60 mt-0.5">Is grondbewerking veilig uitvoerbaar op deze locatie?</p>
                 </div>
                 <button
                   onClick={() => setVeiligGraven(v => !v)}
@@ -378,7 +378,7 @@ export function KlicForm({ rapportId, onSaved, onCancel }: KlicFormProps) {
               ) : (
                 <button
                   onClick={() => fileRef.current?.click()}
-                  className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-600 bg-zinc-900 py-8 text-sm text-white/40 hover:border-[#E8761A]/40 hover:text-[#E8761A]/60 transition-colors"
+                  className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-600 bg-zinc-900 py-8 text-sm text-white/60 hover:border-[#E8761A]/40 hover:text-[#E8761A]/60 transition-colors"
                 >
                   <span className="text-3xl">📷</span>
                   <span>Foto maken of uploaden</span>
@@ -411,7 +411,7 @@ export function KlicForm({ rapportId, onSaved, onCancel }: KlicFormProps) {
             {/* Summary */}
             <div className="rounded-xl border border-white/8 bg-white/3 p-4 space-y-2 text-xs">
               <p className="font-semibold text-white/70">Samenvatting</p>
-              <div className="space-y-1 text-white/50">
+              <div className="space-y-1 text-white/70">
                 <p>Meldingsnummer: <span className="text-white font-mono">{meldingsnummer || '–'}</span></p>
                 <p>Geldig tot: <span className="text-white">{geldigTot || '–'}</span></p>
                 {graafAdres && <p>Adres: <span className="text-white">{graafAdres}</span></p>}

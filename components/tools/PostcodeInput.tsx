@@ -83,7 +83,7 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
           {/* Postcode row */}
           <div className="mb-3 flex gap-2">
             <div className="flex flex-col gap-1 flex-1">
-              <label className="text-xs font-medium text-zinc-500">Postcode</label>
+              <label className="text-xs font-medium text-zinc-300">Postcode</label>
               <input
                 type="text"
                 value={postcode}
@@ -95,7 +95,7 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
               />
             </div>
             <div className="flex flex-col gap-1 w-24">
-              <label className="text-xs font-medium text-zinc-500">Huisnr.</label>
+              <label className="text-xs font-medium text-zinc-300">Huisnr.</label>
               <input
                 type="text"
                 value={huisnummer}
@@ -128,7 +128,7 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
             <>
               {/* Address confirmation */}
               {soilData && (
-                <p className="mb-2 text-[11px] text-zinc-500 tracking-wide">
+                <p className="mb-2 text-[11px] text-zinc-300 tracking-wide">
                   {soilData.straatnaam
                     ? [soilData.straatnaam, soilData.huisnummer].filter(Boolean).join(' ') +
                       (soilData.woonplaats ? `, ${soilData.woonplaats}` : '')
@@ -157,7 +157,7 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                        'Regionaal'}
                     </span>
                   </div>
-                  <p className="mb-3 text-xs text-zinc-400">
+                  <p className="mb-3 text-xs text-zinc-300">
                     {soilData.dataSource === 'cpt'
                       ? 'Grondsoort op basis van een nabijgelegen conuspenetratietest (BRO).'
                       : soilData.dataSource === 'bhrgt'
@@ -174,7 +174,7 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                     >
                       Toepassen (ρ = {soilData.dominantRho} Ω·m)
                     </button>
-                    <a href="/pricing" className="text-xs text-zinc-500 underline hover:text-orange-400">
+                    <a href="/pricing" className="text-xs text-zinc-300 underline hover:text-orange-400">
                       Pendiepteberekening → Pro
                     </a>
                   </div>
@@ -194,7 +194,7 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                     </span>
                     {soilData.groundwaterDepth != null && (
                       <span
-                        className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400"
+                        className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300"
                         title={soilData.gwSource === 'peilbuis' ? 'GHG afgeleid uit BRO-peilbuizen via NAP-correctie' : 'Grondwaterstand — verifieer lokaal'}
                       >
                         GW: {soilData.groundwaterDepth.toFixed(1)} m
@@ -216,12 +216,12 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
               {(!soilData || soilData.source === 'fallback') && (
                 <div>
                   {soilData?.source === 'fallback' && (
-                    <p className="mb-2 text-xs text-zinc-500">
+                    <p className="mb-2 text-xs text-zinc-300">
                       Geen BRO-data beschikbaar voor dit adres. Kies grondsoort handmatig:
                     </p>
                   )}
                   {!soilData && !soilError && (
-                    <p className="mb-2 text-xs text-zinc-500">Of kies grondsoort handmatig:</p>
+                    <p className="mb-2 text-xs text-zinc-300">Of kies grondsoort handmatig:</p>
                   )}
                   <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
                     {MANUAL_RHO_OPTIONS.map((opt) => (
@@ -231,11 +231,11 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                         className={`rounded-lg border px-2.5 py-2 text-center text-xs font-medium transition-all ${
                           effectiveManualRho === opt.rho
                             ? 'border-orange-500 bg-orange-500/15 text-orange-400'
-                            : 'border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:border-zinc-500'
+                            : 'border-zinc-700 bg-zinc-800/60 text-zinc-300 hover:border-zinc-500'
                         }`}
                       >
                         <span className="block font-semibold">{opt.label}</span>
-                        <span className="block text-zinc-500 mt-0.5">{opt.rho} Ω·m</span>
+                        <span className="block text-zinc-300 mt-0.5">{opt.rho} Ω·m</span>
                       </button>
                     ))}
                   </div>
@@ -265,7 +265,7 @@ function SoilTable({ samples }: { samples: { depth: number; lithoClass: number; 
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
-          <tr className="text-zinc-500">
+          <tr className="text-zinc-300">
             <th className="pb-1 text-left font-medium">Diepte</th>
             <th className="pb-1 text-left font-medium">Klasse</th>
             <th className="pb-1 text-left font-medium">ρ (Ω·m)</th>
@@ -274,8 +274,8 @@ function SoilTable({ samples }: { samples: { depth: number; lithoClass: number; 
         <tbody>
           {samples.map((s) => (
             <tr key={s.depth} className="border-t border-white/5">
-              <td className="py-1 text-zinc-400">{s.depth} m</td>
-              <td className="py-1 text-zinc-400">{s.lithoClass}</td>
+              <td className="py-1 text-zinc-300">{s.depth} m</td>
+              <td className="py-1 text-zinc-300">{s.lithoClass}</td>
               <td className="py-1 font-mono font-semibold text-orange-400">{s.rho}</td>
             </tr>
           ))}

@@ -105,7 +105,7 @@ function cellBg(r: number): string {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/30">
+    <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/70">
       {children}
     </p>
   );
@@ -133,7 +133,7 @@ function LayerCard({ rank, label, sublabel, value, unit, borderColor, highlight 
   return (
     <div className={`rounded-xl border p-4 ${borderColor} ${highlight ? 'bg-white/5' : 'bg-white/2'}`}>
       <div className="mb-3 flex items-center gap-2">
-        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${highlight ? 'bg-[#E8761A] text-white' : 'bg-white/10 text-white/50'}`}>
+        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${highlight ? 'bg-[#E8761A] text-white' : 'bg-white/10 text-white/70'}`}>
           {rank}
         </span>
         <span className="text-xs font-semibold text-white/70">{label}</span>
@@ -142,9 +142,9 @@ function LayerCard({ rank, label, sublabel, value, unit, borderColor, highlight 
         <span className={`font-condensed text-3xl font-black ${highlight ? 'text-[#E8761A]' : 'text-white'}`}>
           {value}
         </span>
-        <span className="text-sm text-white/40">{unit}</span>
+        <span className="text-sm text-white/60">{unit}</span>
       </div>
-      <p className="mt-1 text-[11px] text-white/40">{sublabel}</p>
+      <p className="mt-1 text-[11px] text-white/60">{sublabel}</p>
     </div>
   );
 }
@@ -166,9 +166,9 @@ function ThresholdBar({ result }: { result: OhmLayersResult }) {
 
   return (
     <div className="mt-5">
-      <div className="mb-2 flex items-center justify-between text-[10px] text-white/30">
+      <div className="mb-2 flex items-center justify-between text-[10px] text-white/70">
         <span>0 Ω</span>
-        <span className="text-white/50 text-xs font-semibold">Schaalverdeling wettelijke norm</span>
+        <span className="text-white/70 text-xs font-semibold">Schaalverdeling wettelijke norm</span>
         <span>{fmtR(max)} Ω</span>
       </div>
       <div className="relative h-3 w-full overflow-hidden rounded-full bg-white/5">
@@ -182,7 +182,7 @@ function ThresholdBar({ result }: { result: OhmLayersResult }) {
           });
         })()}
       </div>
-      <div className="mt-1.5 flex justify-between text-[10px] text-white/40">
+      <div className="mt-1.5 flex justify-between text-[10px] text-white/60">
         <span className="text-green-400">Streefwaarde</span>
         <span className="text-yellow-400">Ontwerpdoel</span>
         <span className="text-orange-400">Praktisch max</span>
@@ -217,7 +217,7 @@ function ResistanceOverview() {
             25 V — vochtig / buiten
           </ToggleChip>
         </div>
-        <p className="mt-3 text-[11px] text-white/25">
+        <p className="mt-3 text-[11px] text-white/60">
           TT-stelsel · NEN 1010 · Zonder aardlek: R ≤ UL / (n × In) · Met aardlek: R ≤ UL / IΔn
         </p>
       </div>
@@ -226,7 +226,7 @@ function ResistanceOverview() {
       <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
         <div className="px-5 pt-5 pb-3 border-b border-white/6">
           <SectionLabel>Maximale aardingsweerstand (Ω) — TT-stelsel</SectionLabel>
-          <p className="text-[11px] text-white/30">
+          <p className="text-[11px] text-white/70">
             Kies de automaat en lees af hoeveel weerstand de aarding maximaal mag hebben.
           </p>
         </div>
@@ -235,18 +235,18 @@ function ResistanceOverview() {
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-white/8 bg-white/2">
-                <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-white/30 whitespace-nowrap">
+                <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-white/70 whitespace-nowrap">
                   Automaat
                 </th>
                 <th className="px-4 py-3 text-center whitespace-nowrap">
                   <span className="block text-[10px] font-semibold uppercase tracking-wider text-red-400/80">Zonder aardlek</span>
-                  <span className="block text-[9px] text-white/20 mt-0.5">R ≤ UL / (n × In)</span>
+                  <span className="block text-[9px] text-white/70 mt-0.5">R ≤ UL / (n × In)</span>
                 </th>
                 {rcdCols.map(col => (
                   <th key={col.mA} className="px-4 py-3 text-center whitespace-nowrap">
                     <span className="block text-[10px] font-semibold uppercase tracking-wider text-green-400/70">{col.label} aardlek</span>
                     <span className={`block font-condensed text-base font-bold mt-0.5 ${cellTextColor(col.r)}`}>
-                      {fmtCell(col.r)} <span className="text-[10px] font-normal text-white/30">Ω</span>
+                      {fmtCell(col.r)} <span className="text-[10px] font-normal text-white/70">Ω</span>
                     </span>
                   </th>
                 ))}
@@ -260,20 +260,20 @@ function ResistanceOverview() {
                   <tr key={i} className="border-b border-white/4 hover:bg-white/2 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className="font-condensed text-lg font-black text-white">{breaker.type} {breaker.amps}</span>
-                      <span className="ml-1 text-xs text-white/30">A</span>
+                      <span className="ml-1 text-xs text-white/70">A</span>
                     </td>
                     <td className={`px-4 py-3 text-center ${cellBg(rWithout)}`}>
                       <span className={`font-condensed text-xl font-bold ${cellTextColor(rWithout)}`}>
                         {fmtCell(rWithout)}
                       </span>
-                      <span className="ml-1 text-[10px] text-white/30">Ω</span>
+                      <span className="ml-1 text-[10px] text-white/70">Ω</span>
                     </td>
                     {rcdCols.map((col, j) => (
                       <td key={j} className={`px-4 py-3 text-center ${cellBg(col.r)}`}>
                         <span className={`font-condensed text-xl font-bold ${cellTextColor(col.r)}`}>
                           {fmtCell(col.r)}
                         </span>
-                        <span className="ml-1 text-[10px] text-white/30">Ω</span>
+                        <span className="ml-1 text-[10px] text-white/70">Ω</span>
                       </td>
                     ))}
                   </tr>
@@ -286,12 +286,12 @@ function ResistanceOverview() {
         {/* Legend */}
         <div className="px-5 py-4 border-t border-white/4">
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-[10px]">
-            <span><span className="font-bold text-green-400">groen</span><span className="text-white/30"> ≥ 30 Ω — goed haalbaar</span></span>
-            <span><span className="font-bold text-yellow-400">geel</span><span className="text-white/30"> 5–30 Ω — haalbaar</span></span>
-            <span><span className="font-bold text-orange-400">oranje</span><span className="text-white/30"> 1–5 Ω — uitdagend</span></span>
-            <span><span className="font-bold text-red-400">rood</span><span className="text-white/30"> &lt;1 Ω — specialistenwerk</span></span>
+            <span><span className="font-bold text-green-400">groen</span><span className="text-white/70"> ≥ 30 Ω — goed haalbaar</span></span>
+            <span><span className="font-bold text-yellow-400">geel</span><span className="text-white/70"> 5–30 Ω — haalbaar</span></span>
+            <span><span className="font-bold text-orange-400">oranje</span><span className="text-white/70"> 1–5 Ω — uitdagend</span></span>
+            <span><span className="font-bold text-red-400">rood</span><span className="text-white/70"> &lt;1 Ω — specialistenwerk</span></span>
           </div>
-          <p className="mt-2 text-[10px] text-white/20">
+          <p className="mt-2 text-[10px] text-white/70">
             Type B: factor ×5 · Type C: factor ×10 · Type D: factor ×20 · UL = {UL} V
           </p>
         </div>
@@ -300,7 +300,7 @@ function ResistanceOverview() {
       {/* Warning */}
       <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
         <p className="text-xs font-semibold text-orange-300">TT-stelsel zonder aardlekschakelaar</p>
-        <p className="mt-1 text-[11px] text-white/40 leading-relaxed">
+        <p className="mt-1 text-[11px] text-white/60 leading-relaxed">
           Zonder aardlek zijn de vereiste aardingsweerstanden in een TT-stelsel altijd &lt;1 Ω — in de praktijk nauwelijks haalbaar
           zonder specialistische installatie (aardmat, diepboring). NEN 1010 vereist voor de meeste toepassingen een aardlekschakelaar.
         </p>
@@ -374,7 +374,7 @@ export function OhmCalculator() {
             key={v}
             onClick={() => setView(v)}
             className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all ${
-              view === v ? 'bg-[#E8761A] text-white' : 'text-white/50 hover:text-white'
+              view === v ? 'bg-[#E8761A] text-white' : 'text-white/70 hover:text-white'
             }`}
           >
             {v === 'wizard' ? 'Bereken' : 'Overzicht'}
@@ -402,7 +402,7 @@ export function OhmCalculator() {
                     <span className={`block text-sm font-semibold ${state.installationType === opt.value ? 'text-[#E8761A]' : 'text-white'}`}>
                       {opt.label}
                     </span>
-                    <span className="block text-xs text-white/40 mt-0.5">{opt.desc}</span>
+                    <span className="block text-xs text-white/60 mt-0.5">{opt.desc}</span>
                   </span>
                   {state.installationType === opt.value && (
                     <span className="mt-0.5 shrink-0 text-[#E8761A] text-xs font-bold">✓</span>
@@ -454,7 +454,7 @@ export function OhmCalculator() {
                             <span className={`font-condensed text-base font-bold ${state.rcdMa === opt.mA ? 'text-[#E8761A]' : 'text-white'}`}>
                               {opt.label}
                             </span>
-                            <span className="text-xs text-white/50">{opt.desc}</span>
+                            <span className="text-xs text-white/70">{opt.desc}</span>
                             {state.rcdMa === opt.mA && <span className="ml-auto text-[#E8761A] text-xs font-bold">✓</span>}
                           </button>
                         ))}
@@ -485,7 +485,7 @@ export function OhmCalculator() {
                             <span className={`font-condensed block text-lg font-black ${state.breakerPreset === preset.label ? 'text-[#E8761A]' : 'text-white'}`}>
                               {preset.label}
                             </span>
-                            <span className="block text-[10px] text-white/40 mt-0.5">{preset.desc}</span>
+                            <span className="block text-[10px] text-white/60 mt-0.5">{preset.desc}</span>
                           </button>
                         ))}
                       </div>
@@ -511,11 +511,11 @@ export function OhmCalculator() {
                         <span className={`font-condensed block text-lg font-black ${state.breakerPreset === preset.label ? 'text-[#E8761A]' : 'text-white'}`}>
                           {preset.label}
                         </span>
-                        <span className="block text-[10px] text-white/40 mt-0.5">{preset.desc}</span>
+                        <span className="block text-[10px] text-white/60 mt-0.5">{preset.desc}</span>
                       </button>
                     ))}
                   </div>
-                  <p className="mt-3 text-[11px] text-white/30">
+                  <p className="mt-3 text-[11px] text-white/70">
                     Kabelweerstand: 25 m / 2,5 mm² Cu — automatisch verwerkt
                   </p>
                 </>
@@ -573,12 +573,12 @@ export function OhmCalculator() {
               <ThresholdBar result={result} />
 
               <div className="mt-5 rounded-xl border border-white/8 bg-white/3 p-4">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/30">Formule</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/70">Formule</p>
                 <p className="mb-3 font-mono text-sm text-[#E8761A]">{result.formula}</p>
                 <div className="flex flex-col gap-1">
                   {result.formulaSteps.map((step, i) => (
-                    <div key={i} className="flex gap-2 text-xs text-white/50">
-                      <span className="shrink-0 text-white/25">{i + 1}.</span>
+                    <div key={i} className="flex gap-2 text-xs text-white/70">
+                      <span className="shrink-0 text-white/60">{i + 1}.</span>
                       <span>{step}</span>
                     </div>
                   ))}
@@ -587,7 +587,7 @@ export function OhmCalculator() {
 
               <div className="mt-5 rounded-xl border border-[#E8761A]/20 bg-[#E8761A]/5 p-4">
                 <p className="mb-1 text-sm font-semibold text-white">Hoe diep moet de aardpen?</p>
-                <p className="mb-3 text-xs text-white/50">
+                <p className="mb-3 text-xs text-white/70">
                   De Pendiepte Calculator berekent de exacte penlengte voor Ra ≤ {fmtR(result.ontwerpdoel)} Ω
                   op basis van uw locatie en BRO bodemdata. Inclusief Ra-haalbaarheidscheck.
                 </p>

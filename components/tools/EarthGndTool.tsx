@@ -192,7 +192,7 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
     <div className="space-y-6 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 text-zinc-100">
       <section className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-950/50 p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-orange-400">Adres & bodemdata</h2>
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-zinc-300">
           Gratis gebruikt GeoTOP op 500m raster. Pro gebruikt BRO + PDOK op huisnummerniveau.
         </p>
         <div className="grid gap-3 md:grid-cols-4">
@@ -211,7 +211,7 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
 
         {soil.fallbackRequired && (
           <div className="grid max-w-sm gap-2">
-            <label className="text-xs uppercase tracking-wider text-zinc-400">Handmatige grondsoort</label>
+            <label className="text-xs uppercase tracking-wider text-zinc-300">Handmatige grondsoort</label>
             <select
               className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2"
               value={soilFallback}
@@ -306,7 +306,7 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
           <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4">
             <p className="text-xs text-zinc-300">Vaste aannames op achtergrond: kabellengte 25m, kabeldoorsnede 2.5mm², pendiameter 0.014m, aantal pennen berekend in adviesfase.</p>
             <p className="mt-2 text-2xl font-black text-white">{ohmResult ? `${ohmResult.maxResistance.toFixed(2)} Ω` : 'Vul invoer aan'}</p>
-            {ohmResult && <p className="text-xs text-zinc-400">Norm: {ohmResult.norm}</p>}
+            {ohmResult && <p className="text-xs text-zinc-300">Norm: {ohmResult.norm}</p>}
           </div>
         </section>
       ) : (
@@ -315,10 +315,10 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
           <label className="text-xs">Doelweerstand (Ω)
             <input className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1" type="number" value={targetResistance} onChange={(e) => setTargetResistance(Number(e.target.value || 0))} />
           </label>
-          <p className="text-xs text-zinc-400">Pendiameter is vast ingesteld op 0.014m.</p>
+          <p className="text-xs text-zinc-300">Pendiameter is vast ingesteld op 0.014m.</p>
           <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4">
             <p className="text-2xl font-black text-white">{diepteResult.depth.toFixed(2)} m</p>
-            <p className="text-xs text-zinc-400">Gehaalde weerstand: {diepteResult.achievedResistance.toFixed(2)} Ω</p>
+            <p className="text-xs text-zinc-300">Gehaalde weerstand: {diepteResult.achievedResistance.toFixed(2)} Ω</p>
           </div>
         </section>
       )}
@@ -327,7 +327,7 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
         <section className="rounded-xl border border-zinc-700 bg-zinc-950/40 p-4">
           <h3 className="font-semibold">Risicoklasse</h3>
           <p className="mt-1 text-3xl font-black text-orange-300">Klasse {computedRisk}</p>
-          <p className="text-xs text-zinc-400">Gebaseerd op rho, GHG en pH van opgehaalde bodemdata.</p>
+          <p className="text-xs text-zinc-300">Gebaseerd op rho, GHG en pH van opgehaalde bodemdata.</p>
         </section>
       )}
     </div>

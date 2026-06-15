@@ -95,7 +95,7 @@ function fmt(v: number) {
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/30">{children}</p>;
+  return <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/70">{children}</p>;
 }
 
 // ─── Soil Cross-Section Visualization ────────────────────────────────────────
@@ -319,7 +319,7 @@ function RvsDiepteGraph({
           </g>
         ))}
       </svg>
-      <p className="mt-1 text-[10px] text-white/25 leading-relaxed">
+      <p className="mt-1 text-[10px] text-white/60 leading-relaxed">
         Weerstand van één pen vs. diepte. Blijft de curve boven de doellijn, dan haalt één pen het doel
         niet — vandaar parallelle pennen of een alternatief.
       </p>
@@ -333,17 +333,17 @@ function LoginGate() {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/3 p-8 text-center">
       <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5">
-        <svg className="h-5 w-5 text-white/40" viewBox="0 0 24 24" fill="currentColor">
+        <svg className="h-5 w-5 text-white/60" viewBox="0 0 24 24" fill="currentColor">
           <path d="M18 10h-1V7A5 5 0 0 0 7 7v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-6 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3-7H9V7a3 3 0 0 1 6 0v3z"/>
         </svg>
       </div>
       <h3 className="mb-2 font-condensed text-xl font-bold text-white">Inloggen vereist</h3>
-      <p className="mb-5 text-sm text-white/50">De Pendiepte Calculator is beschikbaar voor abonnees.</p>
+      <p className="mb-5 text-sm text-white/70">De Pendiepte Calculator is beschikbaar voor abonnees.</p>
       <div className="flex flex-col items-center gap-2">
         <Link href="/login" className="rounded-lg bg-[#E8761A] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#d06510] transition-colors">
           Inloggen of registreren
         </Link>
-        <Link href="/pricing" className="text-xs text-white/40 hover:text-white/70 transition-colors">Bekijk tarieven</Link>
+        <Link href="/pricing" className="text-xs text-white/60 hover:text-white/70 transition-colors">Bekijk tarieven</Link>
       </div>
     </div>
   );
@@ -353,7 +353,7 @@ function CreditsGate({ plan }: { plan: string }) {
   return (
     <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-8 text-center">
       <h3 className="mb-2 font-condensed text-xl font-bold text-white">Geen credits</h3>
-      <p className="mb-5 text-sm text-white/50">
+      <p className="mb-5 text-sm text-white/70">
         {plan === 'gratis' ? 'De Pendiepte Calculator vereist een abonnement of losse credits.' : 'Je credits zijn op.'}
       </p>
       <Link href="/pricing" className="rounded-lg bg-[#E8761A] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#d06510] transition-colors">
@@ -369,12 +369,12 @@ function ScenarioCard({ label, sublabel, dimension, dimensionUnit, resistance, d
   return (
     <div className={`rounded-xl border p-4 transition-opacity ${dimmed ? 'border-white/5 opacity-50' : 'border-white/10'}`}>
       <p className="mb-0.5 text-xs font-semibold text-white/60">{label}</p>
-      <p className="mb-3 text-[11px] text-white/30">{sublabel}</p>
+      <p className="mb-3 text-[11px] text-white/70">{sublabel}</p>
       <div className="flex items-baseline gap-1 mb-1">
         <span className="font-condensed text-3xl font-black text-white">{dimension.toFixed(2)}</span>
-        <span className="text-sm text-white/40">{dimensionUnit}</span>
+        <span className="text-sm text-white/60">{dimensionUnit}</span>
       </div>
-      <div className="text-xs text-white/40">{resistance.toFixed(2)} Ω berekend</div>
+      <div className="text-xs text-white/60">{resistance.toFixed(2)} Ω berekend</div>
     </div>
   );
 }
@@ -383,8 +383,8 @@ function RaHaalbaarheidsCheck({ raGemiddeld, raOngunstig }: { raGemiddeld: numbe
   return (
     <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
       <div className="border-b border-white/6 px-5 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">Ra-haalbaarheidscheck</p>
-        <p className="mt-0.5 text-xs text-white/30">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Ra-haalbaarheidscheck</p>
+        <p className="mt-0.5 text-xs text-white/70">
           Welke beveiligingen zijn haalbaar met Ra ≈ {fmt(raOngunstig)} Ω (ongunstig scenario)?
         </p>
       </div>
@@ -411,7 +411,7 @@ function RaHaalbaarheidsCheck({ raGemiddeld, raOngunstig }: { raGemiddeld: numbe
                 )}
               </div>
               <span className={`shrink-0 font-mono text-xs ${
-                group === 'breaker' ? 'text-orange-400/70' : 'text-white/30'
+                group === 'breaker' ? 'text-orange-400/70' : 'text-white/70'
               }`}>
                 ≤ {fmt(max)} Ω
               </span>
@@ -420,7 +420,7 @@ function RaHaalbaarheidsCheck({ raGemiddeld, raOngunstig }: { raGemiddeld: numbe
         })}
       </div>
       {raOngunstig > 0.625 && (
-        <div className="border-t border-white/6 px-5 py-3 text-[10px] text-white/30">
+        <div className="border-t border-white/6 px-5 py-3 text-[10px] text-white/70">
           TT zonder aardlek vereist Ra &lt; 1 Ω — in de meeste Nederlandse grond niet haalbaar met één verticale pen.
           Overweeg een aardlekschakelaar (30 mA → max 166 Ω).
         </div>
@@ -443,9 +443,9 @@ function CorrosieKaart({ cc }: { cc: CorrosionClass }) {
         <p className={`text-xs font-semibold uppercase tracking-wider ${colors.text}`}>
           Corrosieclassificatie — {cc.label}
         </p>
-        <span className="ml-auto text-[10px] text-white/30">{cc.lifetimeYears}</span>
+        <span className="ml-auto text-[10px] text-white/70">{cc.lifetimeYears}</span>
       </div>
-      <p className="text-xs text-white/55 leading-relaxed">{cc.advies}</p>
+      <p className="text-xs text-white/72 leading-relaxed">{cc.advies}</p>
     </div>
   );
 }
@@ -594,21 +594,21 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           {electrodeType === 'lint' && (
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
-                <p className="mb-1.5 text-xs text-white/50">Ingraafdiepte</p>
+                <p className="mb-1.5 text-xs text-white/70">Ingraafdiepte</p>
                 <div className="flex items-center gap-2">
                   <input type="number" min="0.3" max="2" step="0.1" value={lintBurialDepth}
                     onChange={e => { setLintDepth(Number(e.target.value)); setCalcResult(null); }}
                     className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none" />
-                  <span className="text-xs text-white/40">m</span>
+                  <span className="text-xs text-white/60">m</span>
                 </div>
               </div>
               <div>
-                <p className="mb-1.5 text-xs text-white/50">Geleiderdiameter</p>
+                <p className="mb-1.5 text-xs text-white/70">Geleiderdiameter</p>
                 <div className="flex items-center gap-2">
                   <input type="number" min="0.006" max="0.025" step="0.001" value={lintDiameter}
                     onChange={e => { setLintDiam(Number(e.target.value)); setCalcResult(null); }}
                     className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none" />
-                  <span className="text-xs text-white/40">m</span>
+                  <span className="text-xs text-white/60">m</span>
                 </div>
               </div>
             </div>
@@ -626,7 +626,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
           {PRESET_GROUPS.map(group => (
             <div key={group.label} className="mb-3">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/25">{group.label}</p>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/60">{group.label}</p>
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                 {group.items.map(p => (
                   <button
@@ -639,7 +639,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                     }`}
                   >
                     <span className="block font-semibold">{p.label}</span>
-                    <span className="block text-[10px] text-white/30 mt-0.5">{p.sublabel}</span>
+                    <span className="block text-[10px] text-white/70 mt-0.5">{p.sublabel}</span>
                   </button>
                 ))}
               </div>
@@ -660,13 +660,13 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               onChange={e => { setTarget(Number(e.target.value)); setCalcResult(null); }}
               className="w-28 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
             />
-            <span className="text-sm text-white/40">Ω — handmatig</span>
+            <span className="text-sm text-white/60">Ω — handmatig</span>
           </div>
         </div>
 
         {/* ρ slider */}
         <div className="mb-4">
-          <p className="mb-2 text-xs text-white/50">
+          <p className="mb-2 text-xs text-white/70">
             Bodemweerstand ρ
             {soilData && <span className="ml-2 text-green-400">← BRO: {soilData.dominantRho} Ω·m</span>}
           </p>
@@ -678,12 +678,12 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               <input type="number" min="1" value={activeRho}
                 onChange={e => { setRho(Number(e.target.value)); setCalcResult(null); }}
                 className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none" />
-              <span className="text-xs text-white/40">Ω·m</span>
+              <span className="text-xs text-white/60">Ω·m</span>
             </div>
           </div>
           {/* Two-layer indicator */}
           {lithoClass && (
-            <div className="mt-2 flex items-center gap-3 text-[10px] text-white/30">
+            <div className="mt-2 flex items-center gap-3 text-[10px] text-white/70">
               <span className="inline-block h-2 w-3 rounded-sm bg-[#78491A]/70" />
               droog: {calcResult?.rhoDry ?? '—'} Ω·m
               <span className="inline-block h-2 w-3 rounded-sm bg-[#1A3A5C]/90" />
@@ -694,7 +694,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
         {/* GW depth */}
         <div className="mb-4">
-          <p className="mb-2 text-xs text-white/50">
+          <p className="mb-2 text-xs text-white/70">
             GHG grondwaterstand
             {soilData?.groundwaterDepth != null && soilData.gwSource === 'peilbuis' && (
               <span className="ml-1 text-green-400" title="Afgeleid uit BRO-peilbuizen via NAP-correctie (maaiveld_NAP − filterdiepte_NAP)">← peilbuis ✓</span>
@@ -702,13 +702,13 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             {soilData?.groundwaterDepth != null && !soilData.gwSource && (
               <span className="ml-1 text-yellow-400" title="Grondwaterbron niet bepaald — controleer handmatig">← BRO (verifieer)</span>
             )}
-            <span className="ml-1 text-white/25">(bepaalt droog/nat-zone in berekening)</span>
+            <span className="ml-1 text-white/60">(bepaalt droog/nat-zone in berekening)</span>
           </p>
           <div className="flex items-center gap-2">
             <input type="number" min="0" max="20" step="0.5" value={groundwaterDepth}
               onChange={e => { setGw(Number(e.target.value)); setCalcResult(null); }}
               className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none" />
-            <span className="text-xs text-white/40">m onder maaiveld</span>
+            <span className="text-xs text-white/60">m onder maaiveld</span>
           </div>
           {soilData?.groundwaterDepth == null && (
             <p className="mt-1 text-[10px] text-yellow-500/60">
@@ -719,15 +719,15 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
         {/* pH */}
         <div>
-          <p className="mb-2 text-xs text-white/50">
+          <p className="mb-2 text-xs text-white/70">
             Bodem pH
-            <span className="ml-1 text-white/25">(corrosieclassificatie — geen invloed op pendiepte)</span>
+            <span className="ml-1 text-white/60">(corrosieclassificatie — geen invloed op pendiepte)</span>
           </p>
           <div className="flex items-center gap-2">
             <input type="number" min="0" max="14" step="0.1" value={ph}
               onChange={e => { setPh(Number(e.target.value)); setCalcResult(null); }}
               className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none" />
-            <span className="text-xs text-white/40">pH</span>
+            <span className="text-xs text-white/60">pH</span>
           </div>
         </div>
       </div>
@@ -753,7 +753,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           {calcResult.electrodeType === 'pen' && rodLength > 0 && (
             <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
               <div className="border-b border-white/6 px-5 py-3 flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">
                   Aanbevolen configuratie
                 </p>
                 <p className="text-xs font-bold text-white">
@@ -771,7 +771,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 />
                 {/* Two-layer legend */}
                 {calcResult.rhoDry && calcResult.rhoWet && (
-                  <div className="mt-2 flex items-center gap-4 text-[10px] text-white/40">
+                  <div className="mt-2 flex items-center gap-4 text-[10px] text-white/60">
                     <span className="flex items-center gap-1.5">
                       <span className="inline-block h-2.5 w-4 rounded-sm bg-[#78491A]/70" />
                       Droge zone — ρ ≈ {calcResult.rhoDry} Ω·m
@@ -792,7 +792,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               <span className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">
                 Drie scenario&apos;s
               </span>
-              <span className="text-xs text-white/30">
+              <span className="text-xs text-white/70">
                 GHG {groundwaterDepth}m · doel ≤ {targetResistance} Ω
               </span>
             </div>
@@ -830,21 +830,21 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-xs text-white/60">
                   <div>
-                    <span className="text-white/30">Diepte per pen</span>
+                    <span className="text-white/70">Diepte per pen</span>
                     <p className="font-semibold text-white">
                       {scenarioDim(calcResult.scenarios.gemiddeld as DiepteResult).toFixed(2)} m
                     </p>
                   </div>
                   <div>
-                    <span className="text-white/30">Min. onderlinge afstand</span>
+                    <span className="text-white/70">Min. onderlinge afstand</span>
                     <p className="font-semibold text-white">{calcResult.parallelAdvice.minAfstand} m</p>
                   </div>
                   <div>
-                    <span className="text-white/30">Ra enkelvoudig</span>
+                    <span className="text-white/70">Ra enkelvoudig</span>
                     <p className="font-semibold text-white">{calcResult.parallelAdvice.rSingle} Ω</p>
                   </div>
                   <div>
-                    <span className="text-white/30">Ra parallel (incl. koppeling)</span>
+                    <span className="text-white/70">Ra parallel (incl. koppeling)</span>
                     <p className="font-semibold text-[#E8761A]">{calcResult.parallelAdvice.rParallel} Ω</p>
                   </div>
                 </div>
@@ -855,7 +855,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           {/* Resistance vs depth graph (pen only, with two-layer data) */}
           {calcResult.electrodeType === 'pen' && calcResult.rhoDry && calcResult.rhoWet && (
             <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/40">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
                 Weerstand vs. diepte (gemiddeld scenario)
               </p>
               <RvsDiepteGraph
@@ -895,7 +895,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           <CorrosieKaart cc={calcResult.corrosionClass} />
 
           {/* Disclaimer */}
-          <p className="text-[11px] leading-relaxed text-white/25">
+          <p className="text-[11px] leading-relaxed text-white/60">
             Berekening met 2-laags bodemmodel (Dwight-formule): droge zone boven GHG (ρ ≈ {calcResult.rhoDry} Ω·m),
             verzadigde zone onder GHG (ρ ≈ {calcResult.rhoWet} Ω·m).
             De drie scenario&apos;s modelleren het grondwaterpeil in natte (GHG), gemiddelde (+1,5 m)

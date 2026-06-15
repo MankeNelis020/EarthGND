@@ -84,14 +84,14 @@ export function Navbar() {
           <div className="hidden items-center gap-0.5 md:flex">
             <button
               onClick={() => switchLocale('nl')}
-              className={`px-1.5 py-1 text-xs font-semibold transition-colors ${locale === 'nl' ? 'text-[#E8761A]' : 'text-white/40 hover:text-white/70'}`}
+              className={`px-1.5 py-1 text-xs font-semibold transition-colors ${locale === 'nl' ? 'text-[#E8761A]' : 'text-white/60 hover:text-white/70'}`}
             >
               NL
             </button>
-            <span className="text-white/20 text-xs">/</span>
+            <span className="text-white/70 text-xs">/</span>
             <button
               onClick={() => switchLocale('en')}
-              className={`px-1.5 py-1 text-xs font-semibold transition-colors ${locale === 'en' ? 'text-[#E8761A]' : 'text-white/40 hover:text-white/70'}`}
+              className={`px-1.5 py-1 text-xs font-semibold transition-colors ${locale === 'en' ? 'text-[#E8761A]' : 'text-white/60 hover:text-white/70'}`}
             >
               EN
             </button>
@@ -179,7 +179,7 @@ function NavLink({ href, label, active, locked }: { href: string; label: string;
     >
       {label}
       {locked && (
-        <svg className="h-3 w-3 text-white/30" viewBox="0 0 24 24" fill="currentColor">
+        <svg className="h-3 w-3 text-white/70" viewBox="0 0 24 24" fill="currentColor">
           <path d="M18 10h-1V7A5 5 0 0 0 7 7v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-6 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3-7H9V7a3 3 0 0 1 6 0v3z"/>
         </svg>
       )}
