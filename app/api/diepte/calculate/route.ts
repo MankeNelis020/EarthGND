@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { deductCredit } from '@/lib/credits';
 import {
   calcDiepte, calcLint, calcParallelRa, calcCorrosionClass,
-  calcDiepteRiskClass,
+  calcDiepteRiskClass, lithoClassToRhoDry, lithoClassToRhoWet, calcRhoEffective,
 } from '@/lib/calculations';
 
 export const runtime = 'nodejs';
@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     electrodeType = 'pen',
     lintBurialDepth,
     lintConductorDiameter,
+    lithoClass,
   } = body as {
     rho: number;
     targetResistance: number;
@@ -40,21 +41,37 @@ export async function POST(request: NextRequest) {
     electrodeType?: 'pen' | 'lint';
     lintBurialDepth?: number;
     lintConductorDiameter?: number;
+    lithoClass?: number;
   };
+
+  // ─── Two-layer ρ values ───────────────────────────────────────────────────
+  // When lithoClass is known (BRO data), use calibrated dry/wet values.
+  // Otherwise fall back to physics-based factors relative to the moist rho.
+  const rhoDry = lithoClass ? lithoClassToRhoDry(lithoClass) : Math.round(rho * 2.2);
+  const rhoWet = lithoClass ? lithoClassToRhoWet(lithoClass) : Math.round(rho * 0.45);
+
+  // ─── Seasonal groundwater depth variation ─────────────────────────────────
+  // groundwaterDepth = GHG (hoogste grondwaterstand, meest gunstig).
+  // Gemiddeld en ongunstig zijn schattingen van seizoensdalingen.
+  const gwGunstig   = groundwaterDepth;          // natte periode: GHG
+  const gwGemiddeld = groundwaterDepth + 1.5;    // gemiddeld jaar
+  const gwOngunstig = groundwaterDepth + 3.0;    // droge zomer
 
   let scenarios: { gunstig: unknown; gemiddeld: unknown; ongunstig: unknown };
 
   if (electrodeType === 'lint') {
+    const burial = lintBurialDepth ?? 0.8;
+    // Horizontal lint at fixed depth: use dry or wet based on whether burial > gwDepth
     scenarios = {
-      gunstig:   calcLint({ rho: rho * 0.7,  targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter }),
-      gemiddeld: calcLint({ rho,              targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter }),
-      ongunstig: calcLint({ rho: rho * 1.5,  targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter }),
+      gunstig:   calcLint({ rho: burial < gwGunstig   ? rhoWet : rhoDry, targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter }),
+      gemiddeld: calcLint({ rho: burial < gwGemiddeld ? rhoWet : rhoDry, targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter }),
+      ongunstig: calcLint({ rho: burial < gwOngunstig ? rhoWet : rhoDry, targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter }),
     };
   } else {
     scenarios = {
-      gunstig:   calcDiepte({ rho: rho * 0.7,  targetResistance }),
-      gemiddeld: calcDiepte({ rho,              targetResistance }),
-      ongunstig: calcDiepte({ rho: rho * 1.5,  targetResistance }),
+      gunstig:   calcDiepte({ rho, targetResistance, gwDepth: gwGunstig,   rhoDry, rhoWet }),
+      gemiddeld: calcDiepte({ rho, targetResistance, gwDepth: gwGemiddeld, rhoDry, rhoWet }),
+      ongunstig: calcDiepte({ rho, targetResistance, gwDepth: gwOngunstig, rhoDry, rhoWet }),
     };
   }
 
@@ -70,11 +87,13 @@ export async function POST(request: NextRequest) {
 
   const corrosionClass = calcCorrosionClass(ph);
 
-  // Parallel advice: for pen only, when depth > 12 m
+  // Parallel advice: for pen only, when single rod depth > 12 m
   let parallelAdvice = null;
   if (electrodeType === 'pen' && primaryDimension > 12) {
     const n = primaryDimension > 20 ? 3 : 2;
-    const parallel = calcParallelRa(rho, primaryDimension, ROD_DIAMETER, n);
+    // Use effective ρ at the rod depth for the gemiddeld scenario
+    const rhoForParallel = calcRhoEffective(rhoDry, rhoWet, gwGemiddeld, primaryDimension);
+    const parallel = calcParallelRa(rhoForParallel, primaryDimension, ROD_DIAMETER, n);
     parallelAdvice = {
       aantalPennen: n,
       minAfstand: parallel.spacingMin,
@@ -87,7 +106,7 @@ export async function POST(request: NextRequest) {
     user_id: user.id,
     tool: 'diepte',
     postcode: postcode ?? null,
-    input: { rho, targetResistance, groundwaterDepth, ph, electrodeType },
+    input: { rho, targetResistance, groundwaterDepth, ph, electrodeType, lithoClass },
     resultaat: { dimension: primaryDimension, achievedResistance: gemiddeld.achievedResistance },
     risicoklasse: riskClass.riskClass,
     credit_gebruikt: true,
@@ -100,5 +119,11 @@ export async function POST(request: NextRequest) {
     corrosionClass,
     parallelAdvice,
     creditsRemaining: remaining,
+    // Two-layer model info — used by UI for cross-section and graph
+    rhoDry,
+    rhoWet,
+    gwGunstig,
+    gwGemiddeld,
+    gwOngunstig,
   });
 }

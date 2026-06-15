@@ -218,9 +218,12 @@ export function calcOhmWizard(input: OhmWizardInput): OhmWizardResult {
 // ─── Diepte Calculator (Dwight formula) ──────────────────────────────────────
 
 export interface DiepteInput {
-  rho: number;           // effective soil resistivity (Ω·m) — caller applies seasonal factor
+  rho: number;            // fallback single-layer ρ (Ω·m) — used when gwDepth/rhoDry/rhoWet absent
   targetResistance: number;
-  rodDiameter?: number;  // default 0.014 m
+  rodDiameter?: number;   // default 0.014 m
+  gwDepth?: number;       // groundwater table depth (m below surface) — enables two-layer model
+  rhoDry?: number;        // dry-zone ρ (above water table)
+  rhoWet?: number;        // saturated-zone ρ (below water table)
 }
 
 export interface DiepteResult {
@@ -228,15 +231,18 @@ export interface DiepteResult {
   achievedResistance: number;
 }
 
-// pH and groundwater are intentionally excluded from the resistance formula.
-// pH affects corrosion rate, not resistivity. Groundwater variation is already
-// captured by the three seasonal scenarios (rho × 0.7 / 1.0 / 1.5).
 export function calcDiepte(input: DiepteInput): DiepteResult {
   const d = input.rodDiameter ?? 0.014;
+  const { gwDepth, rhoDry, rhoWet, rho } = input;
+  const useTwoLayer = gwDepth != null && rhoDry != null && rhoWet != null;
+
   let L = 1.0;
   let R = Infinity;
   for (let i = 0; i < 400; i++) {
-    R = (input.rho / (2 * Math.PI * L)) * Math.log((4 * L) / d);
+    const rhoEff = useTwoLayer
+      ? calcRhoEffective(rhoDry!, rhoWet!, gwDepth!, L)
+      : rho;
+    R = (rhoEff / (2 * Math.PI * L)) * Math.log((4 * L) / d);
     if (R <= input.targetResistance) break;
     L += 0.25;
   }
@@ -359,6 +365,51 @@ export const LITHO_CLASS_TO_RHO: Record<number, number> = {
 
 export function lithoClassToRho(lithoClass: number): number {
   return LITHO_CLASS_TO_RHO[lithoClass] ?? 125;
+}
+
+// ─── Two-layer soil model (dry above / saturated below groundwater table) ────
+// Values calibrated from IEEE Std 80, CIGRE TB 95, BS7430.
+
+export const LITHO_CLASS_TO_RHO_DRY: Record<number, number> = {
+  1: 80,   // klei, droog
+  2: 150,  // leem, droog
+  3: 300,  // zand, droog
+  4: 1000, // grind, droog
+  5: 3000, // veen, droog (zelden boven GWT in NL)
+  6: 4000, // rots
+};
+
+export const LITHO_CLASS_TO_RHO_WET: Record<number, number> = {
+  1: 15,   // klei, verzadigd
+  2: 40,   // leem, verzadigd
+  3: 60,   // zand, verzadigd
+  4: 150,  // grind, verzadigd
+  5: 400,  // veen, verzadigd
+  6: 4000, // rots (nauwelijks verschil)
+};
+
+export function lithoClassToRhoDry(lithoClass: number): number {
+  return LITHO_CLASS_TO_RHO_DRY[lithoClass] ?? 300;
+}
+
+export function lithoClassToRhoWet(lithoClass: number): number {
+  return LITHO_CLASS_TO_RHO_WET[lithoClass] ?? 60;
+}
+
+/**
+ * Weighted two-layer effective resistivity for a vertical rod of length L.
+ * Layer 1 (dry):  0 → gwDepth, resistivity = rhoDry
+ * Layer 2 (wet):  gwDepth → L, resistivity = rhoWet
+ */
+export function calcRhoEffective(
+  rhoDry: number,
+  rhoWet: number,
+  gwDepth: number,
+  rodLength: number,
+): number {
+  if (gwDepth <= 0) return rhoWet;
+  if (gwDepth >= rodLength) return rhoDry;
+  return (rhoDry * gwDepth + rhoWet * (rodLength - gwDepth)) / rodLength;
 }
 
 // ─── Risk class (NEN 62305 / EN 50522) ───────────────────────────────────────
