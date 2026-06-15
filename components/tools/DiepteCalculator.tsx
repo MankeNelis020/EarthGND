@@ -495,6 +495,10 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   if (!user) return <LoginGate />;
   if (profile && profile.credits_left <= 0) return <CreditsGate plan={profile.plan} />;
 
+  // Profile is fetched async after auth — treat null (still loading) as non-pro
+  // to avoid showing pro UI before we know the plan. plan 'gratis' is the free tier.
+  const isPro = profile !== null && profile.plan !== 'gratis';
+
   const isZonderAardlek = ZONDER_AARDLEK_VALUES.has(targetResistance);
   const activeRho = soilData?.dominantRho ?? rho;
   // Extract lithoClass from BRO data for two-layer model
@@ -553,7 +557,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   return (
     <div className="flex flex-col gap-4">
       {/* Soil / postcode lookup */}
-      <PostcodeInput onRhoChange={setRho} onGroundwaterChange={d => d != null && setGw(d)} />
+      <PostcodeInput onRhoChange={setRho} onGroundwaterChange={d => d != null && setGw(d)} isPro={isPro} />
 
       {/* Credits */}
       {profile && (

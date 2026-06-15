@@ -147,24 +147,24 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                 <div className="mb-3 rounded-xl border border-orange-500/30 bg-orange-500/5 p-4">
                   <div className="mb-2 flex items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wider text-orange-400">
-                      Regionale schatting (gratis)
+                      BRO gronddata
                     </span>
                     <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-xs text-orange-400">
                       {soilData.dataSource === 'cpt' ? 'CPT sondering' :
                        soilData.dataSource === 'bhrgt' ? 'BRO boring' :
                        soilData.dataSource === 'geotop' ? 'GeoTOP model' :
-                       'Bodemkaart'}
+                       soilData.dataSource === 'bodemkaart' ? 'Bodemkaart' :
+                       'Regionaal'}
                     </span>
                   </div>
                   <p className="mb-3 text-xs text-zinc-400">
                     {soilData.dataSource === 'cpt'
-                      ? 'Grondsoort op basis van een nabijgelegen conuspenetratietest.'
+                      ? 'Grondsoort op basis van een nabijgelegen conuspenetratietest (BRO).'
                       : soilData.dataSource === 'bhrgt'
-                      ? 'Grondsoort op basis van een nabijgelegen geotechnische boring.'
+                      ? 'Grondsoort op basis van een nabijgelegen geotechnische boring (BRO).'
                       : soilData.dataSource === 'geotop'
                       ? 'Grondsoort uit het nationaal GeoTOP voxelmodel (TNO/BRO).'
                       : 'Grondsoort uit de Bodemkaart 1:50.000 (oppervlaktelaag).'}
-                    {' '}Exacte per-adres meting beschikbaar met Pro.
                   </p>
                   <SoilTable samples={soilData.samples} />
                   <div className="mt-3 flex items-center gap-3">
@@ -175,25 +175,30 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                       Toepassen (ρ = {soilData.dominantRho} Ω·m)
                     </button>
                     <a href="/pricing" className="text-xs text-zinc-500 underline hover:text-orange-400">
-                      Upgrade voor exacte meting →
+                      Pendiepteberekening → Pro
                     </a>
                   </div>
                 </div>
               )}
 
               {/* BRO result — pro tier */}
-              {soilData && isPro && (
+              {soilData && isPro && soilData.source === 'bro' && (
                 <div className="mb-3 rounded-xl border border-green-500/30 bg-green-500/5 p-4">
                   <div className="mb-2 flex items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wider text-green-400">
-                      {soilData.dataSource === 'cpt' ? 'CPT sondering — Pro' :
-                       soilData.dataSource === 'bhrgt' ? 'BRO boring — Pro' :
-                       soilData.dataSource === 'geotop' ? 'GeoTOP model — Pro' :
-                       'Bodemkaart — Pro'}
+                      {soilData.dataSource === 'cpt' ? 'CPT sondering' :
+                       soilData.dataSource === 'bhrgt' ? 'BRO boring' :
+                       soilData.dataSource === 'geotop' ? 'GeoTOP model' :
+                       soilData.dataSource === 'bodemkaart' ? 'Bodemkaart' :
+                       'BRO gronddata'}
                     </span>
                     {soilData.groundwaterDepth != null && (
-                      <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                      <span
+                        className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400"
+                        title={soilData.gwSource === 'peilbuis' ? 'GHG afgeleid uit BRO-peilbuizen via NAP-correctie' : 'Grondwaterstand — verifieer lokaal'}
+                      >
                         GW: {soilData.groundwaterDepth.toFixed(1)} m
+                        {soilData.gwSource === 'peilbuis' ? ' ✓' : ' ⚠'}
                       </span>
                     )}
                   </div>
