@@ -22,6 +22,8 @@ export interface BroResult {
    *   null       — no monitoring wells found in the area; user should verify manually
    */
   gwSource?: 'peilbuis' | null;
+  /** Distance in km from query point to the boring/sondering that provided soil data. */
+  boringAfstand?: number;
   straatnaam?: string;
   huisnummer?: string;
   woonplaats?: string;
@@ -81,13 +83,28 @@ async function fetchBroCptSamples(lat: number, lon: number): Promise<BroDepthSam
         const firstDepth = parseFloat(rows[0][1]);
         if (isNaN(firstDepth) || firstDepth > 3) continue;
 
+        // Sentinel value -999999 means the depth column is missing/invalid.
+        // In that case we can't do depth-specific sampling, so use the median
+        // qc across all rows as a uniform profile estimate.
+        const depthsMissing = firstDepth < -999;
+
         return BRO_DEPTHS.map((targetDepth) => {
-          const best = rows.reduce((prev, cur) => {
-            const pd = parseFloat(prev[1]);
-            const cd = parseFloat(cur[1]);
-            return Math.abs(cd - targetDepth) < Math.abs(pd - targetDepth) ? cur : prev;
-          });
-          const qc = parseFloat(best[3]);
+          let qc: number;
+          if (depthsMissing) {
+            // No depth info: use median qc for a bulk soil-type estimate
+            const qcValues = rows
+              .map((r) => parseFloat(r[3]))
+              .filter((v) => isFinite(v) && v > -999)
+              .sort((a, b) => a - b);
+            qc = qcValues.length ? qcValues[Math.floor(qcValues.length / 2)] : NaN;
+          } else {
+            const best = rows.reduce((prev, cur) => {
+              const pd = parseFloat(prev[1]);
+              const cd = parseFloat(cur[1]);
+              return Math.abs(cd - targetDepth) < Math.abs(pd - targetDepth) ? cur : prev;
+            });
+            qc = parseFloat(best[3]);
+          }
           const lithoClass = isNaN(qc) || qc <= -999 ? 3 : qcToLithoClass(qc);
           return { depth: -targetDepth, lithoClass, rho: lithoClassToRho(lithoClass) };
         });
@@ -122,15 +139,15 @@ function bhrgtLayerToLithoClass(sizeFraction: string, organicClass: string): num
 
 // Tries progressively larger radii (2 → 5 → 10 km) so rural areas are covered.
 // Returns null only when no usable boring exists within 10 km.
-async function fetchBhrGtSamples(lat: number, lon: number): Promise<BroDepthSample[] | null> {
+async function fetchBhrGtSamples(lat: number, lon: number, rdX: number, rdY: number): Promise<{ samples: BroDepthSample[]; afstand: number } | null> {
   for (const radius of [2, 5, 10]) {
-    const result = await tryBhrGtAtRadius(lat, lon, radius);
+    const result = await tryBhrGtAtRadius(lat, lon, rdX, rdY, radius);
     if (result) return result;
   }
   return null;
 }
 
-async function tryBhrGtAtRadius(lat: number, lon: number, radius: number): Promise<BroDepthSample[] | null> {
+async function tryBhrGtAtRadius(lat: number, lon: number, rdX: number, rdY: number, radius: number): Promise<{ samples: BroDepthSample[]; afstand: number } | null> {
   try {
     const searchRes = await fetch('https://publiek.broservices.nl/sr/bhrgt/v2/characteristics/searches', {
       method: 'POST',
@@ -164,6 +181,7 @@ async function tryBhrGtAtRadius(lat: number, lon: number, radius: number): Promi
           lowerBoundary: number;
           lithoClass: number;
           rho: number;
+          hasData: boolean;
         }
 
         const layers: BhrLayer[] = layerXmls
@@ -172,20 +190,44 @@ async function tryBhrGtAtRadius(lat: number, lon: number, radius: number): Promi
             const lb = parseFloat(lxml.match(/<bhrgtcom:lowerBoundary[^>]*>([^<]+)/)?.[1] ?? 'NaN');
             const sizeFraction = lxml.match(/<bhrgtcom:sizeFraction[^>]*>([^<]+)/)?.[1] ?? '';
             const organicClass = lxml.match(/<bhrgtcom:organicMatterContentClass[^>]*>([^<]+)/)?.[1] ?? '';
+            // A layer has useful data if it has an explicit soil fraction or a meaningful organic class.
+            // 'nietHumeus'/'nietOrganisch' alone (no sizeFraction) means "we noted it's not organic" —
+            // that's not enough to determine soil type; skip such borings.
+            const meaningfulOrganic = organicClass !== '' && !['nietHumeus', 'nietOrganisch'].includes(organicClass);
+            const hasData = sizeFraction !== '' || meaningfulOrganic;
             const lithoClass = bhrgtLayerToLithoClass(sizeFraction, organicClass);
-            return { upperBoundary: ub, lowerBoundary: lb, lithoClass, rho: lithoClassToRho(lithoClass) };
+            return { upperBoundary: ub, lowerBoundary: lb, lithoClass, rho: lithoClassToRho(lithoClass), hasData };
           })
           .filter((l) => !isNaN(l.upperBoundary) && !isNaN(l.lowerBoundary));
 
         if (!layers.length) continue;
 
+        // Skip borings where NO layer has identifiable soil type data.
+        // These borings only record that layers are not organic — not useful for ρ estimation.
+        if (!layers.some((l) => l.hasData)) continue;
+
+        // Parse boring RD coordinates from the XML to compute distance from query point.
+        const posMatch = bhrXml.match(/<gml:pos>([\d. -]+)<\/gml:pos>/);
+        let afstand = radius; // conservative fallback: assume at search radius edge
+        if (posMatch) {
+          const parts = posMatch[1].trim().split(/\s+/);
+          if (parts.length === 2) {
+            const bx = parseFloat(parts[0]);
+            const by = parseFloat(parts[1]);
+            if (isFinite(bx) && isFinite(by) && bx > 10000) { // RD coords are large numbers
+              afstand = Math.sqrt((bx - rdX) ** 2 + (by - rdY) ** 2) / 1000;
+            }
+          }
+        }
+
         const lastLayer = layers[layers.length - 1];
-        return BRO_DEPTHS.map((targetDepth) => {
+        const samples = BRO_DEPTHS.map((targetDepth) => {
           const layer =
             layers.find((l) => l.upperBoundary <= targetDepth && targetDepth < l.lowerBoundary) ??
             lastLayer;
           return { depth: -targetDepth, lithoClass: layer.lithoClass, rho: layer.rho };
         });
+        return { samples, afstand };
       } catch {
         continue;
       }
@@ -283,10 +325,10 @@ export async function fetchBroSoilData(
   lat: number,
   lon: number,
 ): Promise<BroResult> {
-  const [cptSamples, bhrgtSamples, geotopSamples, bodemkaartSamples, gwResult] =
+  const [cptSamples, bhrgtResult, geotopSamples, bodemkaartSamples, gwResult] =
     await Promise.all([
       fetchBroCptSamples(lat, lon),
-      fetchBhrGtSamples(lat, lon),
+      fetchBhrGtSamples(lat, lon, rdX, rdY),
       fetchGeoTopSamples(rdX, rdY),
       fetchBodemkaartSoilType(rdX, rdY),
       fetchGroundwaterDepth(rdX, rdY),
@@ -295,12 +337,24 @@ export async function fetchBroSoilData(
   const groundwaterDepth = gwResult?.depth ?? null;
   const gwSource = gwResult?.source ?? null;
 
-  const [samples, dataSource] =
-    cptSamples        ? ([cptSamples,        'cpt']        as const) :
-    bhrgtSamples      ? ([bhrgtSamples,      'bhrgt']      as const) :
-    geotopSamples     ? ([geotopSamples,     'geotop']     as const) :
-    bodemkaartSamples ? ([bodemkaartSamples, 'bodemkaart'] as const) :
-                        ([null,              undefined]     as const);
+  let samples: BroDepthSample[] | null = null;
+  let dataSource: BroResult['dataSource'];
+  let boringAfstand: number | undefined;
+
+  if (cptSamples) {
+    samples = cptSamples;
+    dataSource = 'cpt';
+  } else if (bhrgtResult) {
+    samples = bhrgtResult.samples;
+    dataSource = 'bhrgt';
+    boringAfstand = Math.round(bhrgtResult.afstand * 100) / 100;
+  } else if (geotopSamples) {
+    samples = geotopSamples;
+    dataSource = 'geotop';
+  } else if (bodemkaartSamples) {
+    samples = bodemkaartSamples;
+    dataSource = 'bodemkaart';
+  }
 
   if (!samples) {
     const fallbackSamples = BRO_DEPTHS.map((d) => ({
@@ -315,5 +369,5 @@ export async function fetchBroSoilData(
   samples.forEach((s) => { rhoCounts[s.rho] = (rhoCounts[s.rho] ?? 0) + 1; });
   const dominantRho = parseInt(Object.entries(rhoCounts).sort((a, b) => b[1] - a[1])[0][0]);
 
-  return { samples, dominantRho, groundwaterDepth, gwSource, source: 'bro', dataSource };
+  return { samples, dominantRho, groundwaterDepth, gwSource, boringAfstand, source: 'bro', dataSource };
 }

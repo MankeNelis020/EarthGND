@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
 
         const resend = new Resend(process.env.RESEND_API_KEY ?? 'placeholder');
         await resend.emails.send({
-          from: 'EarthGND <noreply@earthgnd.com>',
+          from: process.env.RESEND_FROM_EMAIL ?? 'EarthGND <noreply@earthgnd.nl>',
           to: customerEmail,
           subject: 'Betaling mislukt — update je betaalmethode',
           text: [

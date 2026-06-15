@@ -786,6 +786,16 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             </div>
           )}
 
+          {/* Convergence warning — target resistance unreachable within 100 m */}
+          {calcResult.electrodeType === 'pen' &&
+           !(calcResult.scenarios.ongunstig as DiepteResult).converged && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/8 px-4 py-3 text-xs text-red-300 leading-relaxed">
+              <strong className="font-semibold">Doelweerstand niet haalbaar</strong> — zelfs bij 100 m diepte wordt
+              Ra ≤ {targetResistance} Ω niet bereikt in het ongunstige scenario.
+              Overweeg een aardlekschakelaar (30 mA → max 166 Ω), aardmat, of meerdere pennen in een betere grondzone.
+            </div>
+          )}
+
           {/* Three scenarios */}
           <div className="rounded-2xl border border-white/10 p-5">
             <div className="mb-4 flex items-center justify-between">

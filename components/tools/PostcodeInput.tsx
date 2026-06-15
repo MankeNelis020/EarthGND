@@ -156,12 +156,19 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                        soilData.dataSource === 'bodemkaart' ? 'Bodemkaart' :
                        'Regionaal'}
                     </span>
+                    {soilData.boringAfstand != null && (
+                      <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                        {soilData.boringAfstand < 1
+                          ? `${Math.round(soilData.boringAfstand * 1000)} m`
+                          : `${soilData.boringAfstand.toFixed(1)} km`}
+                      </span>
+                    )}
                   </div>
                   <p className="mb-3 text-xs text-zinc-300">
                     {soilData.dataSource === 'cpt'
                       ? 'Grondsoort op basis van een nabijgelegen conuspenetratietest (BRO).'
                       : soilData.dataSource === 'bhrgt'
-                      ? 'Grondsoort op basis van een nabijgelegen geotechnische boring (BRO).'
+                      ? `Grondsoort op basis van een geotechnische boring (BRO)${soilData.boringAfstand != null ? ` op ${soilData.boringAfstand < 1 ? Math.round(soilData.boringAfstand * 1000) + ' m' : soilData.boringAfstand.toFixed(1) + ' km'} afstand` : ''}.`
                       : soilData.dataSource === 'geotop'
                       ? 'Grondsoort uit het nationaal GeoTOP voxelmodel (TNO/BRO).'
                       : 'Grondsoort uit de Bodemkaart 1:50.000 (oppervlaktelaag).'}
@@ -192,6 +199,16 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                        soilData.dataSource === 'bodemkaart' ? 'Bodemkaart' :
                        'BRO gronddata'}
                     </span>
+                    {soilData.boringAfstand != null && (
+                      <span
+                        className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400"
+                        title="Afstand van het adres tot de gebruikte boring"
+                      >
+                        {soilData.boringAfstand < 1
+                          ? `${Math.round(soilData.boringAfstand * 1000)} m`
+                          : `${soilData.boringAfstand.toFixed(1)} km`}
+                      </span>
+                    )}
                     {soilData.groundwaterDepth != null && (
                       <span
                         className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300"

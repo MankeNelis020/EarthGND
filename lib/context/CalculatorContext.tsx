@@ -24,7 +24,8 @@ interface CalculatorContextValue {
 
 const CalculatorContext = createContext<CalculatorContextValue | null>(null);
 
-const STORAGE_KEY = 'earthgnd:calc';
+// v2: added gwSource field to BroResult (2026-06-15)
+const STORAGE_KEY = 'earthgnd:calc:v2';
 
 interface PersistedState {
   postcode: string;
@@ -79,17 +80,24 @@ export function CalculatorProvider({ children }: { children: ReactNode }) {
     setSoilLoading(true);
     setSoilError('');
     setSoilDataRaw(null); // clear stale data immediately so old results don't linger
+
+    const controller = new AbortController();
+    // Store controller so a subsequent call can cancel this one
+    (fetchSoilData as unknown as { _ac?: AbortController })._ac?.abort();
+    (fetchSoilData as unknown as { _ac?: AbortController })._ac = controller;
+
     try {
       const params = new URLSearchParams({ postcode: pc });
       if (hn) params.set('huisnummer', hn);
-      const res = await fetch(`/api/bro?${params}`);
+      const res = await fetch(`/api/bro?${params}`, { signal: controller.signal });
       const data = await res.json();
       if (!res.ok || data.error) {
         setSoilError(data.error ?? 'BRO ophalen mislukt');
         return;
       }
       setSoilDataRaw(data as BroResult);
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return; // superseded by newer call
       setSoilError('BRO ophalen mislukt');
     } finally {
       setSoilLoading(false);

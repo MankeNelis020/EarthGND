@@ -229,6 +229,8 @@ export interface DiepteInput {
 export interface DiepteResult {
   depth: number;
   achievedResistance: number;
+  /** False when the target resistance could not be achieved within 100 m (max rod length). */
+  converged: boolean;
 }
 
 export function calcDiepte(input: DiepteInput): DiepteResult {
@@ -249,6 +251,7 @@ export function calcDiepte(input: DiepteInput): DiepteResult {
   return {
     depth: Math.round(L * 100) / 100,
     achievedResistance: Math.round(R * 100) / 100,
+    converged: R <= input.targetResistance,
   };
 }
 
