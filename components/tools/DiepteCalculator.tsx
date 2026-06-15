@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { createClient } from '@/utils/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { PostcodeInput } from './PostcodeInput';
 import { useCalculator } from '@/lib/context/CalculatorContext';
+import { calcRhoEffective } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -29,6 +30,11 @@ interface CalcResult {
   corrosionClass: CorrosionClass;
   parallelAdvice: ParallelAdvice | null;
   creditsRemaining: number;
+  rhoDry?: number;
+  rhoWet?: number;
+  gwGunstig?: number;
+  gwGemiddeld?: number;
+  gwOngunstig?: number;
 }
 
 interface Profile { plan: string; credits_left: number; credits_reset: string | null }
@@ -64,7 +70,6 @@ const PRESET_GROUPS = [
   },
 ] as const;
 
-// Values that belong to the "zonder aardlek" group
 const ZONDER_AARDLEK_VALUES = new Set([1.00, 0.625, 0.40, 0.3125, 0.25]);
 
 // ─── Ra haalbaarheidscheck limits ─────────────────────────────────────────────
@@ -90,6 +95,235 @@ function fmt(v: number) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/30">{children}</p>;
+}
+
+// ─── Soil Cross-Section Visualization ────────────────────────────────────────
+
+function SoilCrossSection({
+  rodLength,
+  gwDepth,
+  numRods,
+  spacing,
+}: {
+  rodLength: number;
+  gwDepth: number;
+  numRods: number;
+  spacing: number;
+}) {
+  const maxDepth = Math.max(rodLength * 1.25, gwDepth + 1, 4);
+  const W = 280;
+  const H = 180;
+  const ml = 30; // margin left (for depth labels)
+  const mt = 18; // margin top (for "maaiveld" label)
+  const mr = 60; // margin right (for GHG label)
+  const mb = 8;
+  const dw = W - ml - mr;
+  const dh = H - mt - mb;
+
+  const toY = (d: number) => mt + (d / maxDepth) * dh;
+  const gwY  = toY(Math.min(gwDepth, maxDepth));
+  const rodY = toY(Math.min(rodLength, maxDepth));
+
+  // Evenly distribute rods within the draw area
+  const rodXs = Array.from({ length: numRods }, (_, i) =>
+    ml + ((i + 1) * dw) / (numRods + 1),
+  );
+
+  // Depth tick marks
+  const ticks = [0, 2, 4, 6, 8, 10, 12].filter(d => d <= maxDepth);
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full rounded-xl overflow-hidden"
+      style={{ maxHeight: 200 }}
+    >
+      {/* Dry zone */}
+      <rect x={ml} y={mt} width={dw} height={gwY - mt} fill="#78491A" fillOpacity={0.45} />
+      {/* Wet zone */}
+      <rect x={ml} y={gwY} width={dw} height={H - mb - gwY} fill="#1A3A5C" fillOpacity={0.5} />
+      {/* Outer border */}
+      <rect x={ml} y={mt} width={dw} height={dh} fill="none" stroke="#ffffff18" strokeWidth={1} />
+
+      {/* GHG dashed line */}
+      <line x1={ml} y1={gwY} x2={ml + dw} y2={gwY} stroke="#60A5FA" strokeWidth={1.5} strokeDasharray="6,4" />
+      {/* GHG label */}
+      <text x={ml + dw + 5} y={gwY + 4} fill="#60A5FA" fontSize={9} fontFamily="monospace">
+        GHG {gwDepth.toFixed(1)}m
+      </text>
+
+      {/* Earth rods */}
+      {rodXs.map((x, i) => (
+        <g key={i}>
+          {/* Rod line */}
+          <line x1={x} y1={mt} x2={x} y2={rodY} stroke="#F97316" strokeWidth={2.5} strokeLinecap="round" />
+          {/* Rod tip triangle */}
+          <polygon
+            points={`${x - 3},${rodY} ${x + 3},${rodY} ${x},${rodY + 5}`}
+            fill="#F97316"
+          />
+          {/* Spacing label between rods */}
+          {i < rodXs.length - 1 && (
+            <text
+              x={(x + rodXs[i + 1]) / 2}
+              y={mt + 12}
+              textAnchor="middle"
+              fill="#F9731660"
+              fontSize={7}
+            >
+              {spacing}m
+            </text>
+          )}
+        </g>
+      ))}
+
+      {/* Maaiveld label */}
+      <text x={ml + 4} y={mt - 5} fill="#9CA3AF" fontSize={9}>maaiveld</text>
+
+      {/* Depth labels */}
+      {ticks.map(d => (
+        <g key={d}>
+          <line x1={ml - 4} y1={toY(d)} x2={ml} y2={toY(d)} stroke="#ffffff30" strokeWidth={1} />
+          <text x={ml - 6} y={toY(d) + 3} textAnchor="end" fill="#6B7280" fontSize={8}>
+            {d}m
+          </text>
+        </g>
+      ))}
+
+      {/* Zone labels */}
+      {gwDepth > 1 && (
+        <text x={ml + dw - 4} y={mt + (gwY - mt) / 2 + 4} textAnchor="end" fill="#A16207" fontSize={8} fontStyle="italic">
+          droog
+        </text>
+      )}
+      {gwDepth < maxDepth - 0.5 && (
+        <text x={ml + dw - 4} y={gwY + (H - mb - gwY) / 2 + 4} textAnchor="end" fill="#3B82F6" fontSize={8} fontStyle="italic">
+          verzadigd
+        </text>
+      )}
+    </svg>
+  );
+}
+
+// ─── Resistance vs Depth Graph ────────────────────────────────────────────────
+
+function RvsDiepteGraph({
+  rhoDry,
+  rhoWet,
+  gwDepth,
+  targetResistance,
+  achievedDepth,
+}: {
+  rhoDry: number;
+  rhoWet: number;
+  gwDepth: number;
+  targetResistance: number;
+  achievedDepth: number;
+}) {
+  const maxDepth = Math.max(achievedDepth * 1.3, 6);
+  const d = 0.014;
+
+  const points = useMemo(() => {
+    const pts: { depth: number; R: number }[] = [];
+    for (let L = 0.5; L <= maxDepth + 0.01; L += 0.25) {
+      const rhoEff = calcRhoEffective(rhoDry, rhoWet, gwDepth, L);
+      const R = (rhoEff / (2 * Math.PI * L)) * Math.log((4 * L) / d);
+      pts.push({ depth: L, R: Math.round(R * 100) / 100 });
+    }
+    return pts;
+  }, [rhoDry, rhoWet, gwDepth, maxDepth]);
+
+  const maxR = Math.min(points[0]?.R ?? 500, 500);
+  const W = 300;
+  const H = 160;
+  const ml = 44;
+  const mt = 10;
+  const mr = 10;
+  const mb = 28;
+  const dw = W - ml - mr;
+  const dh = H - mt - mb;
+
+  const toX = (depth: number) => ml + (depth / maxDepth) * dw;
+  const toY = (R: number)     => mt + (1 - Math.min(R, maxR) / maxR) * dh;
+
+  const pathD = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${toX(p.depth).toFixed(1)},${toY(p.R).toFixed(1)}`)
+    .join(' ');
+
+  const targetY = toY(targetResistance);
+  const achievedX = toX(achievedDepth);
+
+  // Y axis ticks
+  const rMax = Math.ceil(maxR / 50) * 50;
+  const yTicks = [0, rMax / 4, rMax / 2, (3 * rMax) / 4, rMax].map(v => Math.round(v));
+  // X axis ticks
+  const xStep = maxDepth <= 6 ? 1 : maxDepth <= 12 ? 2 : 3;
+  const xTicks = Array.from({ length: Math.floor(maxDepth / xStep) + 1 }, (_, i) => i * xStep);
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 170 }}>
+        {/* Grid lines */}
+        {yTicks.map(v => (
+          <line key={v} x1={ml} y1={toY(v)} x2={ml + dw} y2={toY(v)}
+            stroke="#ffffff0a" strokeWidth={1} />
+        ))}
+
+        {/* Resistance curve */}
+        <path d={pathD} fill="none" stroke="#F97316" strokeWidth={2} strokeLinecap="round" />
+
+        {/* Target resistance line */}
+        <line x1={ml} y1={targetY} x2={ml + dw} y2={targetY}
+          stroke="#ffffff40" strokeWidth={1} strokeDasharray="5,4" />
+        <text x={ml + dw - 2} y={targetY - 3} textAnchor="end" fill="#ffffff50" fontSize={8}>
+          doel {targetResistance} Ω
+        </text>
+
+        {/* Achieved depth marker */}
+        <line x1={achievedX} y1={mt} x2={achievedX} y2={mt + dh}
+          stroke="#F9731640" strokeWidth={1} strokeDasharray="4,3" />
+        <circle cx={achievedX} cy={toY(targetResistance)} r={3.5} fill="#F97316" />
+        <text x={achievedX + 5} y={toY(targetResistance) - 5} fill="#F97316" fontSize={8}>
+          {achievedDepth.toFixed(2)}m
+        </text>
+        <text x={achievedX + 5} y={toY(targetResistance) + 8} fill="#F97316" fontSize={8}>
+          {targetResistance.toFixed(1)} Ω
+        </text>
+
+        {/* Y axis */}
+        <line x1={ml} y1={mt} x2={ml} y2={mt + dh} stroke="#ffffff20" strokeWidth={1} />
+        {yTicks.map(v => (
+          <g key={v}>
+            <line x1={ml - 3} y1={toY(v)} x2={ml} y2={toY(v)} stroke="#ffffff30" strokeWidth={1} />
+            <text x={ml - 5} y={toY(v) + 3} textAnchor="end" fill="#6B7280" fontSize={7}>
+              {v}
+            </text>
+          </g>
+        ))}
+        <text
+          x={10} y={mt + dh / 2} textAnchor="middle" fill="#6B7280" fontSize={8}
+          transform={`rotate(-90, 10, ${mt + dh / 2})`}
+        >
+          R (Ω)
+        </text>
+
+        {/* X axis */}
+        <line x1={ml} y1={mt + dh} x2={ml + dw} y2={mt + dh} stroke="#ffffff20" strokeWidth={1} />
+        {xTicks.map(v => (
+          <g key={v}>
+            <line x1={toX(v)} y1={mt + dh} x2={toX(v)} y2={mt + dh + 3} stroke="#ffffff30" strokeWidth={1} />
+            <text x={toX(v)} y={mt + dh + 12} textAnchor="middle" fill="#6B7280" fontSize={7}>
+              {v}m
+            </text>
+          </g>
+        ))}
+      </svg>
+      <p className="mt-1 text-[10px] text-white/25 leading-relaxed">
+        Weerstand van één pen vs. diepte. Blijft de curve boven de doellijn, dan haalt één pen het doel
+        niet — vandaar parallelle pennen of een alternatief.
+      </p>
+    </div>
+  );
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -228,20 +462,16 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   const [user, setUser]       = useState<User | null | 'loading'>('loading');
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  // Electrode type
   const [electrodeType, setElectrodeType] = useState<ElectrodeType>('pen');
 
-  // Parameters
   const [rho, setRho]                   = useState(125);
   const [targetResistance, setTarget]   = useState(initialTarget ?? 10);
   const [groundwaterDepth, setGw]       = useState(3);
   const [ph, setPh]                     = useState(6.5);
 
-  // Lint-specific
   const [lintBurialDepth, setLintDepth] = useState(0.8);
   const [lintDiameter, setLintDiam]     = useState(0.01);
 
-  // Result
   const [calcResult, setCalcResult] = useState<CalcResult | null>(null);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
@@ -266,6 +496,8 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
   const isZonderAardlek = ZONDER_AARDLEK_VALUES.has(targetResistance);
   const activeRho = soilData?.dominantRho ?? rho;
+  // Extract lithoClass from BRO data for two-layer model
+  const lithoClass = soilData?.samples?.[0]?.lithoClass ?? null;
 
   async function handleCalculate() {
     setLoading(true);
@@ -275,9 +507,13 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rho: activeRho, targetResistance, groundwaterDepth, ph,
+          rho: activeRho,
+          targetResistance,
+          groundwaterDepth,
+          ph,
           postcode: postcode || undefined,
           electrodeType,
+          lithoClass: lithoClass ?? undefined,
           lintBurialDepth: electrodeType === 'lint' ? lintBurialDepth : undefined,
           lintConductorDiameter: electrodeType === 'lint' ? lintDiameter : undefined,
         }),
@@ -293,7 +529,6 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
     }
   }
 
-  // Helper to extract dimension (depth for pen, length for lint) and Ra from a scenario
   function scenarioDim(s: DiepteResult | LintResult): number {
     return ('depth' in s ? s.depth : s.length);
   }
@@ -307,6 +542,12 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   const riskText: Record<string, string> = {
     green: 'text-green-400', yellow: 'text-yellow-400', orange: 'text-orange-400', red: 'text-red-400',
   };
+
+  // Determine visualization params for result
+  const gemiddeldResult = calcResult?.scenarios?.gemiddeld as DiepteResult | undefined;
+  const rodLength  = gemiddeldResult?.depth ?? 0;
+  const numRods    = calcResult?.parallelAdvice?.aantalPennen ?? 1;
+  const rodSpacing = calcResult?.parallelAdvice?.minAfstand ?? 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -372,7 +613,6 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
         {/* Target resistance — grouped presets */}
         <div className="mb-5">
           <SectionLabel>Doelweerstand</SectionLabel>
-          {/* Pre-fill banner */}
           {initialTarget !== undefined && (
             <div className="mb-3 rounded-lg border border-[#E8761A]/30 bg-[#E8761A]/8 px-3 py-2 text-xs text-[#E8761A]">
               Vooringevuld vanuit Weerstand Calculator{initialLabel ? ` (${initialLabel})` : ''}: Ra ≤ {initialTarget} Ω
@@ -401,7 +641,6 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             </div>
           ))}
 
-          {/* "Zonder aardlek" warning */}
           {isZonderAardlek && (
             <div className="mb-3 rounded-lg border border-orange-500/25 bg-orange-500/5 px-3 py-2.5 text-xs text-orange-300 leading-relaxed">
               <strong className="font-semibold">TT zonder aardlekschakelaar</strong> — automaat als enige beveiliging
@@ -437,14 +676,23 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               <span className="text-xs text-white/40">Ω·m</span>
             </div>
           </div>
+          {/* Two-layer indicator */}
+          {lithoClass && (
+            <div className="mt-2 flex items-center gap-3 text-[10px] text-white/30">
+              <span className="inline-block h-2 w-3 rounded-sm bg-[#78491A]/70" />
+              droog: {calcResult?.rhoDry ?? '—'} Ω·m
+              <span className="inline-block h-2 w-3 rounded-sm bg-[#1A3A5C]/90" />
+              verzadigd: {calcResult?.rhoWet ?? '—'} Ω·m
+            </div>
+          )}
         </div>
 
-        {/* GW depth — for risk class only */}
+        {/* GW depth */}
         <div className="mb-4">
           <p className="mb-2 text-xs text-white/50">
             GHG grondwaterstand
             {soilData?.groundwaterDepth != null && <span className="ml-1 text-green-400">← BRO</span>}
-            <span className="ml-1 text-white/25">(risicoklasse)</span>
+            <span className="ml-1 text-white/25">(bepaalt droog/nat-zone in berekening)</span>
           </p>
           <div className="flex items-center gap-2">
             <input type="number" min="0" max="20" step="0.5" value={groundwaterDepth}
@@ -454,7 +702,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           </div>
         </div>
 
-        {/* pH — corrosion only */}
+        {/* pH */}
         <div>
           <p className="mb-2 text-xs text-white/50">
             Bodem pH
@@ -485,6 +733,44 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       {/* Results */}
       {calcResult && (
         <div className="flex flex-col gap-3">
+
+          {/* Soil cross-section + aanbevolen config */}
+          {calcResult.electrodeType === 'pen' && rodLength > 0 && (
+            <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
+              <div className="border-b border-white/6 px-5 py-3 flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">
+                  Aanbevolen configuratie
+                </p>
+                <p className="text-xs font-bold text-white">
+                  {numRods > 1
+                    ? `${numRods} pennen — elk ${rodLength.toFixed(2)} m, ${rodSpacing} m uit elkaar`
+                    : `1 pen — ${rodLength.toFixed(2)} m diep`}
+                </p>
+              </div>
+              <div className="px-5 py-4">
+                <SoilCrossSection
+                  rodLength={rodLength}
+                  gwDepth={groundwaterDepth}
+                  numRods={numRods}
+                  spacing={rodSpacing}
+                />
+                {/* Two-layer legend */}
+                {calcResult.rhoDry && calcResult.rhoWet && (
+                  <div className="mt-2 flex items-center gap-4 text-[10px] text-white/40">
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-4 rounded-sm bg-[#78491A]/70" />
+                      Droge zone — ρ ≈ {calcResult.rhoDry} Ω·m
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-4 rounded-sm bg-[#1A3A5C]/90" />
+                      Verzadigde zone — ρ ≈ {calcResult.rhoWet} Ω·m
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Three scenarios */}
           <div className="rounded-2xl border border-white/10 p-5">
             <div className="mb-4 flex items-center justify-between">
@@ -492,7 +778,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 Drie scenario&apos;s
               </span>
               <span className="text-xs text-white/30">
-                ρ = {activeRho} Ω·m · doel ≤ {targetResistance} Ω
+                GHG {groundwaterDepth}m · doel ≤ {targetResistance} Ω
               </span>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -500,10 +786,12 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 const s = calcResult.scenarios[key] as DiepteResult | LintResult;
                 const dim = scenarioDim(s);
                 const unit = calcResult.electrodeType === 'lint' ? 'm lint' : 'm';
+                const gwValues = [calcResult.gwGunstig, calcResult.gwGemiddeld, calcResult.gwOngunstig];
+                const gwVal = gwValues[i];
                 const sublabels = [
-                  `ρ = ${Math.round(activeRho * 0.7)} Ω·m — natte periode`,
-                  `ρ = ${activeRho} Ω·m — norm`,
-                  `ρ = ${Math.round(activeRho * 1.5)} Ω·m — droge periode`,
+                  `GWT ${gwVal?.toFixed(1) ?? groundwaterDepth}m — natte periode`,
+                  `GWT ${gwVal?.toFixed(1) ?? (groundwaterDepth + 1.5).toFixed(1)}m — gemiddeld`,
+                  `GWT ${gwVal?.toFixed(1) ?? (groundwaterDepth + 3).toFixed(1)}m — droge zomer`,
                 ];
                 return (
                   <ScenarioCard
@@ -519,7 +807,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               })}
             </div>
 
-            {/* Parallel rod advice (pen only) */}
+            {/* Parallel rod advice */}
             {calcResult.parallelAdvice && (
               <div className="mt-4 rounded-xl border border-orange-500/25 bg-orange-500/5 p-4">
                 <p className="mb-2 text-sm font-semibold text-orange-400">
@@ -549,6 +837,22 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             )}
           </div>
 
+          {/* Resistance vs depth graph (pen only, with two-layer data) */}
+          {calcResult.electrodeType === 'pen' && calcResult.rhoDry && calcResult.rhoWet && (
+            <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/40">
+                Weerstand vs. diepte (gemiddeld scenario)
+              </p>
+              <RvsDiepteGraph
+                rhoDry={calcResult.rhoDry}
+                rhoWet={calcResult.rhoWet}
+                gwDepth={calcResult.gwGemiddeld ?? groundwaterDepth + 1.5}
+                targetResistance={targetResistance}
+                achievedDepth={scenarioDim(calcResult.scenarios.gemiddeld as DiepteResult)}
+              />
+            </div>
+          )}
+
           {/* Ra-haalbaarheidscheck */}
           <RaHaalbaarheidsCheck
             raGemiddeld={(calcResult.scenarios.gemiddeld as DiepteResult | LintResult).achievedResistance}
@@ -577,9 +881,10 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
           {/* Disclaimer */}
           <p className="text-[11px] leading-relaxed text-white/25">
-            Indicatieve schatting op basis van de Dwight-formule en BRO bodemdata (postcodniveau).
-            De drie scenario&apos;s modelleren seizoensvariant van ρ (×0,7 / ×1,0 / ×1,5).
-            Meet altijd ter plaatse na installatie conform NEN 3140.
+            Berekening met 2-laags bodemmodel (Dwight-formule): droge zone boven GHG (ρ ≈ {calcResult.rhoDry} Ω·m),
+            verzadigde zone onder GHG (ρ ≈ {calcResult.rhoWet} Ω·m).
+            De drie scenario&apos;s modelleren het grondwaterpeil in natte (GHG), gemiddelde (+1,5 m)
+            en droge (+3,0 m) periode. Meet altijd ter plaatse na installatie conform NEN 3140.
           </p>
         </div>
       )}
