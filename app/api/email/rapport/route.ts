@@ -105,7 +105,10 @@ export async function POST(request: NextRequest) {
 </body>
 </html>`;
 
-    await resend.emails.send({
+    // Resend REST API expects attachment content as base64 string, not a Buffer.
+    // Passing a Buffer directly causes JSON.stringify to emit {"type":"Buffer","data":[...]}
+    // which the API rejects, resulting in a 500.
+    const { error: sendError } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL ?? 'EarthGND <noreply@earthgnd.nl>',
       to: user.email,
       subject,
@@ -113,14 +116,20 @@ export async function POST(request: NextRequest) {
       attachments: [
         {
           filename: `earthgnd-${tool}-rapport.pdf`,
-          content: pdfBuffer,
+          content: pdfBuffer.toString('base64'),
         },
       ],
     });
 
+    if (sendError) {
+      console.error('[email/rapport] Resend error:', sendError);
+      return NextResponse.json({ error: sendError.message }, { status: 500 });
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[email/rapport] Unhandled error:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
