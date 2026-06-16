@@ -31,7 +31,6 @@ interface CalcResult {
   corrosionClass: CorrosionClass;
   parallelAdvice: ParallelAdvice | null;
   creditsRemaining: number;
-  diepteGecapt?: boolean;
   rhoDry?: number;
   rhoWet?: number;
   gwGunstig?: number;
@@ -844,19 +843,6 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 );
               })}
             </div>
-
-            {/* Step 3: depth-cap warning */}
-            {calcResult.diepteGecapt && (
-              <div className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4">
-                <p className="text-sm font-semibold text-yellow-400">
-                  ⚠ Verticale pen ontoereikend voor dit bodemprofiel
-                </p>
-                <p className="mt-1 text-xs text-white/60">
-                  De berekening convergeert niet binnen {9} m. Overweeg meerdere pennen parallel,
-                  een horizontale geleider of een aardlus. Zie de Ra-haalbaarheidscheck hieronder.
-                </p>
-              </div>
-            )}
 
             {/* Parallel rod advice */}
             {calcResult.parallelAdvice && (
