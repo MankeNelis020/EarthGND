@@ -412,7 +412,10 @@ export function calcRhoEffective(
 ): number {
   if (gwDepth <= 0) return rhoWet;
   if (gwDepth >= rodLength) return rhoDry;
-  return (rhoDry * gwDepth + rhoWet * (rodLength - gwDepth)) / rodLength;
+  // Harmonic mean (parallel segment conductances): ρ_eff = Σ(ΔL) / Σ(ΔL/ρ)
+  // Each rod segment discharges current in parallel — the low-ρ wet zone dominates
+  // correctly instead of being overridden by a thin high-ρ dry cap.
+  return rodLength / (gwDepth / rhoDry + (rodLength - gwDepth) / rhoWet);
 }
 
 // ─── Risk class (NEN 62305 / EN 50522) ───────────────────────────────────────
