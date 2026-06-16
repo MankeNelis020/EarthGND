@@ -81,12 +81,19 @@ async function fetchBroCptSamples(lat: number, lon: number): Promise<BroDepthSam
         if (!rows.length) continue;
 
         const firstDepth = parseFloat(rows[0][1]);
-        if (isNaN(firstDepth) || firstDepth > 3) continue;
+        if (isNaN(firstDepth)) continue;
+        // Skip if boring starts deeper than 10 m — likely a deep exploration boring
+        // unrelated to near-surface soil conditions relevant for grounding.
+        if (firstDepth > 10) continue;
 
-        // Sentinel value -999999 means the depth column is missing/invalid.
-        // In that case we can't do depth-specific sampling, so use the median
-        // qc across all rows as a uniform profile estimate.
-        const depthsMissing = firstDepth < -999;
+        // Three cases for depth handling:
+        //   a) firstDepth < -999  — sentinel: no depth column at all
+        //   b) firstDepth 3–10 m  — boring started below a floor slab or road surface;
+        //                           we still have qc measurements of the ACTUAL soil below,
+        //                           so use median qc as a bulk soil-type estimate rather
+        //                           than discarding the entire boring.
+        //   c) firstDepth ≤ 3 m   — normal: sample each target depth from matched rows.
+        const depthsMissing = firstDepth < -999 || firstDepth > 3;
 
         return BRO_DEPTHS.map((targetDepth) => {
           let qc: number;
