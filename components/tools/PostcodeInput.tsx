@@ -255,6 +255,7 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                       : 'Grondsoort uit de Bodemkaart 1:50.000 (oppervlaktelaag).'}
                   </p>
                   <SoilTable samples={soilData.samples} />
+                  <ProfileAnomalyBanner samples={soilData.samples} boringAfstand={soilData.boringAfstand} />
                   <div className="mt-3 flex items-center gap-3">
                     <button
                       onClick={handleSoilDataApply}
@@ -301,6 +302,7 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                     )}
                   </div>
                   <SoilTable samples={soilData.samples} />
+                  <ProfileAnomalyBanner samples={soilData.samples} boringAfstand={soilData.boringAfstand} />
                   <button
                     onClick={handleSoilDataApply}
                     className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-500"
@@ -354,6 +356,49 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function detectProfileAnomalies(
+  samples: { depth: number; lithoClass: number; rho: number }[],
+  boringAfstand?: number | null,
+): string[] {
+  const warnings: string[] = [];
+
+  if (samples.length > 1) {
+    const uniqueClasses = new Set(samples.map(s => s.lithoClass));
+    if (uniqueClasses.size === 1) {
+      warnings.push(
+        'Uniform grondprofiel: alle lagen tonen identieke klasse. Waarschijnlijk een model- of interpolatieschatting zonder directe meting — valideer ter plaatse.',
+      );
+    }
+  }
+
+  if (samples.length === 1) {
+    warnings.push('Slechts één laag beschikbaar — profiel is te ondiep voor een volledige bodemopbouw.');
+  }
+
+  if (boringAfstand != null && boringAfstand > 0.5) {
+    warnings.push(
+      `Dichtstbijzijnde meting op ${boringAfstand.toFixed(1)} km — bodemopbouw kan lokaal afwijken.`,
+    );
+  }
+
+  return warnings;
+}
+
+function ProfileAnomalyBanner({ samples, boringAfstand }: {
+  samples: { depth: number; lithoClass: number; rho: number }[];
+  boringAfstand?: number | null;
+}) {
+  const warnings = detectProfileAnomalies(samples, boringAfstand);
+  if (warnings.length === 0) return null;
+  return (
+    <div className="mt-2 space-y-1 rounded-lg border border-yellow-500/30 bg-yellow-500/8 px-3 py-2.5">
+      {warnings.map((w, i) => (
+        <p key={i} className="text-xs leading-relaxed text-yellow-300">⚠ {w}</p>
+      ))}
     </div>
   );
 }
