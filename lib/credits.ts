@@ -27,69 +27,38 @@ export async function getPlan(userId: string): Promise<PlanKey> {
   return (data?.plan ?? 'gratis') as PlanKey;
 }
 
+/**
+ * Atomically deduct one credit via a Postgres function that uses FOR UPDATE
+ * to prevent the read-then-write race condition that could allow free calculations.
+ * The audit record is inserted in the same transaction as the decrement.
+ */
 export async function deductCredit(userId: string): Promise<{ ok: boolean; remaining: number }> {
-  const db = adminClient();
-
-  const { data: profile } = await db
-    .from('profiles')
-    .select('credits_left')
-    .eq('id', userId)
-    .single();
-
-  const current = profile?.credits_left ?? 0;
-  if (current <= 0) return { ok: false, remaining: 0 };
-
-  const newTotal = current - 1;
-
-  await db.from('profiles').update({ credits_left: newTotal }).eq('id', userId);
-  await db.from('credit_transactions').insert({
-    user_id: userId,
-    type: 'used',
-    credits: -1,
-    description: 'Pendiepte berekening',
-  });
-
-  return { ok: true, remaining: newTotal };
+  const { data, error } = await adminClient().rpc('deduct_credit', { p_user_id: userId });
+  if (error || !Array.isArray(data) || !data.length) return { ok: false, remaining: 0 };
+  return { ok: Boolean(data[0].ok), remaining: Number(data[0].remaining) };
 }
 
+/**
+ * Atomically add credits and record an audit entry in the same transaction.
+ */
 export async function addCredits(userId: string, amount: number, description: string): Promise<void> {
-  const db = adminClient();
-
-  const { data: profile } = await db
-    .from('profiles')
-    .select('credits_left')
-    .eq('id', userId)
-    .single();
-
-  const current = profile?.credits_left ?? 0;
-
-  await db.from('profiles').update({ credits_left: current + amount }).eq('id', userId);
-  await db.from('credit_transactions').insert({
-    user_id: userId,
-    type: 'purchase',
-    credits: amount,
-    description,
+  await adminClient().rpc('add_credits', {
+    p_user_id: userId,
+    p_amount: amount,
+    p_description: description,
   });
 }
 
+/**
+ * Atomically reset credits to the plan's monthly allowance and record an audit entry.
+ */
 export async function resetMonthlyCredits(userId: string, plan: PlanKey): Promise<void> {
   const planConfig = PLANS[plan];
   if (!planConfig || planConfig.credits === 0) return;
 
-  const db = adminClient();
-  const nextReset = new Date();
-  nextReset.setMonth(nextReset.getMonth() + 1);
-  nextReset.setDate(1);
-
-  await db.from('profiles').update({
-    credits_left: planConfig.credits,
-    credits_reset: nextReset.toISOString(),
-  }).eq('id', userId);
-
-  await db.from('credit_transactions').insert({
-    user_id: userId,
-    type: 'subscription_reset',
-    credits: planConfig.credits,
-    description: `Maandelijkse reset — ${planConfig.label} plan`,
+  await adminClient().rpc('reset_monthly_credits', {
+    p_user_id: userId,
+    p_credits: planConfig.credits,
+    p_label: `Maandelijkse reset — ${planConfig.label} plan`,
   });
 }

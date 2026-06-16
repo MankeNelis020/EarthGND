@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { lookupPostcode } from '@/lib/pdok';
 import { fetchBroSoilData } from '@/lib/bro';
-import { cacheGet, cacheSet } from '@/lib/redis';
+import { cacheGet, cacheSet, checkRateLimit } from '@/lib/redis';
 
 const BRO_TTL = 60 * 60 * 24 * 30; // 30 days
+
+// 30 unique-postcode lookups per minute per IP.
+// Redis-cached responses are served before this check runs, so
+// repeat lookups of the same postcode don't count against the limit.
+const RATE_LIMIT = 30;
+const RATE_WINDOW_S = 60;
+
+function getIp(request: NextRequest): string {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+}
 
 export async function GET(request: NextRequest) {
   const postcode = request.nextUrl.searchParams.get('postcode');
@@ -47,9 +57,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'postcode or rdX/rdY/lat/lon required' }, { status: 400 });
     }
 
-    // Check Redis cache for the heavy BRO soil data, but always merge in fresh address
+    // Serve cached response before rate-limit check so repeat lookups are free.
     const cached = await cacheGet(cacheKey);
     if (cached) return NextResponse.json({ ...cached, ...addressData });
+
+    // Rate limit uncached requests (each triggers 5 outbound BRO API calls).
+    const ip = getIp(request);
+    const allowed = await checkRateLimit(`rl:bro:${ip}`, RATE_LIMIT, RATE_WINDOW_S);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Te veel verzoeken — wacht even en probeer opnieuw.' },
+        { status: 429 },
+      );
+    }
 
     const broData = await fetchBroSoilData(rdX, rdY, lat, lon);
     const response = { ...broData, ...addressData };
