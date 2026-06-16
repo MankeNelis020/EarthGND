@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/navigation';
+import { EmailRapportButton } from './EmailRapportButton';
 import {
   calcOhmLayers,
   type InstallationType,
@@ -324,6 +325,26 @@ export function OhmCalculator() {
   const [result, setResult] = useState<OhmLayersResult | null>(null);
   const [error, setError] = useState('');
 
+  // Restore calculation from sessionStorage after a login redirect
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('earthgnd:weerstand:v1');
+      if (saved) {
+        const { state: s, result: r } = JSON.parse(saved) as { state: State; result: OhmLayersResult };
+        setState(s);
+        setResult(r);
+      }
+    } catch { /* ignore parse errors */ }
+  }, []);
+
+  // Persist result so it survives a login redirect
+  useEffect(() => {
+    if (!result) return;
+    try {
+      sessionStorage.setItem('earthgnd:weerstand:v1', JSON.stringify({ state, result }));
+    } catch { /* storage quota or private mode */ }
+  }, [result, state]);
+
   function patch(p: Partial<State>) {
     setState((prev) => ({ ...prev, ...p }));
     setResult(null);
@@ -603,6 +624,25 @@ export function OhmCalculator() {
                   </Link>
                 </div>
               </div>
+
+              <EmailRapportButton
+                tool="ohm"
+                inputValues={{
+                  'Installatietype': INSTALLATIE_OPTIONS.find((t) => t.value === state.installationType)?.label ?? (state.installationType ?? '-'),
+                  'Netwerkstelsel': state.stelsel ?? '-',
+                  ...(state.stelsel === 'TT' ? { 'Aardlekschakelaar': state.hasRcd ? 'Ja' : 'Nee' } : {}),
+                  ...(state.rcdMa ? { 'Aardlek (mA)': state.rcdMa } : {}),
+                  ...(state.breakerPreset ? { 'Groepsautomaat': state.breakerPreset } : {}),
+                  'Aanraakvoltage': `${state.voltageLimit} V`,
+                }}
+                results={{
+                  'Norm': result.norm,
+                  'Wettelijk maximum': `${fmtR(result.wettelijkMax)} Ω`,
+                  'Praktisch maximum': `${fmtR(result.praktischMax)} Ω`,
+                  'Ontwerpdoel': `${fmtR(result.ontwerpdoel)} Ω`,
+                  'Streefwaarde': `${fmtR(result.streefwaarde)} Ω`,
+                }}
+              />
             </div>
           )}
         </>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { EmailRapportButton } from './EmailRapportButton';
 import type { User } from '@supabase/supabase-js';
 import { PostcodeInput } from './PostcodeInput';
 import { useCalculator } from '@/lib/context/CalculatorContext';
@@ -911,6 +912,34 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             De drie scenario&apos;s modelleren het grondwaterpeil in natte (GHG), gemiddelde (+1,5 m)
             en droge (+3,0 m) periode. Meet altijd ter plaatse na installatie conform NEN 3140.
           </p>
+
+          <EmailRapportButton
+            tool="diepte"
+            inputValues={{
+              ...(postcode ? { 'Postcode': postcode } : {}),
+              'Elektrodetype': calcResult.electrodeType === 'pen' ? 'Verticale pen / staaf' : 'Horizontaal lint',
+              'Bodemweerstand ρ': `${activeRho} Ω·m`,
+              'Grondwaterstand (GHG)': `${groundwaterDepth} m`,
+              'pH bodem': ph,
+            }}
+            results={
+              calcResult.electrodeType === 'pen'
+                ? {
+                    'Gunstig scenario (GHG)': `${((calcResult.scenarios as { gunstig: { depth: number } }).gunstig.depth).toFixed(2)} m`,
+                    'Gemiddeld scenario': `${((calcResult.scenarios as { gemiddeld: { depth: number } }).gemiddeld.depth).toFixed(2)} m`,
+                    'Ongunstig scenario (GLG)': `${((calcResult.scenarios as { ongunstig: { depth: number } }).ongunstig.depth).toFixed(2)} m`,
+                    'Risicoklasse': calcResult.riskClass.label,
+                    'Corrosieklasse': calcResult.corrosionClass.label,
+                  }
+                : {
+                    'Gunstig scenario (GHG)': `${((calcResult.scenarios as { gunstig: { length: number } }).gunstig.length).toFixed(1)} m`,
+                    'Gemiddeld scenario': `${((calcResult.scenarios as { gemiddeld: { length: number } }).gemiddeld.length).toFixed(1)} m`,
+                    'Ongunstig scenario (GLG)': `${((calcResult.scenarios as { ongunstig: { length: number } }).ongunstig.length).toFixed(1)} m`,
+                    'Risicoklasse': calcResult.riskClass.label,
+                    'Corrosieklasse': calcResult.corrosionClass.label,
+                  }
+            }
+          />
         </div>
       )}
     </div>
