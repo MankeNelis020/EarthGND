@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       rdY = parseFloat(rdYParam);
       lat = parseFloat(latParam);
       lon = parseFloat(lonParam);
-      cacheKey = `bro:v2:rd:${Math.round(rdX)}:${Math.round(rdY)}`;
+      cacheKey = `bro:v3:rd:${Math.round(rdX)}:${Math.round(rdY)}`;
     } else if (postcode) {
       // Always fetch address from PDOK (fast, Next.js-cached 24 h) so
       // the confirmation shows even when BRO soil data is Redis-cached.
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
         woonplaats: coords.woonplaats,
       };
       const cleaned = postcode.replace(/\s/g, '').toUpperCase();
-      // v2: cache key bumped to invalidate entries with wrong GHG (Math.abs NAP bug, fixed 2026-06-15)
-      cacheKey = huisnummer ? `bro:v2:${cleaned}:${huisnummer}` : `bro:v2:${cleaned}`;
+      // v3: cache key bumped to force re-fetch with new BHR-GT distance-priority logic (2026-06-16)
+      cacheKey = huisnummer ? `bro:v3:${cleaned}:${huisnummer}` : `bro:v3:${cleaned}`;
     } else {
       return NextResponse.json({ error: 'postcode or rdX/rdY/lat/lon required' }, { status: 400 });
     }

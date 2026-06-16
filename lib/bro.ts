@@ -309,15 +309,27 @@ async function fetchGroundwaterDepth(rdX: number, rdY: number): Promise<{ depth:
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
+// BHR-GT borings closer than this threshold are considered geologically
+// representative for the query location and take priority over Bodemkaart.
+// Borings beyond this distance may come from a different soil zone (e.g. sand
+// fill on a construction site 4 km away in what is otherwise a clay polder),
+// so the Bodemkaart pedological classification is preferred instead.
+const BHRGT_LOCAL_KM = 2.0;
+
 /**
  * Source priority (highest to lowest confidence):
- *   1. CPT (measured qc values, exact location)
- *   2. BHR-GT (observed soil description, adaptive radius 2→5→10 km)
- *   3. GeoTOP (national 100m voxel model — graceful null when BRO is 503)
- *   4. Bodemkaart (national soil map polygon in Supabase — requires import)
- *   5. Fallback (default sand, manual selection shown in UI)
+ *   1. CPT (direct qc measurement, exact location — radius 0.5 km)
+ *   2. BHR-GT ≤ 2 km (local boring, geologically representative)
+ *   3. GeoTOP (national 100 m voxel model — graceful null when BRO is 503)
+ *   4. Bodemkaart (pedological native soil, independent of construction fill)
+ *   5. BHR-GT > 2 km (distant boring — better than default sand but less reliable)
+ *   6. Fallback (default sand, manual selection shown in UI)
  *
- * All sources run in parallel; the first non-null result in priority order wins.
+ * The Bodemkaart is elevated above distant BHR-GT because geotechnical borings
+ * far from the query point often reflect a different geological context (e.g.
+ * urban sand fill vs. native peat/clay in a drained polder).
+ *
+ * All sources run in parallel; selection follows priority order above.
  */
 export async function fetchBroSoilData(
   rdX: number,
@@ -341,19 +353,29 @@ export async function fetchBroSoilData(
   let dataSource: BroResult['dataSource'];
   let boringAfstand: number | undefined;
 
+  const bhrgtIsLocal = bhrgtResult != null && bhrgtResult.afstand <= BHRGT_LOCAL_KM;
+
   if (cptSamples) {
     samples = cptSamples;
     dataSource = 'cpt';
-  } else if (bhrgtResult) {
-    samples = bhrgtResult.samples;
+  } else if (bhrgtIsLocal) {
+    // Local boring (≤ 2 km): more reliable than regional model or distant boring
+    samples = bhrgtResult!.samples;
     dataSource = 'bhrgt';
-    boringAfstand = Math.round(bhrgtResult.afstand * 100) / 100;
+    boringAfstand = Math.round(bhrgtResult!.afstand * 100) / 100;
   } else if (geotopSamples) {
     samples = geotopSamples;
     dataSource = 'geotop';
   } else if (bodemkaartSamples) {
+    // Bodemkaart reflects the native pedological soil, not construction fill →
+    // preferred over a distant BHR-GT boring that may be from a different zone.
     samples = bodemkaartSamples;
     dataSource = 'bodemkaart';
+  } else if (bhrgtResult) {
+    // Distant boring (> 2 km): last resort before default sand fallback
+    samples = bhrgtResult.samples;
+    dataSource = 'bhrgt';
+    boringAfstand = Math.round(bhrgtResult.afstand * 100) / 100;
   }
 
   if (!samples) {
