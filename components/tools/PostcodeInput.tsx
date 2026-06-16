@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useCalculator } from '@/lib/context/CalculatorContext';
 import { calcRiskClass } from '@/lib/calculations';
+import { wgs84ToRd } from '@/lib/rd';
 
 const MANUAL_RHO_OPTIONS = [
   { label: 'Klei / nat', rho: 30 },
@@ -20,11 +21,16 @@ interface PostcodeInputProps {
 }
 
 export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false }: PostcodeInputProps) {
-  const { postcode, huisnummer, soilData, soilLoading, soilError, setPostcode, setHuisnummer, fetchSoilData } =
-    useCalculator();
+  const {
+    postcode, huisnummer, soilData, soilLoading, soilError,
+    setPostcode, setHuisnummer, fetchSoilData,
+    setSoilData, setSoilLoading, setSoilError,
+  } = useCalculator();
 
   const [manualRho, setManualRho] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(true);
+  const [gpsStatus, setGpsStatus] = useState<'idle' | 'loading' | 'denied' | 'error'>('idle');
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lon: number } | null>(null);
 
   // When BRO returns a fallback, auto-highlight the matching manual button
   // so there's never a "badge shown but nothing selected" state.
@@ -49,6 +55,60 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
     if (!soilData) return;
     onRhoChange?.(soilData.dominantRho);
     onGroundwaterChange?.(soilData.groundwaterDepth);
+  }
+
+  function handleGps() {
+    if (!navigator.geolocation) {
+      setSoilError('GPS niet beschikbaar in uw browser.');
+      return;
+    }
+    setGpsStatus('loading');
+    setSoilLoading(true);
+    setSoilError('');
+    setSoilData(null);
+    setManualRho(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        setGpsCoords({ lat, lon });
+        const { rdX, rdY } = wgs84ToRd(lat, lon);
+        try {
+          const params = new URLSearchParams({
+            rdX: Math.round(rdX).toString(),
+            rdY: Math.round(rdY).toString(),
+            lat: lat.toFixed(6),
+            lon: lon.toFixed(6),
+          });
+          const res = await fetch(`/api/bro?${params}`);
+          const data = await res.json();
+          if (!res.ok || data.error) {
+            setSoilError(data.error ?? 'BRO ophalen mislukt');
+            setGpsStatus('error');
+          } else {
+            setSoilData(data);
+            setGpsStatus('idle');
+          }
+        } catch {
+          setSoilError('BRO ophalen mislukt');
+          setGpsStatus('error');
+        } finally {
+          setSoilLoading(false);
+        }
+      },
+      (err) => {
+        setSoilLoading(false);
+        if (err.code === 1) {
+          setGpsStatus('denied');
+          setSoilError('Locatietoegang geweigerd — sta locatie toe in uw browserinstellingen.');
+        } else {
+          setGpsStatus('error');
+          setSoilError('Locatie kon niet worden bepaald. Probeer het opnieuw.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
   }
 
   const riskColorMap: Record<string, string> = {
@@ -116,6 +176,22 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
             </div>
           </div>
 
+          {/* GPS button */}
+          <button
+            onClick={handleGps}
+            disabled={soilLoading || gpsStatus === 'loading'}
+            className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/40 px-3 py-2 text-xs text-zinc-400 transition-colors hover:border-zinc-600 hover:text-zinc-300 disabled:opacity-40"
+          >
+            {gpsStatus === 'loading' ? (
+              <>
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
+                Locatie bepalen…
+              </>
+            ) : (
+              <>📍 Gebruik mijn locatie</>
+            )}
+          </button>
+
           {/* Loading skeleton — replaces old data while new fetch is in progress */}
           {soilLoading && (
             <div className="mb-3 space-y-2 animate-pulse">
@@ -132,6 +208,8 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                   {soilData.straatnaam
                     ? [soilData.straatnaam, soilData.huisnummer].filter(Boolean).join(' ') +
                       (soilData.woonplaats ? `, ${soilData.woonplaats}` : '')
+                    : gpsCoords
+                    ? `📍 ${gpsCoords.lat.toFixed(5)}°N, ${gpsCoords.lon.toFixed(5)}°E`
                     : [postcode.toUpperCase(), huisnummer].filter(Boolean).join(' ')}
                 </p>
               )}

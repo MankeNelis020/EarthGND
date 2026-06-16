@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       ${warning ? `<p style="background:#fff3cd;border:1px solid #ffc107;padding:10px 14px;border-radius:4px;font-size:12px;color:#856404;margin-bottom:20px;">⚠ ${warning}</p>` : ''}
       <p style="font-size:12px;color:#888;border-top:1px solid #eee;padding-top:16px;margin:0;">
         Dit rapport is indicatief. Meet altijd ter plaatse conform NEN 3140 / NEN 1010.<br>
-        <a href="https://earthgnd.nl" style="color:#E8761A;">earthgnd.nl</a>
+        <a href="https://earthgnd.com" style="color:#E8761A;">earthgnd.com</a>
       </p>
     </div>
   </div>
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     // Passing a Buffer directly causes JSON.stringify to emit {"type":"Buffer","data":[...]}
     // which the API rejects, resulting in a 500.
     const { error: sendError } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL ?? 'EarthGND <noreply@earthgnd.nl>',
+      from: process.env.RESEND_FROM_EMAIL ?? 'EarthGND <noreply@earthgnd.com>',
       to: user.email,
       subject,
       html,
