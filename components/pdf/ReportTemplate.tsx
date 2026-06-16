@@ -169,7 +169,7 @@ export function ReportTemplate({
         </View>
 
         <Text style={styles.footer}>
-          {generatedByText} · earthgnd.nl · {reportDate}
+          {generatedByText} · earthgnd.com · {reportDate}
         </Text>
       </Page>
     </Document>

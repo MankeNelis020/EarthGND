@@ -412,7 +412,7 @@ export function OplevRapportTemplate({ report, metingen }: OplevRapportTemplateP
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>EarthGND — Aarding Opleverrapport</Text>
           <Text style={styles.footerText}>
-            Gegenereerd: {new Date().toLocaleDateString('nl-NL')} · earthgnd.nl
+            Gegenereerd: {new Date().toLocaleDateString('nl-NL')} · earthgnd.com
           </Text>
         </View>
 

@@ -57,7 +57,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     : new Date().toLocaleDateString('nl-NL');
 
   const { error: emailError } = await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL ?? 'noreply@earthgnd.nl',
+    from: process.env.RESEND_FROM_EMAIL ?? 'noreply@earthgnd.com',
     to: report.deel_ontvanger_email,
     subject: `Aarding opleverrapport — ${report.locatie ?? report.opdrachtgever ?? 'EarthGND'}`,
     html: `
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
           ` : ''}
           ${report.deel_json ? `
             <p style="color:#666;font-size:12px;margin:0 0 8px">
-              Gestructureerde data (JSON) is beschikbaar op aanvraag via <a href="mailto:info@earthgnd.nl" style="color:#E8761A">info@earthgnd.nl</a>.
+              Gestructureerde data (JSON) is beschikbaar op aanvraag via <a href="mailto:info@earthgnd.com" style="color:#E8761A">info@earthgnd.com</a>.
             </p>
           ` : ''}
           <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
           </p>
         </div>
         <div style="background:#f5f5f5;padding:16px;text-align:center;color:#999;font-size:12px">
-          © ${new Date().getFullYear()} EarthGND · earthgnd.nl
+          © ${new Date().getFullYear()} EarthGND · earthgnd.com
         </div>
       </div>
     `,
