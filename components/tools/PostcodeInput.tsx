@@ -88,6 +88,9 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
             setGpsStatus('error');
           } else {
             setSoilData(data);
+            // Auto-apply: feed the GPS result directly into the calculator
+            onRhoChange?.(data.dominantRho);
+            if (data.groundwaterDepth != null) onGroundwaterChange?.(data.groundwaterDepth);
             setGpsStatus('idle');
           }
         } catch {

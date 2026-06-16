@@ -31,6 +31,7 @@ interface CalcResult {
   corrosionClass: CorrosionClass;
   parallelAdvice: ParallelAdvice | null;
   creditsRemaining: number;
+  diepteGecapt?: boolean;
   rhoDry?: number;
   rhoWet?: number;
   gwGunstig?: number;
@@ -502,8 +503,17 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
   const isZonderAardlek = ZONDER_AARDLEK_VALUES.has(targetResistance);
   const activeRho = soilData?.dominantRho ?? rho;
-  // Extract lithoClass from BRO data for two-layer model
+
+  // ─── Step 1: ρ-koppeling fix ──────────────────────────────────────────────
+  // lithoClass for the legacy legend trigger (kept as-is to avoid UI regressions).
   const lithoClass = soilData?.samples?.[0]?.lithoClass ?? null;
+  // Dry-zone ρ: average actual rho of BRO samples shallower than GHG.
+  // When no samples are above GHG, fall back to null (API uses ratio fallback).
+  const samplesAboveGhg = (soilData?.samples ?? []).filter(s => Math.abs(s.depth) < groundwaterDepth);
+  const rhoDryProfile = samplesAboveGhg.length > 0
+    ? Math.round(samplesAboveGhg.reduce((sum, s) => sum + s.rho, 0) / samplesAboveGhg.length)
+    : null;
+  const hasBroProfile = soilData != null;
 
   async function handleCalculate() {
     setLoading(true);
@@ -520,6 +530,8 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           postcode: postcode || undefined,
           electrodeType,
           lithoClass: lithoClass ?? undefined,
+          rhoDryOverride: rhoDryProfile ?? undefined,
+          hasBroProfile: hasBroProfile || undefined,
           lintBurialDepth: electrodeType === 'lint' ? lintBurialDepth : undefined,
           lintConductorDiameter: electrodeType === 'lint' ? lintDiameter : undefined,
         }),
@@ -832,6 +844,19 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 );
               })}
             </div>
+
+            {/* Step 3: depth-cap warning */}
+            {calcResult.diepteGecapt && (
+              <div className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4">
+                <p className="text-sm font-semibold text-yellow-400">
+                  ⚠ Verticale pen ontoereikend voor dit bodemprofiel
+                </p>
+                <p className="mt-1 text-xs text-white/60">
+                  De berekening convergeert niet binnen {9} m. Overweeg meerdere pennen parallel,
+                  een horizontale geleider of een aardlus. Zie de Ra-haalbaarheidscheck hieronder.
+                </p>
+              </div>
+            )}
 
             {/* Parallel rod advice */}
             {calcResult.parallelAdvice && (
