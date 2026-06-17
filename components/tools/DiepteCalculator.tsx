@@ -38,6 +38,11 @@ interface CalcResult {
   gwGemiddeld?: number;
   gwOngunstig?: number;
   gwSource?: 'peilbuis' | null;
+  // Pipeline enrichment (present when pipeline is active)
+  confidence?:        { level: 'hoog' | 'midden' | 'laag'; label: string; icon: string; showBROBadge: boolean };
+  warnings?:          string[];
+  uncertaintyBand?:   { typical: number; low: number; high: number; rhoFactorLow: number; rhoFactorHigh: number };
+  plausibilityFlags?: { field: string; value: number | string; message: string; severity: 'light' | 'heavy' }[];
 }
 
 interface Profile { plan: string; credits_left: number; credits_reset: string | null }
@@ -478,6 +483,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   const [calcResult, setCalcResult] = useState<CalcResult | null>(null);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
+  const [confirmationMsg, setConfirmationMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -515,9 +521,10 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
     : null;
   const hasBroProfile = soilData != null;
 
-  async function handleCalculate() {
+  async function handleCalculate(confirmed = false) {
     setLoading(true);
     setError('');
+    setConfirmationMsg(null);
     try {
       const res = await fetch('/api/diepte/calculate', {
         method: 'POST',
@@ -534,9 +541,18 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           hasBroProfile: hasBroProfile || undefined,
           lintBurialDepth: electrodeType === 'lint' ? lintBurialDepth : undefined,
           lintConductorDiameter: electrodeType === 'lint' ? lintDiameter : undefined,
+          // Source metadata for pipeline confidence scoring
+          dataSource:   soilData?.dataSource,
+          boringAfstand: soilData?.boringAfstand,
+          // Confirmation flag: user approved a heavy plausibility warning
+          confirmed: confirmed || undefined,
         }),
       });
       const data = await res.json();
+      if (res.status === 422 && data.confirmationRequired) {
+        setConfirmationMsg(data.error?.message ?? 'Bevestig de invoerwaarden voordat de berekening start.');
+        return;
+      }
       if (!res.ok) { setError(data.error ?? 'Berekening mislukt'); return; }
       setCalcResult(data);
       if (profile) setProfile(p => p ? { ...p, credits_left: data.creditsRemaining } : p);
@@ -745,9 +761,31 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
         </div>
       </div>
 
+      {/* Confirmation banner (B-heavy plausibility warning) */}
+      {confirmationMsg && (
+        <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/8 px-4 py-3">
+          <p className="text-sm text-yellow-300 leading-relaxed">{confirmationMsg}</p>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => setConfirmationMsg(null)}
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:text-white"
+            >
+              Annuleer
+            </button>
+            <button
+              onClick={() => handleCalculate(true)}
+              disabled={loading}
+              className="rounded-lg border border-yellow-500/30 bg-yellow-500/15 px-3 py-1.5 text-xs font-semibold text-yellow-300 hover:bg-yellow-500/25 disabled:opacity-50"
+            >
+              Bevestig &amp; bereken
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Calculate button */}
       <button
-        onClick={handleCalculate}
+        onClick={() => handleCalculate()}
         disabled={loading}
         className="rounded-2xl bg-[#E8761A] py-4 text-sm font-bold text-white transition-opacity hover:bg-[#d06510] disabled:opacity-50"
       >
@@ -799,25 +837,46 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             </div>
           )}
 
-          {/* Convergence warning — target resistance unreachable within 100 m */}
-          {calcResult.electrodeType === 'pen' &&
-           !(calcResult.scenarios.ongunstig as DiepteResult).converged && (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/8 px-4 py-3 text-xs text-red-300 leading-relaxed">
-              <strong className="font-semibold">Doelweerstand niet haalbaar</strong> — zelfs bij 100 m diepte wordt
-              Ra ≤ {targetResistance} Ω niet bereikt in het ongunstige scenario.
-              Overweeg een aardlekschakelaar (30 mA → max 166 Ω), aardmat, of meerdere pennen in een betere grondzone.
-            </div>
+          {/* Pipeline warnings (one source of truth when pipeline is active) */}
+          {calcResult.warnings ? (
+            calcResult.warnings.length > 0 && (
+              <div className="flex flex-col gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
+                {calcResult.warnings.map((w, i) => (
+                  <p key={i} className="text-xs text-yellow-300 leading-relaxed">{w}</p>
+                ))}
+              </div>
+            )
+          ) : (
+            /* Fallback: convergence warning for old API without pipeline enrichment */
+            calcResult.electrodeType === 'pen' &&
+            !(calcResult.scenarios.ongunstig as DiepteResult).converged && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/8 px-4 py-3 text-xs text-red-300 leading-relaxed">
+                <strong className="font-semibold">Doelweerstand niet haalbaar</strong> — zelfs bij 100 m diepte wordt
+                Ra ≤ {targetResistance} Ω niet bereikt in het ongunstige scenario.
+                Overweeg een aardlekschakelaar (30 mA → max 166 Ω), aardmat, of meerdere pennen in een betere grondzone.
+              </div>
+            )
           )}
 
           {/* Three scenarios */}
           <div className="rounded-2xl border border-white/10 p-5">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between gap-2">
               <span className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">
                 Drie scenario&apos;s
               </span>
-              <span className="text-xs text-white/70">
-                GHG {groundwaterDepth}m · doel ≤ {targetResistance} Ω
-              </span>
+              <div className="flex flex-col items-end gap-0.5">
+                <span className="text-xs text-white/70">
+                  GHG {groundwaterDepth}m · doel ≤ {targetResistance} Ω
+                </span>
+                {calcResult.confidence && (
+                  <span className={`text-[10px] font-semibold ${
+                    calcResult.confidence.level === 'hoog'   ? 'text-green-400' :
+                    calcResult.confidence.level === 'midden' ? 'text-yellow-400' : 'text-orange-400'
+                  }`}>
+                    {calcResult.confidence.icon}{calcResult.confidence.showBROBadge ? ' BRO ✓' : ''} {calcResult.confidence.label}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {(['gunstig', 'gemiddeld', 'ongunstig'] as const).map((key, i) => {
@@ -844,6 +903,18 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 );
               })}
             </div>
+
+            {/* Uncertainty band (ρ-axis, orthogonal to GWT scenarios) */}
+            {calcResult.uncertaintyBand && (
+              <div className="mt-3 rounded-lg border border-white/6 bg-white/3 px-4 py-2.5 text-xs text-white/60">
+                <span className="text-white/40">ρ-bandbreedte (gemiddeld scenario): </span>
+                {calcResult.uncertaintyBand.low.toFixed(1)}–{calcResult.uncertaintyBand.high.toFixed(1)}{' '}
+                {calcResult.electrodeType === 'lint' ? 'm lint' : 'm diep'}
+                <span className="ml-1 text-white/40">
+                  (ρ × {calcResult.uncertaintyBand.rhoFactorLow}–{calcResult.uncertaintyBand.rhoFactorHigh})
+                </span>
+              </div>
+            )}
 
             {/* Parallel rod advice */}
             {calcResult.parallelAdvice && (
