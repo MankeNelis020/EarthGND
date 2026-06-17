@@ -3,15 +3,17 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
+import type { DiepteRapportProps } from '@/components/pdf/DiepteRapportTemplate';
 
 interface Props {
   tool: 'ohm' | 'diepte';
   inputValues: Record<string, string | number>;
   results: Record<string, string | number>;
   warning?: string;
+  diepteCalcResult?: DiepteRapportProps;
 }
 
-export function EmailRapportButton({ tool, inputValues, results, warning }: Props) {
+export function EmailRapportButton({ tool, inputValues, results, warning, diepteCalcResult }: Props) {
   const [status, setStatus] = useState<'idle' | 'checking' | 'sending' | 'sent' | 'login' | 'error'>('idle');
 
   const returnPath =
@@ -35,7 +37,7 @@ export function EmailRapportButton({ tool, inputValues, results, warning }: Prop
       const res = await fetch('/api/email/rapport', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool, inputValues, results, warning }),
+        body: JSON.stringify({ tool, inputValues, results, warning, diepteCalcResult }),
       });
       if (!res.ok) throw new Error('Verzenden mislukt');
       setStatus('sent');

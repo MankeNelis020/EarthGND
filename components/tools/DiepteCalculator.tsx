@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { EmailRapportButton } from './EmailRapportButton';
+import type { DiepteRapportProps } from '@/components/pdf/DiepteRapportTemplate';
 import type { User } from '@supabase/supabase-js';
 import { PostcodeInput } from './PostcodeInput';
 import { useCalculator } from '@/lib/context/CalculatorContext';
@@ -950,6 +951,23 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                     'Corrosieklasse': calcResult.corrosionClass.label,
                   }
             }
+            diepteCalcResult={{
+              postcode: postcode || undefined,
+              electrodeType: calcResult.electrodeType,
+              rho: activeRho,
+              groundwaterDepth,
+              ph,
+              targetResistance,
+              rhoDry:      calcResult.rhoDry,
+              rhoWet:      calcResult.rhoWet,
+              gwGunstig:   calcResult.gwGunstig,
+              gwGemiddeld: calcResult.gwGemiddeld,
+              gwOngunstig: calcResult.gwOngunstig,
+              scenarios:   calcResult.scenarios as DiepteRapportProps['scenarios'],
+              parallelAdvice: calcResult.parallelAdvice,
+              riskClass:      calcResult.riskClass,
+              corrosionClass: calcResult.corrosionClass,
+            }}
           />
         </div>
       )}
