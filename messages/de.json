@@ -166,6 +166,9 @@
     "q7": "Was bedeuten Risikoklassen I–IV bei der Erdung?",
     "a7": "Risikoklassen (gemäß NEN 62305 / EN 50522) geben das Blitzschutzrisiko an: Klasse I ist das höchste Risiko, Klasse IV das niedrigste. Der Bodenwiderstand beeinflusst die Klassifizierung. EarthGND zeigt die Klasse direkt nach der Berechnung.",
     "q8": "Kann EarthGND für Erdungsberechnungen in Deutschland oder Belgien verwendet werden?",
-    "a8": "Die Dwight-Formel und NEN/EN-Normen sind international anwendbar. BRO-Bodendaten sind jedoch nur für niederländische Postleitzahlen verfügbar. Für andere Standorte können Sie den Bodenwiderstand manuell auf Basis einer lokalen Bodenuntersuchung eingeben."
+    "a8": "Die Dwight-Formel und NEN/EN-Normen sind international anwendbar. BRO-Bodendaten sind jedoch nur für niederländische Postleitzahlen verfügbar. Für andere Standorte können Sie den Bodenwiderstand manuell auf Basis einer lokalen Bodenuntersuchung eingeben.",
+    "ctaTitle": "Selbst berechnen?",
+    "ctaOhm": "Widerstandsrechner",
+    "ctaDiepte": "Stabtiefe-Rechner"
   }
 }

@@ -70,19 +70,19 @@ export default async function FaqPage({ params }: Props) {
         </div>
 
         <div className="mt-12 rounded-2xl border border-[#E8761A]/20 bg-[#E8761A]/5 p-6 text-center">
-          <p className="mb-4 text-sm font-semibold text-white">Zelf berekenen?</p>
+          <p className="mb-4 text-sm font-semibold text-white">{t('ctaTitle')}</p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link
               href="/tool/ohm"
               className="rounded-xl bg-[#E8761A] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#d06510] transition-colors"
             >
-              Weerstand Calculator
+              {t('ctaOhm')}
             </Link>
             <Link
               href="/pricing"
               className="rounded-xl border border-white/15 px-6 py-2.5 text-sm font-semibold text-white/70 hover:text-white transition-colors"
             >
-              Pendiepte Calculator
+              {t('ctaDiepte')}
             </Link>
           </div>
         </div>

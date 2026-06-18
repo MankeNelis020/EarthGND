@@ -166,6 +166,9 @@
     "q7": "Wat betekenen risicoklassen I–IV bij aarding?",
     "a7": "Risicoklassen (conform NEN 62305 / EN 50522) geven het risico op bliksemschade aan: klasse I is het hoogste risico (gebouwen met gevaarlijke inhoud), klasse IV het laagste. De bodemweerstand speelt een rol bij de bepaling. EarthGND toont de klasse direct na berekening.",
     "q8": "Kan EarthGND gebruikt worden voor berekeningen in Duitsland of België?",
-    "a8": "De Dwight-formule en NEN/EN-normen zijn internationaal toepasbaar. BRO bodemdata is echter uitsluitend beschikbaar voor Nederlandse postcodes. Voor buitenlandse locaties kunt u de bodemweerstand handmatig invoeren op basis van een lokale meting."
+    "a8": "De Dwight-formule en NEN/EN-normen zijn internationaal toepasbaar. BRO bodemdata is echter uitsluitend beschikbaar voor Nederlandse postcodes. Voor buitenlandse locaties kunt u de bodemweerstand handmatig invoeren op basis van een lokale meting.",
+    "ctaTitle": "Zelf berekenen?",
+    "ctaOhm": "Weerstand Calculator",
+    "ctaDiepte": "Pendiepte Calculator"
   }
 }

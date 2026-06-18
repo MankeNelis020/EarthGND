@@ -166,6 +166,9 @@
     "q7": "What do risk classes I–IV mean for grounding?",
     "a7": "Risk classes (per NEN 62305 / EN 50522) indicate lightning protection requirements: class I is the highest risk (buildings with hazardous content), class IV the lowest. Soil resistivity affects the classification. EarthGND displays the risk class after each calculation.",
     "q8": "Can EarthGND be used for grounding calculations in Germany or Belgium?",
-    "a8": "Dwight's formula and NEN/EN standards are internationally applicable. However, BRO soil data is only available for Dutch postal codes. For locations outside the Netherlands, you can manually enter soil resistivity based on a local soil survey."
+    "a8": "Dwight's formula and NEN/EN standards are internationally applicable. However, BRO soil data is only available for Dutch postal codes. For locations outside the Netherlands, you can manually enter soil resistivity based on a local soil survey.",
+    "ctaTitle": "Try it yourself?",
+    "ctaOhm": "Resistance Calculator",
+    "ctaDiepte": "Rod Depth Calculator"
   }
 }
