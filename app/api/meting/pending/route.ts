@@ -30,6 +30,7 @@ export async function GET() {
     .select('calculation_id, status, monteur_email')
     .ilike('monteur_email', user.email)
     .eq('status', 'invited')
+    .is('monteur_user_id', null)   // alleen omleiden als de monteur nog nooit heeft ingelogd
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
