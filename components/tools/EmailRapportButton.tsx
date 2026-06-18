@@ -14,7 +14,7 @@ interface Props {
   calculationId?: string | null;
 }
 
-export function EmailRapportButton({ tool, inputValues, results, warning, diepteCalcResult, calculationId }: Props) {
+export function EmailRapportButton({ tool, inputValues, results, warning, diepteCalcResult, calculationId, className }: Props & { className?: string }) {
   const [status, setStatus] = useState<'idle' | 'checking' | 'sending' | 'sent' | 'login' | 'error'>('idle');
 
   const returnPath =
@@ -84,11 +84,11 @@ export function EmailRapportButton({ tool, inputValues, results, warning, diepte
   const isSent = status === 'sent';
 
   return (
-    <div className="mt-4 flex flex-col gap-2">
+    <div className={className ?? 'mt-4 flex flex-col gap-2'}>
       <button
         onClick={handleClick}
         disabled={isBusy || isSent}
-        className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors
+        className={`flex h-full w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors
           ${isSent
             ? 'border-green-500/30 bg-green-500/10 text-green-400 cursor-default'
             : isBusy
