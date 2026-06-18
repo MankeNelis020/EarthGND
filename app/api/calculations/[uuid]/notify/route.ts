@@ -31,8 +31,15 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 
   if (!calc) return NextResponse.json({ error: 'Berekening niet gevonden' }, { status: 404 });
 
+  // Admin client bypasses RLS — needed for upsert on pendiepte_metingen
+  // (UPDATE policy requires monteur_user_id, but here the calculator is acting)
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
   // Upsert pendiepte_metingen record (one per calculation)
-  const { error: upsertError } = await supabase
+  const { error: upsertError } = await adminClient
     .from('pendiepte_metingen')
     .upsert({
       calculation_id:     uuid,
@@ -50,12 +57,6 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     monteur_email:       monteurEmail,
     monteur_invited_at:  new Date().toISOString(),
   }).eq('id', uuid);
-
-  // Generate magic link via admin API
-  const adminClient = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? request.headers.get('origin') ?? 'https://earthgnd.com';
   const redirectTo = `${baseUrl}/auth/callback?next=/nl/meting/${uuid}`;
