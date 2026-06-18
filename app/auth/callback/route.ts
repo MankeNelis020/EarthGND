@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import type { CookieOptions } from '@supabase/ssr';
+
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -20,12 +23,8 @@ export async function GET(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          pendingCookies.push(...cookiesToSet);
-        },
+        getAll() { return request.cookies.getAll(); },
+        setAll(cookiesToSet) { pendingCookies.push(...cookiesToSet); },
       },
     },
   );
@@ -37,30 +36,40 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/nl/login?error=auth`);
   }
 
-  // Determine redirect destination.
-  // Priority 1: explicit ?next= from the magic link's redirect_to
-  // Priority 2: DB lookup — is this user an invited monteur?
+  // Priority 1: explicit ?next= (survives when redirect_to comes through intact)
+  // Priority 2: DB lookup via admin client — finds pending meting by email even
+  //             when monteur_user_id is still NULL (first login via Google OAuth)
   // Fallback: dashboard
   let redirectPath = next || '/nl/dashboard';
 
   if (!next) {
     const email = sessionData.user?.email;
     if (email) {
-      const { data: meting } = await supabase
-        .from('pendiepte_metingen')
-        .select('calculation_id')
-        .eq('monteur_email', email)
-        .eq('status', 'invited')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      try {
+        const adminClient = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        );
+        const { data: meting } = await adminClient
+          .from('pendiepte_metingen')
+          .select('calculation_id')
+          .eq('monteur_email', email)
+          .eq('status', 'invited')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
 
-      if (meting?.calculation_id) {
-        redirectPath = `/nl/meting/${meting.calculation_id}`;
-        console.log('[auth/callback] monteur meting found, redirecting to:', redirectPath);
+        if (meting?.calculation_id) {
+          redirectPath = `/nl/meting/${meting.calculation_id}`;
+          console.log('[auth/callback] monteur meting found:', redirectPath);
+        }
+      } catch {
+        // Non-blocking — fall through to dashboard
       }
     }
   }
+
+  console.log('[auth/callback] redirecting to:', redirectPath);
 
   const response = NextResponse.redirect(`${origin}${redirectPath}`);
   pendingCookies.forEach(({ name, value, options }) => {
