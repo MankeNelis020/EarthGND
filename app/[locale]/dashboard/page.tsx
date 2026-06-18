@@ -63,15 +63,18 @@ function SuccessBanner() {
 }
 
 export default async function DashboardPage({
+  params: paramsPromise,
   searchParams,
 }: {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<{ checkout?: string }>;
 }) {
+  const { locale } = await paramsPromise;
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect('/login');
+  if (!user) redirect(`/${locale}/login?next=/${locale}/dashboard`);
 
   const params = await searchParams;
 
