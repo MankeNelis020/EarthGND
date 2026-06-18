@@ -10,6 +10,7 @@ import { PostcodeInput } from './PostcodeInput';
 import { useCalculator } from '@/lib/context/CalculatorContext';
 import { calcRhoEffective } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
+import { calcAllMethods, DRIVE_METHOD_LABELS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,9 +21,13 @@ interface LintScenarios { gunstig: LintResult;   gemiddeld: LintResult;   onguns
 
 interface ParallelAdvice {
   aantalPennen: number;
-  minAfstand: number;
-  rParallel: number;
-  rSingle: number;
+  minAfstand:   number;
+  rParallel:    number;
+  rSingle:      number;
+  reason?:      'resistance' | 'driveability';
+  zMax?:        ZMaxBand;
+  refusalLayer?: RefusalLayer | null;
+  targetUnreachable?: boolean;
 }
 
 interface CalcResult {
@@ -39,6 +44,12 @@ interface CalcResult {
   gwGemiddeld?: number;
   gwOngunstig?: number;
   gwSource?: 'peilbuis' | null;
+  driveability?: {
+    method:       DriveMethod;
+    zMax:         ZMaxBand;
+    refusalLayer: RefusalLayer | null;
+    isLimited:    boolean;
+  };
   // Pipeline enrichment (present when pipeline is active)
   confidence?:        { level: 'hoog' | 'midden' | 'laag'; label: string; icon: string; showBROBadge: boolean };
   warnings?:          string[];
@@ -113,11 +124,15 @@ function SoilCrossSection({
   gwDepth,
   numRods,
   spacing,
+  refusalDepth,
+  refusalSoil,
 }: {
-  rodLength: number;
-  gwDepth: number;
-  numRods: number;
-  spacing: number;
+  rodLength:     number;
+  gwDepth:       number;
+  numRods:       number;
+  spacing:       number;
+  refusalDepth?: number;
+  refusalSoil?:  string;
 }) {
   const maxDepth = Math.max(rodLength * 1.25, gwDepth + 1, 4);
   const W = 280;
@@ -158,8 +173,22 @@ function SoilCrossSection({
       <line x1={ml} y1={gwY} x2={ml + dw} y2={gwY} stroke="#60A5FA" strokeWidth={1.5} strokeDasharray="6,4" />
       {/* GHG label */}
       <text x={ml + dw + 5} y={gwY + 4} fill="#60A5FA" fontSize={9} fontFamily="monospace">
-        GHG {gwDepth.toFixed(1)}m
+        GHG {gwDepth.toFixed(2)}m
       </text>
+
+      {/* Refusal / weigering line */}
+      {refusalDepth != null && refusalDepth <= maxDepth && (() => {
+        const refY = toY(refusalDepth);
+        return (
+          <g>
+            <rect x={ml} y={refY} width={dw} height={H - mb - refY} fill="#ef4444" fillOpacity={0.08} />
+            <line x1={ml} y1={refY} x2={ml + dw} y2={refY} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4,3" />
+            <text x={ml + dw + 5} y={refY + 4} fill="#ef4444" fontSize={9} fontFamily="monospace">
+              {refusalSoil ?? 'weigering'} {refusalDepth.toFixed(1)}m
+            </text>
+          </g>
+        );
+      })()}
 
       {/* Earth rods */}
       {rodXs.map((x, i) => (
@@ -437,6 +466,74 @@ function RaHaalbaarheidsCheck({ raGemiddeld, raOngunstig }: { raGemiddeld: numbe
   );
 }
 
+function DriveabilityBlock({
+  method,
+  zMax,
+  refusalLayer,
+  isLimited,
+  soilSamples,
+  zReq,
+}: {
+  method:       DriveMethod;
+  zMax:         ZMaxBand;
+  refusalLayer: RefusalLayer | null;
+  isLimited:    boolean;
+  soilSamples:  ReadonlyArray<{ depth: number; lithoClass: number }>;
+  zReq:         number;
+}) {
+  const allMethods = calcAllMethods(soilSamples, zReq);
+  const methods = Object.keys(DRIVE_METHOD_LABELS) as DriveMethod[];
+  return (
+    <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
+      <div className="border-b border-white/6 px-5 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Drijfbaarheid &amp; weigering</p>
+        <p className="mt-0.5 text-xs text-white/70">
+          {isLimited
+            ? refusalLayer
+              ? `Weigering op ${refusalLayer.depth.toFixed(1)} m — ${refusalLayer.soil}`
+              : `Methode-maximum van ${DRIVE_METHOD_LABELS[method]} begrenst diepte`
+            : `Geen weigering — ${DRIVE_METHOD_LABELS[method]} haalt benodigde diepte`}
+        </p>
+      </div>
+      <div className="divide-y divide-white/5">
+        {methods.map(m => {
+          const d = allMethods[m];
+          const active = m === method;
+          return (
+            <div key={m} className={`flex items-center gap-3 px-5 py-2.5 ${active ? 'bg-white/3' : ''}`}>
+              <span className={`w-28 shrink-0 text-xs font-medium ${active ? 'text-white' : 'text-white/50'}`}>
+                {DRIVE_METHOD_LABELS[m]}
+              </span>
+              <div className="flex flex-1 items-center gap-1">
+                <span className={`font-mono text-xs ${d.isLimited ? 'text-orange-400' : 'text-green-400'}`}>
+                  {d.zMax.typical.toFixed(1)} m
+                </span>
+                <span className="text-[10px] text-white/30">
+                  ({d.zMax.low.toFixed(1)}–{d.zMax.high.toFixed(1)})
+                </span>
+              </div>
+              {active && (
+                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                  d.isLimited ? 'bg-orange-500/15 text-orange-400' : 'bg-green-500/15 text-green-400'
+                }`}>
+                  {d.isLimited ? 'begrensd' : 'haalbaar'}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {refusalLayer && (
+        <div className="border-t border-white/6 px-5 py-3 text-[10px] text-white/60 leading-relaxed">
+          Grind op {refusalLayer.depth.toFixed(1)} m — GeoTOP/BRO bron.
+          Weerstand van {refusalLayer.soil} is representatief voor de laag; actuele grenzen variëren.
+          Voor voorboren: grind is geen harde grens.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CorrosieKaart({ cc }: { cc: CorrosionClass }) {
   const colors = {
     green:  { border: 'border-green-500/20',  bg: 'bg-green-500/5',  text: 'text-green-400'  },
@@ -472,6 +569,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const [electrodeType, setElectrodeType] = useState<ElectrodeType>('pen');
+  const [drijfmethode, setDrijfmethode]   = useState<DriveMethod>('sds');
 
   const [rho, setRho]                   = useState(125);
   const [targetResistance, setTarget]   = useState(initialTarget ?? 10);
@@ -550,6 +648,9 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           hasBroProfile: hasBroProfile || undefined,
           lintBurialDepth: electrodeType === 'lint' ? lintBurialDepth : undefined,
           lintConductorDiameter: electrodeType === 'lint' ? lintDiameter : undefined,
+          // Driveability
+          drijfmethode: electrodeType === 'pen' ? drijfmethode : undefined,
+          soilSamples:  soilData?.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })) ?? [],
           // Source metadata for pipeline confidence scoring
           dataSource:   soilData?.dataSource,
           boringAfstand: soilData?.boringAfstand,
@@ -613,7 +714,12 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
   // Determine visualization params for result
   const gemiddeldResult = calcResult?.scenarios?.gemiddeld as DiepteResult | undefined;
-  const rodLength  = gemiddeldResult?.depth ?? 0;
+  const dwightDepth = gemiddeldResult?.depth ?? 0;
+  // When driveability limits, cap visual rod length at z_max.typical
+  const isDriveabilityLimited = calcResult?.parallelAdvice?.reason === 'driveability';
+  const rodLength  = isDriveabilityLimited
+    ? (calcResult?.parallelAdvice?.zMax?.typical ?? dwightDepth)
+    : dwightDepth;
   const numRods    = calcResult?.parallelAdvice?.aantalPennen ?? 1;
   const rodSpacing = calcResult?.parallelAdvice?.minAfstand ?? 0;
 
@@ -654,6 +760,27 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               </button>
             ))}
           </div>
+          {electrodeType === 'pen' && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs text-white/70">Drijfmethode</p>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                {(Object.keys(DRIVE_METHOD_LABELS) as DriveMethod[]).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => { setDrijfmethode(m); setCalcResult(null); }}
+                    className={`rounded-lg border px-2 py-2 text-left text-xs transition-all ${
+                      drijfmethode === m
+                        ? 'border-[#E8761A] bg-[#E8761A]/10 text-[#E8761A]'
+                        : 'border-white/8 bg-white/3 text-white/60 hover:border-white/15 hover:text-white'
+                    }`}
+                  >
+                    {DRIVE_METHOD_LABELS[m]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {electrodeType === 'lint' && (
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
@@ -842,17 +969,36 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   Aanbevolen configuratie
                 </p>
                 <p className="text-xs font-bold text-white">
-                  {numRods > 1
+                  {numRods > 1 && isDriveabilityLimited
+                    ? `${numRods} pennen × ${rodLength.toFixed(1)} m — ${calcResult.parallelAdvice?.refusalLayer?.soil ?? 'bodem'} begrenst diepte`
+                    : numRods > 1
                     ? `${numRods} pennen — elk ${rodLength.toFixed(2)} m, ${rodSpacing} m uit elkaar`
                     : `1 pen — ${rodLength.toFixed(2)} m diep`}
                 </p>
               </div>
+              {isDriveabilityLimited && calcResult.parallelAdvice?.targetUnreachable && (
+                <div className="border-b border-red-500/20 bg-red-500/5 px-5 py-2.5 text-xs text-red-300">
+                  Doelweerstand niet haalbaar met verticale pennen in deze grond. Overweeg horizontaal lint, aardmat of voorboren.
+                </div>
+              )}
               <div className="px-5 py-4">
                 <SoilCrossSection
                   rodLength={rodLength}
                   gwDepth={groundwaterDepth}
                   numRods={numRods}
                   spacing={rodSpacing}
+                  refusalDepth={
+                    (calcResult.parallelAdvice?.refusalLayer?.warning === true ||
+                     calcResult.parallelAdvice?.refusalLayer?.lithoClass === 6)
+                      ? calcResult.parallelAdvice?.refusalLayer?.depth
+                      : undefined
+                  }
+                  refusalSoil={
+                    (calcResult.parallelAdvice?.refusalLayer?.warning === true ||
+                     calcResult.parallelAdvice?.refusalLayer?.lithoClass === 6)
+                      ? calcResult.parallelAdvice?.refusalLayer?.soil
+                      : undefined
+                  }
                 />
                 {/* Two-layer legend */}
                 {calcResult.rhoDry && calcResult.rhoWet && (
@@ -952,16 +1098,20 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
             {/* Parallel rod advice */}
             {calcResult.parallelAdvice && (
-              <div className="mt-4 rounded-xl border border-orange-500/25 bg-orange-500/5 p-4">
-                <p className="mb-2 text-sm font-semibold text-orange-400">
-                  Parallelschakeling aanbevolen — {calcResult.parallelAdvice.aantalPennen} pennen
+              <div className={`mt-4 rounded-xl border p-4 ${
+                isDriveabilityLimited
+                  ? 'border-red-500/25 bg-red-500/5'
+                  : 'border-orange-500/25 bg-orange-500/5'
+              }`}>
+                <p className={`mb-2 text-sm font-semibold ${isDriveabilityLimited ? 'text-red-400' : 'text-orange-400'}`}>
+                  {isDriveabilityLimited
+                    ? `${calcResult.parallelAdvice.aantalPennen} pennen nodig — indrijfweerstand begrenst diepte`
+                    : `Parallelschakeling aanbevolen — ${calcResult.parallelAdvice.aantalPennen} pennen`}
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-xs text-white/60">
                   <div>
                     <span className="text-white/70">Diepte per pen</span>
-                    <p className="font-semibold text-white">
-                      {scenarioDim(calcResult.scenarios.gemiddeld as DiepteResult).toFixed(2)} m
-                    </p>
+                    <p className="font-semibold text-white">{rodLength.toFixed(1)} m</p>
                   </div>
                   <div>
                     <span className="text-white/70">Min. onderlinge afstand</span>
@@ -996,10 +1146,30 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             </div>
           )}
 
-          {/* Ra-haalbaarheidscheck */}
+          {/* Driveability block (pen only, when method is selected) */}
+          {calcResult.electrodeType === 'pen' && calcResult.driveability && (
+            <DriveabilityBlock
+              method={calcResult.driveability.method}
+              zMax={calcResult.driveability.zMax}
+              refusalLayer={calcResult.driveability.refusalLayer}
+              isLimited={calcResult.driveability.isLimited}
+              soilSamples={soilData?.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })) ?? []}
+              zReq={dwightDepth}
+            />
+          )}
+
+          {/* Ra-haalbaarheidscheck — uses combined Ra when driveability forces multiple rods */}
           <RaHaalbaarheidsCheck
-            raGemiddeld={(calcResult.scenarios.gemiddeld as DiepteResult | LintResult).achievedResistance}
-            raOngunstig={(calcResult.scenarios.ongunstig as DiepteResult | LintResult).achievedResistance}
+            raGemiddeld={
+              isDriveabilityLimited && calcResult.parallelAdvice?.rParallel != null
+                ? calcResult.parallelAdvice.rParallel
+                : (calcResult.scenarios.gemiddeld as DiepteResult | LintResult).achievedResistance
+            }
+            raOngunstig={
+              isDriveabilityLimited && calcResult.parallelAdvice?.rParallel != null
+                ? calcResult.parallelAdvice.rParallel
+                : (calcResult.scenarios.ongunstig as DiepteResult | LintResult).achievedResistance
+            }
           />
 
           {/* Risk class */}

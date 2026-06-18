@@ -80,12 +80,14 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   const magicLink = linkData.properties.action_link;
 
   // Extract expected metrics from calculation result
-  const resultaat = calc.result        as { dimension?: number; achievedResistance?: number } | null;
-  const input     = calc.input_values  as { electrodeType?: string; targetResistance?: number } | null;
+  const resultaat = calc.result        as { dimension?: number; achievedResistance?: number; aantalPennen?: number } | null;
+  const input     = calc.input_values  as { electrodeType?: string; targetResistance?: number; drijfmethode?: string } | null;
   const gemiddeldDepth     = resultaat?.dimension ?? 0;
   const achievedResistance = resultaat?.achievedResistance ?? 0;
   const targetResistance   = input?.targetResistance ?? 0;
   const electrodeType      = input?.electrodeType === 'lint' ? 'Horizontaal lint' : 'Verticale pen';
+  const aantalPennen       = resultaat?.aantalPennen ?? 1;
+  const drijfmethode       = input?.drijfmethode ?? null;
   const postcode           = typeof calc.postcode === 'string' ? calc.postcode : '—';
 
   // Send invite email via Resend
@@ -118,6 +120,10 @@ export async function POST(request: NextRequest, { params }: Ctx) {
                 <td style="padding:10px 16px;font-weight:600;font-size:13px">${gemiddeldDepth.toFixed(2)} m</td></tr>
             <tr><td style="padding:10px 16px;color:#666;font-size:13px">Berekend Ra (gemiddeld)</td>
                 <td style="padding:10px 16px;font-weight:600;font-size:13px">${achievedResistance.toFixed(2)} Ω</td></tr>
+            ${aantalPennen > 1 ? `
+            <tr style="background:#f0f0f0"><td style="padding:10px 16px;color:#666;font-size:13px">Aanbevolen configuratie</td>
+                <td style="padding:10px 16px;font-weight:600;font-size:13px">${aantalPennen} pennen parallel${drijfmethode ? ` · ${drijfmethode}` : ''}</td></tr>
+            ` : ''}
           </table>
 
           <p style="color:#444;font-size:14px;line-height:1.6">

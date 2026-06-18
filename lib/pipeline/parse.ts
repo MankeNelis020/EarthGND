@@ -4,7 +4,8 @@
  * validates NaN/Infinity early. Does NOT apply domain rules (that's validate.ts).
  */
 
-import type { RawDiepteInput, ValidatedDiepteInput, ElectrodeType, DataSource } from './types';
+import type { RawDiepteInput, ValidatedDiepteInput, ElectrodeType, DataSource, SoilSample } from './types';
+import type { DriveMethod } from './driveability';
 export type { ValidatedDiepteInput } from './types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -39,6 +40,20 @@ function parseElectrodeType(v: unknown): ElectrodeType {
   return 'pen';
 }
 
+function parseDriveMethod(v: unknown): DriveMethod | undefined {
+  const allowed: DriveMethod[] = ['handslag', 'sds', 'pneumatisch', 'voorboren'];
+  if (typeof v === 'string' && (allowed as string[]).includes(v)) return v as DriveMethod;
+  return undefined;
+}
+
+function parseSoilSamples(v: unknown): SoilSample[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter(s => s && typeof s === 'object' && typeof s.depth === 'number' && typeof s.lithoClass === 'number')
+    .map(s => ({ depth: s.depth as number, lithoClass: s.lithoClass as number }))
+    .sort((a, b) => a.depth - b.depth);
+}
+
 // ─── Parsed intermediate (may contain nulls before validate) ─────────────────
 
 export interface ParsedDiepteInput {
@@ -53,6 +68,8 @@ export interface ParsedDiepteInput {
   lithoClass:            number | null;
   rhoDryOverride:        number | null;
   hasBroProfile:         boolean;
+  drijfmethode:          DriveMethod | undefined;
+  soilSamples:           SoilSample[];
   dataSource:            DataSource;
   boringAfstand:         number | null; // km
   boringJaar:            number | null;
@@ -74,6 +91,8 @@ export function parseDiepteInput(raw: RawDiepteInput): ParsedDiepteInput {
     lithoClass:            parseNumber(raw.lithoClass),
     rhoDryOverride:        parseNumber(raw.rhoDryOverride),
     hasBroProfile:         parseBoolean(raw.hasBroProfile),
+    drijfmethode:          parseDriveMethod(raw.drijfmethode),
+    soilSamples:           parseSoilSamples(raw.soilSamples),
     dataSource:            parseDataSource(raw.dataSource),
     boringAfstand:         parseNumber(raw.boringAfstand),
     boringJaar:            parseNumber(raw.boringJaar),
@@ -95,6 +114,8 @@ export function buildValidated(p: ParsedDiepteInput): ValidatedDiepteInput {
     lithoClass:            p.lithoClass ?? undefined,
     rhoDryOverride:        p.rhoDryOverride ?? undefined,
     hasBroProfile:         p.hasBroProfile,
+    drijfmethode:          p.drijfmethode,
+    soilSamples:           p.soilSamples,
     dataSource:            p.dataSource,
     boringAfstand:         p.boringAfstand ?? undefined,
     boringJaar:            p.boringJaar ?? undefined,

@@ -8,6 +8,7 @@
 
 export type ToolType      = 'diepte' | 'ohm';
 export type ElectrodeType = 'pen' | 'lint';
+export type { DriveMethod } from './driveability';
 
 // ─── Raw input (before parse/validate — anything could be string or missing) ──
 
@@ -23,6 +24,9 @@ export interface RawDiepteInput {
   lithoClass?:            unknown;
   rhoDryOverride?:        unknown;
   hasBroProfile?:         unknown;
+  drijfmethode?:          unknown;  // DriveMethod
+  // Depth-varying soil samples from BRO (for driveability check)
+  soilSamples?:           unknown;  // Array<{depth: number; lithoClass: number}>
   // Source metadata for confidence scoring
   dataSource?:   string;   // 'cpt'|'bhrgt'|'geotop'|'bodemkaart'|'fallback'|'manual'
   boringAfstand?: unknown; // km (distance to nearest measurement)
@@ -32,6 +36,11 @@ export interface RawDiepteInput {
 }
 
 // ─── Validated/canonicalized input — guaranteed safe for the kernel ───────────
+
+export interface SoilSample {
+  depth:      number;  // m from surface
+  lithoClass: number;  // 1–5 (EarthGND scale)
+}
 
 export interface ValidatedDiepteInput {
   rho:                   number; // > 0
@@ -45,6 +54,8 @@ export interface ValidatedDiepteInput {
   lithoClass?:           number;
   rhoDryOverride?:       number; // > 0 when present
   hasBroProfile:         boolean;
+  drijfmethode?:         import('./driveability').DriveMethod;
+  soilSamples?:          SoilSample[];
   // Confidence metadata (carried through, not used by kernel)
   dataSource:    DataSource;
   boringAfstand?: number;  // km

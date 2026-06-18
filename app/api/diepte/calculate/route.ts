@@ -40,6 +40,8 @@ export async function POST(request: NextRequest) {
   const gemiddeld = kernelResult.scenarios.gemiddeld as { depth?: number; length?: number; achievedResistance: number };
   const primaryDimension = gemiddeld.depth ?? gemiddeld.length ?? 0;
 
+  const aantalPennen = kernelResult.parallelAdvice?.aantalPennen ?? 1;
+
   // Log to DB — await to capture the UUID for the monteur flow
   const { data: calcRow, error: calcDbError } = await supabase.from('calculations').insert({
     user_id:         user.id,
@@ -52,8 +54,13 @@ export async function POST(request: NextRequest) {
       ph:               body.ph,
       electrodeType:    body.electrodeType ?? 'pen',
       lithoClass:       body.lithoClass,
+      drijfmethode:     body.drijfmethode,
     },
-    result: { dimension: primaryDimension, achievedResistance: gemiddeld.achievedResistance },
+    result: {
+      dimension:           primaryDimension,
+      achievedResistance:  gemiddeld.achievedResistance,
+      aantalPennen,
+    },
   }).select('id').single();
 
   if (calcDbError) console.error('[diepte/calculate] DB insert failed:', calcDbError.message, calcDbError.details, calcDbError.hint);

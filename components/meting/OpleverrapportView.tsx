@@ -18,6 +18,9 @@ interface Meting {
   achieved_ra: number | null;
   installed_depth: number | null;
   electrode_type: string | null;
+  drijfmethode: string | null;
+  rods: { rod_number: number; installed_depth: number; achieved_ra: number }[] | null;
+  aantal_pennen: number | null;
   notes: string | null;
   submitted_at: string | null;
   confirmed_at: string | null;
@@ -28,7 +31,7 @@ interface Calc {
   postcode: string | null;
   rapport_naam: string | null;
   result: { dimension?: number; achievedResistance?: number } | null;
-  input_values: { electrodeType?: string; targetResistance?: number; rho?: number; groundwaterDepth?: number } | null;
+  input_values: { electrodeType?: string; targetResistance?: number; rho?: number; groundwaterDepth?: number; drijfmethode?: string } | null;
   created_at?: string;
 }
 
@@ -167,7 +170,12 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
             gemeten:  meting?.electrode_type === 'lint' ? 'Horizontaal lint' : meting?.electrode_type === 'pen' ? 'Verticale pen' : '—',
           },
           {
-            label: 'Doelweerstand',
+            label: 'Drijfmethode',
+            berekend: input?.drijfmethode ?? '—',
+            gemeten:  meting?.drijfmethode ?? '—',
+          },
+          {
+            label: (meting?.aantal_pennen ?? 1) > 1 ? 'Gecombineerde Ra — doelweerstand' : 'Doelweerstand',
             berekend: `≤ ${input?.targetResistance ?? '—'} Ω`,
             gemeten:  meting?.achieved_ra != null ? `${meting.achieved_ra.toFixed(2)} Ω` : '—',
             highlight: meting?.achieved_ra != null && input?.targetResistance != null
@@ -175,7 +183,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
               : undefined,
           },
           {
-            label: 'Diepte',
+            label: 'Diepte (pen 1)',
             berekend: fmt(resultaat?.dimension, 'm'),
             gemeten:  fmt(meting?.installed_depth, 'm'),
           },
@@ -205,6 +213,26 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
           </div>
         ))}
       </div>
+
+      {/* Per-rod measurements (multi-rod only) */}
+      {(meting?.rods?.length ?? 0) > 1 && (
+        <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
+          <div className="border-b border-white/8 px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
+              Meting per pen — {meting?.rods?.length} pennen geplaatst
+            </p>
+          </div>
+          <div className="divide-y divide-white/5">
+            {(meting?.rods ?? []).map(rod => (
+              <div key={rod.rod_number} className="flex items-center gap-4 px-4 py-2.5">
+                <span className="w-12 shrink-0 text-xs font-semibold text-white/60">Pen {rod.rod_number}</span>
+                <span className="w-20 text-sm text-white">{rod.installed_depth?.toFixed(2) ?? '—'} m</span>
+                <span className="text-sm font-semibold text-[#E8761A]">{rod.achieved_ra?.toFixed(2) ?? '—'} Ω</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* GPS location */}
       {meting?.lat && meting?.lon && (
