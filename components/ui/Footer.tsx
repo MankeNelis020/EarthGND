@@ -23,6 +23,7 @@ export function Footer() {
           </div>
 
           <nav className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/40">
+            <Link href="/faq"         className="hover:text-white/70 transition-colors">FAQ</Link>
             <Link href="/voorwaarden" className="hover:text-white/70 transition-colors">Algemene voorwaarden</Link>
             <Link href="/privacy"     className="hover:text-white/70 transition-colors">Privacybeleid</Link>
             <a href="mailto:info@earthgnd.com" className="hover:text-white/70 transition-colors">Contact</a>
