@@ -3,6 +3,7 @@ import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { Navbar } from '@/components/ui/Navbar';
+import { Footer } from '@/components/ui/Footer';
 import { Providers } from '@/components/Providers';
 
 export default async function LocaleLayout({
@@ -27,6 +28,7 @@ export default async function LocaleLayout({
           <Providers>
             <Navbar />
             <main>{children}</main>
+            <Footer />
           </Providers>
         </NextIntlClientProvider>
       </body>
