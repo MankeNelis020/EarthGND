@@ -211,7 +211,8 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
       });
     } finally {
       setSaving(false);
-      // Volledige navigatie — RSC-push stuitert terug bij dashboard-render errors
+      // Voorkom dat PostAuthRedirect ons terugredirect naar deze meting
+      sessionStorage.setItem('skip_pending_redirect', '1');
       window.location.href = `/${locale}/dashboard`;
     }
   }
