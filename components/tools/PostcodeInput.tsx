@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useCalculator } from '@/lib/context/CalculatorContext';
 import { calcRiskClass } from '@/lib/calculations';
 import { wgs84ToRd } from '@/lib/rd';
+import { reverseGeocode } from '@/lib/geocoding';
 
 const MANUAL_RHO_OPTIONS = [
   { label: 'Klei / nat', rho: 30 },
@@ -74,6 +75,14 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
         const lon = position.coords.longitude;
         setGpsCoords({ lat, lon });
         const { rdX, rdY } = wgs84ToRd(lat, lon);
+
+        // Reverse geocode in parallel with BRO — fills postcode/huisnummer if empty
+        reverseGeocode(lat, lon).then(addr => {
+          if (!addr) return;
+          if (!postcode.trim())    setPostcode(addr.postcode);
+          if (!huisnummer.trim())  setHuisnummer(addr.huisnummer);
+        }).catch(() => {/* non-blocking */});
+
         try {
           const params = new URLSearchParams({
             rdX: Math.round(rdX).toString(),

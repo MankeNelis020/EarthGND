@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { reverseGeocode, forwardGeocode } from '@/lib/geocoding';
 
 interface DepthPoint { depth: number; ra: number }
 
@@ -19,8 +20,10 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
   const [lat, setLat]         = useState<number | null>(null);
   const [lon, setLon]         = useState<number | null>(null);
   const [gpsAccuracy, setAcc] = useState<number | null>(null);
-  const [gpsLoading, setGpsLoading] = useState(false);
-  const [gpsError, setGpsError]     = useState('');
+  const [gpsLoading, setGpsLoading]   = useState(false);
+  const [gpsError, setGpsError]       = useState('');
+  const [coordsSource, setCoordsSource] = useState<'gps' | 'address' | null>(null);
+  const [geoFilling, setGeoFilling]   = useState(false);
 
   // Address
   const [postcode,   setPostcode]   = useState(initialPostcode ?? '');
@@ -42,6 +45,31 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const fwdTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Forward geocode: postcode + huisnummer → lat/lon (only when GPS hasn't been used yet)
+  useEffect(() => {
+    if (coordsSource === 'gps') return;
+    const query = [postcode.trim(), huisnummer.trim()].filter(Boolean).join(' ');
+    if (query.length < 4) return;
+
+    clearTimeout(fwdTimerRef.current);
+    fwdTimerRef.current = setTimeout(async () => {
+      const result = await forwardGeocode(query);
+      if (!result) return;
+      setLat(result.lat);
+      setLon(result.lon);
+      setAcc(null);
+      setCoordsSource('address');
+      if (!straatnaam && result.straatnaam) setStraatnaam(result.straatnaam);
+      if (!woonplaats && result.woonplaats) setWoonplaats(result.woonplaats);
+    }, 600);
+
+    return () => clearTimeout(fwdTimerRef.current);
+    // straatnaam/woonplaats intentionally omitted — only postcode/huisnummer should retrigger
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postcode, huisnummer, coordsSource]);
+
   function buildInitialCurve(maxDepth: number): DepthPoint[] {
     const rows: DepthPoint[] = [];
     for (let d = 3; d <= Math.ceil(maxDepth) + 3; d += 3) {
@@ -55,11 +83,26 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
     setGpsLoading(true);
     setGpsError('');
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude);
-        setLon(pos.coords.longitude);
+      async (pos) => {
+        const newLat = pos.coords.latitude;
+        const newLon = pos.coords.longitude;
+        setLat(newLat);
+        setLon(newLon);
         setAcc(pos.coords.accuracy);
+        setCoordsSource('gps');
         setGpsLoading(false);
+
+        // Reverse geocode → fill address fields (non-blocking, only fills empty fields)
+        setGeoFilling(true);
+        reverseGeocode(newLat, newLon)
+          .then(addr => {
+            if (!addr) return;
+            if (!postcode)   setPostcode(addr.postcode);
+            if (!straatnaam) setStraatnaam(addr.straatnaam);
+            if (!huisnummer) setHuisnummer(addr.huisnummer);
+            if (!woonplaats) setWoonplaats(addr.woonplaats);
+          })
+          .finally(() => setGeoFilling(false));
       },
       (err) => {
         setGpsError('Locatie ophalen mislukt: ' + err.message);
@@ -84,7 +127,7 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!lat || !lon) { setError('GPS-locatie is verplicht — gebruik de knop hierboven.'); return; }
+    if (!lat || !lon) { setError('Locatie is verplicht — gebruik GPS of vul postcode + huisnummer in.'); return; }
     if (!achievedRa || !installedDepth) { setError('Eindmeting (Ra en diepte) zijn verplicht.'); return; }
 
     setSubmitting(true);
@@ -94,7 +137,8 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lat, lon, gps_accuracy_m: gpsAccuracy,
+          lat, lon,
+          gps_accuracy_m:  coordsSource === 'gps' ? gpsAccuracy : null,
           postcode, straatnaam, huisnummer, woonplaats,
           depth_curve:     depthCurve,
           achieved_ra:     Number(achievedRa),
@@ -116,20 +160,33 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
-      {/* GPS location */}
+      {/* Location */}
       <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
-          GPS-locatie <span className="text-red-400">*</span>
+          Locatie <span className="text-red-400">*</span>
         </p>
+
         {lat && lon ? (
           <div className="mb-3 rounded-lg border border-green-500/30 bg-green-500/5 px-3 py-2">
-            <p className="text-sm font-semibold text-green-400">Locatie bepaald</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-green-400">
+                {coordsSource === 'gps' ? 'GPS-locatie bepaald' : 'Locatie op basis van adres'}
+              </p>
+              {coordsSource === 'address' && (
+                <span className="text-[10px] border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 px-1.5 py-0.5 rounded-full">
+                  Adresschatting — GPS geeft hogere precisie
+                </span>
+              )}
+            </div>
             <p className="text-xs text-white/60 mt-0.5">
               {lat.toFixed(6)}, {lon.toFixed(6)}
-              {gpsAccuracy && <span className="ml-2 text-white/40">± {gpsAccuracy.toFixed(0)} m</span>}
+              {gpsAccuracy && coordsSource === 'gps' && (
+                <span className="ml-2 text-white/40">± {gpsAccuracy.toFixed(0)} m</span>
+              )}
             </p>
           </div>
         ) : null}
+
         {gpsError && <p className="mb-2 text-xs text-red-400">{gpsError}</p>}
         <button
           type="button"
@@ -147,16 +204,21 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
               <path d="M12 2a7 7 0 0 1 7 7c0 4.97-7 13-7 13S5 13.97 5 9a7 7 0 0 1 7-7zm0 9.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
             </svg>
           )}
-          {gpsLoading ? 'Locatie bepalen…' : lat ? 'Opnieuw bepalen' : 'Gebruik GPS-locatie'}
+          {gpsLoading ? 'Locatie bepalen…' : lat ? 'GPS opnieuw bepalen' : 'Gebruik GPS-locatie'}
         </button>
         <p className="mt-2 text-[10px] text-white/40">
-          Houd uw telefoon buiten op de meetlocatie voor de beste nauwkeurigheid.
+          GPS geeft de nauwkeurigste locatie. U kunt ook alleen het adres invullen — de coördinaten worden dan automatisch bepaald.
         </p>
       </div>
 
       {/* Address */}
       <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">Adres locatie</p>
+        <div className="mb-3 flex items-center gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Adres locatie</p>
+          {geoFilling && (
+            <span className="h-3 w-3 animate-spin rounded-full border border-zinc-600 border-t-white/60" />
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2 sm:col-span-1">
             <label className="mb-1 block text-xs text-white/70">Postcode</label>
