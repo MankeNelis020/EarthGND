@@ -56,12 +56,12 @@ export default async function MetingPage({ params }: Ctx) {
   // Load calculation for expected metrics
   const { data: calc } = await supabase
     .from('calculations')
-    .select('id, resultaat, input, postcode, risicoklasse')
+    .select('id, result, input_values, postcode')
     .eq('id', uuid)
     .single();
 
-  const resultaat   = calc?.resultaat as { dimension?: number; achievedResistance?: number } | null;
-  const input       = calc?.input     as { electrodeType?: string; targetResistance?: number; rho?: number } | null;
+  const resultaat   = calc?.result       as { dimension?: number; achievedResistance?: number } | null;
+  const input       = calc?.input_values as { electrodeType?: string; targetResistance?: number; rho?: number } | null;
   const isSubmitted = meting.status === 'submitted';
 
   return (

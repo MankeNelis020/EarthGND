@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     user_id:         user.id,
     tool:            'diepte',
     postcode:        typeof body.postcode === 'string' ? body.postcode : null,
-    input: {
+    input_values: {
       rho:              body.rho,
       targetResistance: body.targetResistance,
       groundwaterDepth: body.groundwaterDepth,
@@ -53,8 +53,7 @@ export async function POST(request: NextRequest) {
       electrodeType:    body.electrodeType ?? 'pen',
       lithoClass:       body.lithoClass,
     },
-    resultaat: { dimension: primaryDimension, achievedResistance: gemiddeld.achievedResistance },
-    risicoklasse:    kernelResult.riskClass.riskClass,
+    result: { dimension: primaryDimension, achievedResistance: gemiddeld.achievedResistance },
   }).select('id').single();
 
   if (calcDbError) console.error('[diepte/calculate] DB insert failed:', calcDbError.message, calcDbError.details, calcDbError.hint);

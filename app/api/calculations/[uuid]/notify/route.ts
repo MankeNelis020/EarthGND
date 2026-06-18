@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   // Verify calculation belongs to this user
   const { data: calc } = await supabase
     .from('calculations')
-    .select('id, tool, resultaat, input, postcode, risicoklasse')
+    .select('id, tool, result, input_values, postcode')
     .eq('id', uuid)
     .eq('user_id', user.id)
     .eq('tool', 'diepte')
@@ -73,8 +73,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   const magicLink = linkData.properties.action_link;
 
   // Extract expected metrics from calculation result
-  const resultaat = calc.resultaat as { dimension?: number; achievedResistance?: number } | null;
-  const input     = calc.input     as { electrodeType?: string; targetResistance?: number } | null;
+  const resultaat = calc.result        as { dimension?: number; achievedResistance?: number } | null;
+  const input     = calc.input_values  as { electrodeType?: string; targetResistance?: number } | null;
   const gemiddeldDepth     = resultaat?.dimension ?? 0;
   const achievedResistance = resultaat?.achievedResistance ?? 0;
   const targetResistance   = input?.targetResistance ?? 0;

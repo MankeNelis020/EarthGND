@@ -26,10 +26,9 @@ interface Meting {
 interface Calc {
   id: string;
   postcode: string | null;
-  risicoklasse: string | null;
   rapport_naam: string | null;
-  resultaat: { dimension?: number; achievedResistance?: number } | null;
-  input: { electrodeType?: string; targetResistance?: number; rho?: number; groundwaterDepth?: number } | null;
+  result: { dimension?: number; achievedResistance?: number } | null;
+  input_values: { electrodeType?: string; targetResistance?: number; rho?: number; groundwaterDepth?: number } | null;
   created_at?: string;
 }
 
@@ -70,8 +69,8 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
   const [editingNaam, setEditing] = useState(false);
   const [naamSaving, setNaamSaving] = useState(false);
 
-  const input     = calc.input     as Calc['input'];
-  const resultaat = calc.resultaat as Calc['resultaat'];
+  const input     = calc.input_values as Calc['input_values'];
+  const resultaat = calc.result       as Calc['result'];
   const status    = meting?.status ?? 'draft';
 
   async function saveNaam() {

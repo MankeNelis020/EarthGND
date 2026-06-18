@@ -15,7 +15,6 @@ interface Calculation {
   tool: 'ohm' | 'diepte';
   postcode: string | null;
   rapport_naam: string | null;
-  risicoklasse: string | null;
   pdf_url: string | null;
   created_at: string;
   pendiepte_metingen: MetingInfo[];
@@ -39,12 +38,6 @@ interface Profile {
   created_at: string;
 }
 
-const riskColors: Record<string, string> = {
-  I:   'border-green-500/30 bg-green-500/10 text-green-400',
-  II:  'border-yellow-500/30 bg-yellow-500/10 text-yellow-400',
-  III: 'border-orange-500/30 bg-orange-500/10 text-orange-400',
-  IV:  'border-red-500/30 bg-red-500/10 text-red-400',
-};
 
 const metingStatusBadge: Record<string, { label: string; cls: string }> = {
   draft:     { label: 'Berekend',            cls: 'border-white/15 bg-white/5 text-white/50' },
@@ -86,7 +79,7 @@ export default async function DashboardPage({
       .single(),
     supabase
       .from('calculations')
-      .select('id, tool, postcode, rapport_naam, risicoklasse, pdf_url, created_at, pendiepte_metingen(status, monteur_email)')
+      .select('id, tool, postcode, rapport_naam, pdf_url, created_at, pendiepte_metingen(status, monteur_email)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20),
@@ -240,11 +233,6 @@ export default async function DashboardPage({
                         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${badge.cls}`}>
                           {badge.label}
                         </span>
-                        {calc.risicoklasse && (
-                          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${riskColors[calc.risicoklasse] ?? 'border-white/10 text-white/40'}`}>
-                            Klasse {calc.risicoklasse}
-                          </span>
-                        )}
                         {showAction && (
                           <span className="shrink-0 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2 py-0.5 text-[10px] font-bold text-yellow-300">
                             Actie vereist
@@ -347,11 +335,6 @@ export default async function DashboardPage({
                       <span className="shrink-0 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400">
                         Weerstand
                       </span>
-                      {calc.risicoklasse && (
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${riskColors[calc.risicoklasse] ?? 'border-white/10 text-white/40'}`}>
-                          Klasse {calc.risicoklasse}
-                        </span>
-                      )}
                       {calc.postcode && (
                         <span className="truncate text-xs text-white/40">{calc.postcode}</span>
                       )}

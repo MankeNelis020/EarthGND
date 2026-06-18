@@ -45,7 +45,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   // Load the calculation for expected metrics
   const { data: calc } = await supabase
     .from('calculations')
-    .select('id, tool, resultaat, input, postcode, risicoklasse, scenarios')
+    .select('id, tool, result, input_values, postcode')
     .eq('id', uuid)
     .single();
 
