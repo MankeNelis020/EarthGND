@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
     },
     resultaat: { dimension: primaryDimension, achievedResistance: gemiddeld.achievedResistance },
     risicoklasse:    kernelResult.riskClass.riskClass,
-    credit_gebruikt: true,
   }).select('id').single();
 
   if (calcDbError) console.error('[diepte/calculate] DB insert failed:', calcDbError.message, calcDbError.details, calcDbError.hint);
