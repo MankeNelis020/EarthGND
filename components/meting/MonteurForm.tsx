@@ -6,53 +6,90 @@ import { reverseGeocode, forwardGeocode } from '@/lib/geocoding';
 
 interface DepthPoint { depth: number; ra: number }
 
+interface SavedMeting {
+  status:          string;
+  lat:             number | null;
+  lon:             number | null;
+  gps_accuracy_m:  number | null;
+  postcode:        string | null;
+  straatnaam:      string | null;
+  huisnummer:      string | null;
+  woonplaats:      string | null;
+  depth_curve:     DepthPoint[];
+  achieved_ra:     number | null;
+  installed_depth: number | null;
+  electrode_type:  string | null;
+  notes:           string | null;
+}
+
 interface Props {
   uuid:                 string;
   initialPostcode?:     string;
   initialElectrodeType: 'pen' | 'lint';
   expectedDepth?:       number;
+  savedMeting?:         SavedMeting | null;
 }
 
-export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expectedDepth }: Props) {
+function buildInitialCurve(maxDepth: number): DepthPoint[] {
+  const rows: DepthPoint[] = [];
+  for (let d = 3; d <= Math.ceil(maxDepth) + 3; d += 3) {
+    rows.push({ depth: d, ra: 0 });
+  }
+  return rows;
+}
+
+export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expectedDepth, savedMeting }: Props) {
   const router = useRouter();
 
-  // Location state
-  const [lat, setLat]         = useState<number | null>(null);
-  const [lon, setLon]         = useState<number | null>(null);
-  const [gpsAccuracy, setAcc] = useState<number | null>(null);
-  const [gpsLoading, setGpsLoading]   = useState(false);
-  const [gpsError, setGpsError]       = useState('');
-  const [coordsSource, setCoordsSource] = useState<'gps' | 'address' | null>(null);
-  const [geoFilling, setGeoFilling]   = useState(false);
+  // Determine if there's meaningful saved data to restore
+  const hasSaved = !!savedMeting?.lat || (savedMeting?.depth_curve?.length ?? 0) > 0;
 
-  // Address
-  const [postcode,   setPostcode]   = useState(initialPostcode ?? '');
-  const [straatnaam, setStraatnaam] = useState('');
-  const [huisnummer, setHuisnummer] = useState('');
-  const [woonplaats, setWoonplaats] = useState('');
-
-  // Measurements
-  const [electrodeType, setElectrodeType] = useState(initialElectrodeType);
-  const [depthCurve, setDepthCurve] = useState<DepthPoint[]>(
-    expectedDepth
-      ? buildInitialCurve(expectedDepth)
-      : [{ depth: 3, ra: 0 }],
+  // Location state — restore from saved draft if available
+  const [lat, setLat]         = useState<number | null>(savedMeting?.lat ?? null);
+  const [lon, setLon]         = useState<number | null>(savedMeting?.lon ?? null);
+  const [gpsAccuracy, setAcc] = useState<number | null>(savedMeting?.gps_accuracy_m ?? null);
+  const [gpsLoading, setGpsLoading]     = useState(false);
+  const [gpsError, setGpsError]         = useState('');
+  const [coordsSource, setCoordsSource] = useState<'gps' | 'address' | null>(
+    savedMeting?.lat ? 'gps' : null,
   );
-  const [achievedRa,     setAchievedRa]     = useState('');
-  const [installedDepth, setInstalledDepth] = useState(expectedDepth?.toFixed(2) ?? '');
-  const [notes, setNotes] = useState('');
+  const [geoFilling, setGeoFilling] = useState(false);
+
+  // Address — restore from saved draft
+  const [postcode,   setPostcode]   = useState(savedMeting?.postcode   ?? initialPostcode ?? '');
+  const [straatnaam, setStraatnaam] = useState(savedMeting?.straatnaam ?? '');
+  const [huisnummer, setHuisnummer] = useState(savedMeting?.huisnummer ?? '');
+  const [woonplaats, setWoonplaats] = useState(savedMeting?.woonplaats ?? '');
+
+  // Measurements — restore from saved draft
+  const [electrodeType, setElectrodeType] = useState<'pen' | 'lint'>(
+    (savedMeting?.electrode_type as 'pen' | 'lint') ?? initialElectrodeType,
+  );
+  const [depthCurve, setDepthCurve] = useState<DepthPoint[]>(() => {
+    if (savedMeting?.depth_curve?.length) return savedMeting.depth_curve;
+    if (expectedDepth) return buildInitialCurve(expectedDepth);
+    return [{ depth: 3, ra: 0 }];
+  });
+  const [achievedRa,     setAchievedRa]     = useState(savedMeting?.achieved_ra?.toString()     ?? '');
+  const [installedDepth, setInstalledDepth] = useState(savedMeting?.installed_depth?.toString() ?? (expectedDepth?.toFixed(2) ?? ''));
+  const [notes, setNotes] = useState(savedMeting?.notes ?? '');
+
+  // Auto-save state
+  const [lastSaved, setLastSaved]   = useState<Date | null>(hasSaved ? new Date() : null);
+  const [saveError, setSaveError]   = useState(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]           = useState('');
 
-  const fwdTimerRef = useRef<ReturnType<typeof setTimeout>>();
-
+  // ── Refs for stale closure guard (forward geocode) ──────────────────────
   const straatnaamRef = useRef(straatnaam);
   const woonplaatsRef = useRef(woonplaats);
+  const fwdTimerRef   = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => { straatnaamRef.current = straatnaam; }, [straatnaam]);
   useEffect(() => { woonplaatsRef.current = woonplaats; }, [woonplaats]);
 
-  // Forward geocode: postcode + huisnummer → lat/lon (only when GPS hasn't been used yet)
+  // ── Forward geocode: postcode + huisnummer → lat/lon ────────────────────
   useEffect(() => {
     if (coordsSource === 'gps') return;
     const query = [postcode.trim(), huisnummer.trim()].filter(Boolean).join(' ');
@@ -66,7 +103,6 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
       setLon(result.lon);
       setAcc(null);
       setCoordsSource('address');
-      // Use refs to get current values — avoids stale closure overwriting user input
       if (!straatnaamRef.current && result.straatnaam) setStraatnaam(result.straatnaam);
       if (!woonplaatsRef.current && result.woonplaats) setWoonplaats(result.woonplaats);
     }, 600);
@@ -74,14 +110,44 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
     return () => clearTimeout(fwdTimerRef.current);
   }, [postcode, huisnummer, coordsSource]);
 
-  function buildInitialCurve(maxDepth: number): DepthPoint[] {
-    const rows: DepthPoint[] = [];
-    for (let d = 3; d <= Math.ceil(maxDepth) + 3; d += 3) {
-      rows.push({ depth: d, ra: 0 });
-    }
-    return rows;
+  // ── Auto-save: triggers 5s after any field changes ──────────────────────
+  function scheduleAutoSave(payload: object) {
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/meting/${uuid}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        setSaveError(!res.ok);
+        if (res.ok) setLastSaved(new Date());
+      } catch {
+        setSaveError(true);
+      }
+    }, 5000);
   }
 
+  function currentPayload() {
+    return {
+      lat, lon, gps_accuracy_m: coordsSource === 'gps' ? gpsAccuracy : null,
+      postcode, straatnaam, huisnummer, woonplaats,
+      depth_curve:     depthCurve,
+      achieved_ra:     achievedRa     ? Number(achievedRa)     : null,
+      installed_depth: installedDepth ? Number(installedDepth) : null,
+      electrode_type:  electrodeType,
+      notes,
+    };
+  }
+
+  // Trigger auto-save whenever meaningful state changes
+  useEffect(() => {
+    scheduleAutoSave(currentPayload());
+    return () => clearTimeout(autoSaveTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lon, postcode, straatnaam, huisnummer, woonplaats, depthCurve, achievedRa, installedDepth, electrodeType, notes]);
+
+  // ── GPS handler ─────────────────────────────────────────────────────────
   function requestGPS() {
     if (!navigator.geolocation) { setGpsError('Geolocatie niet beschikbaar op dit apparaat.'); return; }
     setGpsLoading(true);
@@ -96,7 +162,6 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
         setCoordsSource('gps');
         setGpsLoading(false);
 
-        // Reverse geocode → fill address fields (non-blocking, only fills empty fields)
         setGeoFilling(true);
         reverseGeocode(newLat, newLon)
           .then(addr => {
@@ -116,6 +181,7 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
     );
   }
 
+  // ── Depth curve helpers ─────────────────────────────────────────────────
   function addRow() {
     const lastDepth = depthCurve[depthCurve.length - 1]?.depth ?? 0;
     setDepthCurve(prev => [...prev, { depth: lastDepth + 3, ra: 0 }]);
@@ -129,11 +195,13 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
     setDepthCurve(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
   }
 
+  // ── Submit ───────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!lat || !lon) { setError('Locatie is verplicht — gebruik GPS of vul postcode + huisnummer in.'); return; }
     if (!achievedRa || !installedDepth) { setError('Eindmeting (Ra en diepte) zijn verplicht.'); return; }
 
+    clearTimeout(autoSaveTimer.current); // cancel pending auto-save
     setSubmitting(true);
     setError('');
     try {
@@ -161,28 +229,54 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
     }
   }
 
+  // ── Save indicator ───────────────────────────────────────────────────────
+  function SavedIndicator() {
+    if (saveError) {
+      return <span className="text-[10px] text-red-400">⚠ Opslaan mislukt</span>;
+    }
+    if (!lastSaved) return null;
+    const mins = Math.floor((Date.now() - lastSaved.getTime()) / 60000);
+    return (
+      <span className="text-[10px] text-white/30">
+        {mins === 0 ? 'Zojuist opgeslagen' : `Opgeslagen ${mins} min geleden`}
+      </span>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
+      {/* Restore banner */}
+      {hasSaved && (
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3">
+          <p className="text-xs text-blue-300">
+            ↩ Eerdere voortgang hersteld — u kunt doorgaan waar u was gebleven.
+          </p>
+        </div>
+      )}
+
       {/* Location */}
       <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
-          Locatie <span className="text-red-400">*</span>
-        </p>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">
+            Locatie <span className="text-red-400">*</span>
+          </p>
+          <SavedIndicator />
+        </div>
 
         {lat && lon ? (
           <div className="mb-3 rounded-lg border border-green-500/30 bg-green-500/5 px-3 py-2">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-semibold text-green-400">
                 {coordsSource === 'gps' ? 'GPS-locatie bepaald' : 'Locatie op basis van adres'}
               </p>
               {coordsSource === 'address' && (
-                <span className="text-[10px] border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 px-1.5 py-0.5 rounded-full">
+                <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0.5 text-[10px] text-yellow-400">
                   Adresschatting — GPS geeft hogere precisie
                 </span>
               )}
             </div>
-            <p className="text-xs text-white/60 mt-0.5">
+            <p className="mt-0.5 text-xs text-white/60">
               {lat.toFixed(6)}, {lon.toFixed(6)}
               {gpsAccuracy && coordsSource === 'gps' && (
                 <span className="ml-2 text-white/40">± {gpsAccuracy.toFixed(0)} m</span>
@@ -389,7 +483,7 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
       </button>
 
       <p className="text-center text-[10px] text-white/40">
-        Na indienen zijn de meetwaarden vergrendeld. De opdrachtgever ontvangt automatisch een bericht.
+        Uw voortgang wordt automatisch opgeslagen. Na indienen zijn de meetwaarden vergrendeld.
       </p>
     </form>
   );

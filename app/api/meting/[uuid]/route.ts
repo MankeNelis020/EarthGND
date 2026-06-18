@@ -54,6 +54,59 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
 interface DepthPoint { depth: number; ra: number }
 
+// PATCH — monteur auto-saves draft (no status change, no validation)
+export async function PATCH(request: NextRequest, { params }: Ctx) {
+  const { uuid } = await params;
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
+
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { data: meting } = await admin
+    .from('pendiepte_metingen')
+    .select('monteur_user_id, monteur_email, status')
+    .eq('calculation_id', uuid)
+    .single();
+
+  if (!meting) return NextResponse.json({ error: 'Meting niet gevonden' }, { status: 404 });
+  if (meting.status === 'submitted' || meting.status === 'confirmed') {
+    return NextResponse.json({ error: 'Meting is al ingediend' }, { status: 409 });
+  }
+
+  const isMonteur = meting.monteur_user_id === user.id ||
+                    meting.monteur_email?.toLowerCase() === user.email?.toLowerCase();
+  if (!isMonteur) return NextResponse.json({ error: 'Geen toegang' }, { status: 403 });
+
+  const body = await request.json() as Partial<MetingBody>;
+
+  await admin
+    .from('pendiepte_metingen')
+    .update({
+      monteur_user_id: user.id,
+      lat:             body.lat ?? null,
+      lon:             body.lon ?? null,
+      gps_accuracy_m:  body.gps_accuracy_m ?? null,
+      postcode:        body.postcode ?? null,
+      straatnaam:      body.straatnaam ?? null,
+      huisnummer:      body.huisnummer ?? null,
+      woonplaats:      body.woonplaats ?? null,
+      depth_curve:     body.depth_curve ?? [],
+      achieved_ra:     body.achieved_ra ?? null,
+      installed_depth: body.installed_depth ?? null,
+      electrode_type:  body.electrode_type ?? null,
+      notes:           body.notes ?? null,
+      // status stays unchanged
+    })
+    .eq('calculation_id', uuid);
+
+  return NextResponse.json({ ok: true });
+}
+
 interface MetingBody {
   lat?:            number;
   lon?:            number;
@@ -77,17 +130,23 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
 
-  // Fetch meting + verify monteur auth
-  const { data: meting } = await supabase
+  // Use admin client — RLS UPDATE policy requires monteur_user_id which may
+  // still be null on first visit; admin client bypasses this restriction.
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { data: meting } = await admin
     .from('pendiepte_metingen')
-    .select('*')
+    .select('monteur_user_id, monteur_email, status')
     .eq('calculation_id', uuid)
     .single();
 
   if (!meting) return NextResponse.json({ error: 'Meting niet gevonden' }, { status: 404 });
 
   const isMonteur = meting.monteur_user_id === user.id ||
-                    meting.monteur_email === user.email;
+                    meting.monteur_email?.toLowerCase() === user.email?.toLowerCase();
 
   if (!isMonteur) return NextResponse.json({ error: 'Geen toegang — u bent niet de aangewezen monteur' }, { status: 403 });
   if (meting.status === 'submitted' || meting.status === 'confirmed') {
@@ -103,7 +162,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: 'Eindmeting (Ra en diepte) verplicht' }, { status: 400 });
   }
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from('pendiepte_metingen')
     .update({
       monteur_user_id: user.id,
@@ -128,12 +187,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: 'Opslaan mislukt: ' + updateError.message }, { status: 500 });
   }
 
-  // Look up calculator's email to send confirmation
-  const adminClient = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
-
+  // Look up calculator's email to send confirmation (reuse admin client from above)
   const { data: calcRow } = await supabase
     .from('calculations')
     .select('user_id, postcode')
@@ -141,7 +195,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     .single();
 
   if (calcRow?.user_id) {
-    const { data: callerData } = await adminClient.auth.admin.getUserById(calcRow.user_id);
+    const { data: callerData } = await admin.auth.admin.getUserById(calcRow.user_id);
     const callerEmail = callerData?.user?.email;
 
     if (callerEmail) {

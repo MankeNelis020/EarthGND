@@ -1,15 +1,17 @@
 import { redirect, notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { MonteurForm } from '@/components/meting/MonteurForm';
+
+export const runtime = 'nodejs';
 
 type Ctx = { params: Promise<{ uuid: string; locale: string }> };
 
-export async function generateMetadata({ params }: Ctx) {
-  const { uuid } = await params;
+export async function generateMetadata() {
   return {
-    title: `Veldmeting — EarthGND`,
-    description: `Pendiepte veldmeting formulier ${uuid}`,
+    title: 'Veldmeting — EarthGND',
+    description: 'Pendiepte veldmeting formulier',
   };
 }
 
@@ -17,13 +19,19 @@ export default async function MetingPage({ params }: Ctx) {
   const { uuid, locale } = await params;
 
   const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase    = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect(`/${locale}/login?next=/${locale}/meting/${uuid}`);
 
-  // Load meting record
-  const { data: meting } = await supabase
+  // Use admin client — monteur_user_id is NULL on first visit so RLS SELECT
+  // policy (auth.uid() = monteur_user_id) would block the regular client.
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { data: meting } = await admin
     .from('pendiepte_metingen')
     .select('*')
     .eq('calculation_id', uuid)
@@ -33,7 +41,7 @@ export default async function MetingPage({ params }: Ctx) {
 
   const isCalculator = meting.calculator_user_id === user.id;
   const isMonteur    = meting.monteur_user_id === user.id ||
-                       meting.monteur_email === user.email;
+                       meting.monteur_email?.toLowerCase() === user.email?.toLowerCase();
 
   if (!isCalculator && !isMonteur) {
     return (
@@ -48,20 +56,26 @@ export default async function MetingPage({ params }: Ctx) {
     );
   }
 
-  // If already confirmed, redirect to rapport
+  // Claim monteur_user_id on first visit (admin client bypasses RLS)
+  if (isMonteur && !meting.monteur_user_id) {
+    await admin
+      .from('pendiepte_metingen')
+      .update({ monteur_user_id: user.id })
+      .eq('calculation_id', uuid);
+  }
+
   if (meting.status === 'confirmed') {
     redirect(`/${locale}/pendiepte-rapport/${uuid}`);
   }
 
-  // Load calculation for expected metrics
-  const { data: calc } = await supabase
+  const { data: calc } = await admin
     .from('calculations')
     .select('id, result, input_values, postcode')
     .eq('id', uuid)
     .single();
 
-  const resultaat   = calc?.result       as { dimension?: number; achievedResistance?: number } | null;
-  const input       = calc?.input_values as { electrodeType?: string; targetResistance?: number; rho?: number } | null;
+  const resultaat = calc?.result       as { dimension?: number; achievedResistance?: number } | null;
+  const input     = calc?.input_values as { electrodeType?: string; targetResistance?: number } | null;
   const isSubmitted = meting.status === 'submitted';
 
   return (
@@ -110,7 +124,7 @@ export default async function MetingPage({ params }: Ctx) {
           <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-6 text-center">
             <p className="text-lg font-semibold text-green-400">Meting ingediend</p>
             <p className="mt-2 text-sm text-white/60">
-              De berekende opdrachtgever is op de hoogte gesteld. U hoeft verder niets te doen.
+              De opdrachtgever is op de hoogte gesteld. U hoeft verder niets te doen.
             </p>
           </div>
         ) : (
@@ -119,6 +133,7 @@ export default async function MetingPage({ params }: Ctx) {
             initialPostcode={typeof calc?.postcode === 'string' ? calc.postcode : undefined}
             initialElectrodeType={input?.electrodeType === 'lint' ? 'lint' : 'pen'}
             expectedDepth={resultaat?.dimension}
+            savedMeting={meting}
           />
         )}
       </div>

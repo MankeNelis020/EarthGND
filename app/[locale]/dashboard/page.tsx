@@ -1,14 +1,28 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { Link } from '@/i18n/navigation';
 import { PLANS } from '@/lib/plans';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 import { PostAuthRedirect } from '@/components/auth/PostAuthRedirect';
 
+export const runtime = 'nodejs';
+
 interface MetingInfo {
   status: string;
   monteur_email: string | null;
+}
+
+interface MonteurJob {
+  calculation_id: string;
+  status: string;
+  postcode: string | null;
+  straatnaam: string | null;
+  woonplaats: string | null;
+  created_at: string;
+  submitted_at: string | null;
+  confirmed_at: string | null;
 }
 
 interface Calculation {
@@ -72,7 +86,14 @@ export default async function DashboardPage({
 
   const params = await searchParams;
 
-  const [{ data: profileRaw }, { data: calculations }, { data: rapports }] = await Promise.all([
+  // Admin client needed for monteur jobs query — monteur_user_id may still
+  // be null (first login), so the regular RLS SELECT policy won't match.
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const [{ data: profileRaw }, { data: calculations }, { data: rapports }, { data: monteurJobsRaw }] = await Promise.all([
     supabase
       .from('profiles')
       .select('plan, credits_left, credits_reset, email, created_at')
@@ -90,6 +111,13 @@ export default async function DashboardPage({
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
       .limit(8),
+    // Metingen where this user is the monteur (case-insensitive email match)
+    admin
+      .from('pendiepte_metingen')
+      .select('calculation_id, status, postcode, straatnaam, woonplaats, created_at, submitted_at, confirmed_at')
+      .ilike('monteur_email', user.email ?? '')
+      .order('created_at', { ascending: false })
+      .limit(20),
   ]);
 
   const profile = profileRaw as Profile | null;
@@ -108,9 +136,12 @@ export default async function DashboardPage({
   // Split pendiepte calculations that have a flow active from plain ohm/diepte list
   const diepteCalcs = calcs.filter(c => c.tool === 'diepte');
   const ohmCalcs    = calcs.filter(c => c.tool === 'ohm');
-
-  // Pendiepte jobs with any meting status (including those with no meting yet)
   const pendiepteJobs = diepteCalcs;
+
+  // Monteur jobs — exclude any that this user also owns as calculator
+  const ownCalcIds    = new Set(calcs.map(c => c.id));
+  const monteurJobs   = ((monteurJobsRaw as MonteurJob[]) ?? [])
+    .filter(j => !ownCalcIds.has(j.calculation_id));
 
   return (
     <div className="min-h-screen bg-[#0d0d0d]">
@@ -254,6 +285,60 @@ export default async function DashboardPage({
                     </div>
                     <div className="shrink-0 text-xs text-white/30">
                       {new Date(calc.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
+                    </div>
+                    <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Monteur jobs — metingen assigned to this user */}
+        {monteurJobs.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
+            <div className="border-b border-white/6 px-6 py-4">
+              <h2 className="font-condensed text-lg font-bold text-white">Mijn veldmetingen</h2>
+              <p className="mt-0.5 text-xs text-white/40">
+                Openstaande en afgeronde metingen die aan u zijn toegewezen
+              </p>
+            </div>
+            <div className="divide-y divide-white/5">
+              {monteurJobs.map((job) => {
+                const isDone = job.status === 'submitted' || job.status === 'confirmed';
+                const href   = isDone
+                  ? `/pendiepte-rapport/${job.calculation_id}`
+                  : `/meting/${job.calculation_id}`;
+                const badge  = {
+                  invited:   { label: 'Openstaand',  cls: 'border-blue-500/30 bg-blue-500/5 text-blue-400' },
+                  submitted: { label: 'Ingediend',   cls: 'border-yellow-500/30 bg-yellow-500/5 text-yellow-400' },
+                  confirmed: { label: 'Bevestigd',   cls: 'border-green-500/30 bg-green-500/5 text-green-400' },
+                  draft:     { label: 'Concept',     cls: 'border-white/15 bg-white/5 text-white/50' },
+                }[job.status] ?? { label: job.status, cls: 'border-white/15 bg-white/5 text-white/50' };
+                const location = [job.straatnaam, job.woonplaats].filter(Boolean).join(', ')
+                  || job.postcode
+                  || 'Onbekend adres';
+
+                return (
+                  <Link
+                    key={job.calculation_id}
+                    href={href}
+                    className="flex items-center gap-3 px-6 py-4 hover:bg-white/3 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1">
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      </div>
+                      <p className="truncate text-sm font-semibold text-white">{location}</p>
+                      <p className="text-xs text-white/30">
+                        {isDone && job.submitted_at
+                          ? `Ingediend: ${new Date(job.submitted_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}`
+                          : `Uitgenodigd: ${new Date(job.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}`}
+                      </p>
                     </div>
                     <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M9 18l6-6-6-6" />
