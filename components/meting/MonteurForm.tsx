@@ -169,10 +169,11 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
         reverseGeocode(newLat, newLon)
           .then(addr => {
             if (!addr) return;
-            if (!postcode)   setPostcode(addr.postcode);
-            if (!straatnaam) setStraatnaam(addr.straatnaam);
-            if (!huisnummer) setHuisnummer(addr.huisnummer);
-            if (!woonplaats) setWoonplaats(addr.woonplaats);
+            // GPS-klik is een expliciete actie — altijd overschrijven
+            setPostcode(addr.postcode ?? '');
+            setStraatnaam(addr.straatnaam ?? '');
+            setHuisnummer(addr.huisnummer ?? '');
+            setWoonplaats(addr.woonplaats ?? '');
           })
           .finally(() => setGeoFilling(false));
       },
