@@ -76,11 +76,11 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
         setGpsCoords({ lat, lon });
         const { rdX, rdY } = wgs84ToRd(lat, lon);
 
-        // Reverse geocode in parallel with BRO — fills postcode/huisnummer if empty
+        // Reverse geocode in parallel with BRO — GPS-klik is authoritative, altijd overschrijven
         reverseGeocode(lat, lon).then(addr => {
           if (!addr) return;
-          if (!postcode.trim())    setPostcode(addr.postcode);
-          if (!huisnummer.trim())  setHuisnummer(addr.huisnummer);
+          setPostcode(addr.postcode ?? '');
+          setHuisnummer(addr.huisnummer ?? '');
         }).catch(() => {/* non-blocking */});
 
         try {
