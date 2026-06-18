@@ -11,9 +11,10 @@ interface Props {
   results: Record<string, string | number>;
   warning?: string;
   diepteCalcResult?: DiepteRapportProps;
+  calculationId?: string | null;
 }
 
-export function EmailRapportButton({ tool, inputValues, results, warning, diepteCalcResult }: Props) {
+export function EmailRapportButton({ tool, inputValues, results, warning, diepteCalcResult, calculationId }: Props) {
   const [status, setStatus] = useState<'idle' | 'checking' | 'sending' | 'sent' | 'login' | 'error'>('idle');
 
   const returnPath =
@@ -40,6 +41,12 @@ export function EmailRapportButton({ tool, inputValues, results, warning, diepte
         body: JSON.stringify({ tool, inputValues, results, warning, diepteCalcResult }),
       });
       if (!res.ok) throw new Error('Verzenden mislukt');
+
+      // Ensure opleverrapport draft record exists (creates if not already there)
+      if (calculationId) {
+        fetch(`/api/calculations/${calculationId}/draft`, { method: 'POST' }).catch(() => {/* non-blocking */});
+      }
+
       setStatus('sent');
       setTimeout(() => setStatus('idle'), 5000);
     } catch {

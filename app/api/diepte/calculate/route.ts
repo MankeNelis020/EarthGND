@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
   const gemiddeld = kernelResult.scenarios.gemiddeld as { depth?: number; length?: number; achievedResistance: number };
   const primaryDimension = gemiddeld.depth ?? gemiddeld.length ?? 0;
 
-  // Log to DB (fire-and-forget; pipeline already captured the credit)
-  void supabase.from('calculations').insert({
+  // Log to DB — await to capture the UUID for the monteur flow
+  const { data: calcRow } = await supabase.from('calculations').insert({
     user_id:         user.id,
     tool:            'diepte',
     postcode:        typeof body.postcode === 'string' ? body.postcode : null,
@@ -56,11 +56,12 @@ export async function POST(request: NextRequest) {
     resultaat: { dimension: primaryDimension, achievedResistance: gemiddeld.achievedResistance },
     risicoklasse:    kernelResult.riskClass.riskClass,
     credit_gebruikt: true,
-  });
+  }).select('id').single();
 
   return NextResponse.json({
     ...kernelResult,  // scenarios, electrodeType, rhoDry, rhoWet, gwGunstig/Gemiddeld/Ongunstig, riskClass, corrosionClass, parallelAdvice
     ...enrichment,    // confidence, plausibilityFlags, warnings, uncertaintyBand, resultValidation
     creditsRemaining,
+    calculationId: calcRow?.id ?? null,  // UUID voor monteur-flow
   });
 }

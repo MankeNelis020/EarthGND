@@ -32,6 +32,7 @@ interface CalcResult {
   corrosionClass: CorrosionClass;
   parallelAdvice: ParallelAdvice | null;
   creditsRemaining: number;
+  calculationId?: string | null;
   rhoDry?: number;
   rhoWet?: number;
   gwGunstig?: number;
@@ -485,6 +486,13 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   const [error, setError]           = useState('');
   const [confirmationMsg, setConfirmationMsg] = useState<string | null>(null);
 
+  // Monteur invite state
+  const [monteurEmail, setMonteurEmail]     = useState('');
+  const [monteurSending, setMonteurSending] = useState(false);
+  const [monteurSent, setMonteurSent]       = useState(false);
+  const [monteurError, setMonteurError]     = useState('');
+  const [showMonteurModal, setShowMonteurModal] = useState(false);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
@@ -560,6 +568,31 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       setError('Verbindingsfout — probeer opnieuw.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSendMonteur() {
+    if (!calcResult?.calculationId) return;
+    if (!monteurEmail || !monteurEmail.includes('@')) { setMonteurError('Voer een geldig e-mailadres in.'); return; }
+    setMonteurSending(true);
+    setMonteurError('');
+    try {
+      // Ensure draft record exists and rapport_naam is set before sending invite
+      await fetch(`/api/calculations/${calcResult.calculationId}/draft`, { method: 'POST' });
+
+      const res = await fetch(`/api/calculations/${calcResult.calculationId}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ monteurEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setMonteurError(data.error ?? 'Verzenden mislukt'); return; }
+      setMonteurSent(true);
+      setShowMonteurModal(false);
+    } catch {
+      setMonteurError('Verbindingsfout — probeer opnieuw.');
+    } finally {
+      setMonteurSending(false);
     }
   }
 
@@ -996,6 +1029,72 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             en droge (+3,0 m) periode. Meet altijd ter plaatse na installatie conform NEN 3140.
           </p>
 
+          {/* UUID + monteur invite */}
+          {calcResult.calculationId && (
+            <div className="rounded-2xl border border-white/8 bg-[#111] p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Berekening ID</p>
+                  <p className="mt-0.5 font-mono text-xs text-white/60">{calcResult.calculationId}</p>
+                </div>
+                {monteurSent ? (
+                  <span className="rounded-full border border-green-500/30 bg-green-500/5 px-3 py-1 text-xs font-semibold text-green-400">
+                    Uitnodiging verstuurd
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => { setShowMonteurModal(true); setMonteurError(''); setMonteurSent(false); }}
+                    className="rounded-lg border border-[#E8761A]/40 bg-[#E8761A]/10 px-3 py-2 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/20 transition-colors"
+                  >
+                    Mail monteur
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-white/40 leading-relaxed">
+                Stuur de monteur een uitnodiging met verwachte meetwaarden en een directe link naar het meetformulier.
+              </p>
+            </div>
+          )}
+
+          {/* Monteur invite modal */}
+          {showMonteurModal && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center px-4 pb-4">
+              <div className="absolute inset-0 bg-black/60" onClick={() => setShowMonteurModal(false)} />
+              <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
+                <h2 className="mb-1 text-base font-bold text-white">Monteur uitnodigen</h2>
+                <p className="mb-4 text-xs text-white/60 leading-relaxed">
+                  De monteur ontvangt een e-mail met de verwachte meetwaarden en een directe inloglink naar het meetformulier.
+                </p>
+                <label className="mb-1 block text-xs text-white/70">E-mailadres monteur</label>
+                <input
+                  type="email"
+                  value={monteurEmail}
+                  onChange={e => setMonteurEmail(e.target.value)}
+                  placeholder="monteur@bedrijf.nl"
+                  className="mb-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                  onKeyDown={e => e.key === 'Enter' && handleSendMonteur()}
+                  autoFocus
+                />
+                {monteurError && <p className="mb-2 text-xs text-red-400">{monteurError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowMonteurModal(false)}
+                    className="flex-1 rounded-lg border border-white/15 py-2.5 text-sm text-white/70 hover:text-white transition-colors"
+                  >
+                    Annuleer
+                  </button>
+                  <button
+                    onClick={handleSendMonteur}
+                    disabled={monteurSending}
+                    className="flex-1 rounded-lg bg-[#E8761A] py-2.5 text-sm font-semibold text-white hover:bg-[#d06510] disabled:opacity-50 transition-colors"
+                  >
+                    {monteurSending ? 'Versturen…' : 'Verstuur uitnodiging'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <EmailRapportButton
             tool="diepte"
             inputValues={{
@@ -1039,6 +1138,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               riskClass:      calcResult.riskClass,
               corrosionClass: calcResult.corrosionClass,
             }}
+            calculationId={calcResult.calculationId}
           />
         </div>
       )}

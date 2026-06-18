@@ -5,13 +5,20 @@ import { Link } from '@/i18n/navigation';
 import { PLANS } from '@/lib/plans';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 
+interface MetingInfo {
+  status: string;
+  monteur_email: string | null;
+}
+
 interface Calculation {
   id: string;
   tool: 'ohm' | 'diepte';
   postcode: string | null;
+  rapport_naam: string | null;
   risicoklasse: string | null;
   pdf_url: string | null;
   created_at: string;
+  pendiepte_metingen: MetingInfo[];
 }
 
 interface Rapport {
@@ -39,6 +46,14 @@ const riskColors: Record<string, string> = {
   IV:  'border-red-500/30 bg-red-500/10 text-red-400',
 };
 
+const metingStatusBadge: Record<string, { label: string; cls: string }> = {
+  draft:     { label: 'Berekend',            cls: 'border-white/15 bg-white/5 text-white/50' },
+  invited:   { label: 'Monteur uitgenodigd', cls: 'border-blue-500/30 bg-blue-500/5 text-blue-400' },
+  submitted: { label: 'Meting ingediend',    cls: 'border-yellow-500/30 bg-yellow-500/5 text-yellow-400' },
+  confirmed: { label: 'Rapport bevestigd',   cls: 'border-green-500/30 bg-green-500/5 text-green-400' },
+  none:      { label: 'Berekend',            cls: 'border-white/15 bg-white/5 text-white/50' },
+};
+
 function SuccessBanner() {
   return (
     <div className="mb-6 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
@@ -48,22 +63,39 @@ function SuccessBanner() {
 }
 
 export default async function DashboardPage({
+  params: paramsPromise,
   searchParams,
 }: {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<{ checkout?: string }>;
 }) {
+  const { locale } = await paramsPromise;
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect('/login');
+  if (!user) redirect(`/${locale}/login?next=/${locale}/dashboard`);
 
   const params = await searchParams;
 
   const [{ data: profileRaw }, { data: calculations }, { data: rapports }] = await Promise.all([
-    supabase.from('profiles').select('plan, credits_left, credits_reset, email, created_at').eq('id', user.id).single(),
-    supabase.from('calculations').select('id, tool, postcode, risicoklasse, pdf_url, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
-    supabase.from('inspection_reports').select('id, status, locatie, opdrachtgever, systeemtype, datum_uitvoering, updated_at').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(8),
+    supabase
+      .from('profiles')
+      .select('plan, credits_left, credits_reset, email, created_at')
+      .eq('id', user.id)
+      .single(),
+    supabase
+      .from('calculations')
+      .select('id, tool, postcode, rapport_naam, risicoklasse, pdf_url, created_at, pendiepte_metingen(status, monteur_email)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20),
+    supabase
+      .from('inspection_reports')
+      .select('id, status, locatie, opdrachtgever, systeemtype, datum_uitvoering, updated_at')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(8),
   ]);
 
   const profile = profileRaw as Profile | null;
@@ -78,6 +110,13 @@ export default async function DashboardPage({
   const resetDate = profile?.credits_reset
     ? new Date(profile.credits_reset).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })
     : '1e van de maand';
+
+  // Split pendiepte calculations that have a flow active from plain ohm/diepte list
+  const diepteCalcs = calcs.filter(c => c.tool === 'diepte');
+  const ohmCalcs    = calcs.filter(c => c.tool === 'ohm');
+
+  // Pendiepte jobs with any meting status (including those with no meting yet)
+  const pendiepteJobs = diepteCalcs;
 
   return (
     <div className="min-h-screen bg-[#0d0d0d]">
@@ -169,15 +208,77 @@ export default async function DashboardPage({
             </div>
             <div>
               <p className="text-sm font-semibold text-[#E8761A] group-hover:text-[#f08530] transition-colors">Opleverrapport</p>
-              <p className="text-xs text-white/40">Nieuw rapport aanmaken</p>
+              <p className="text-xs text-white/40">NEN 1010 rapport aanmaken</p>
             </div>
           </Link>
         </div>
 
-        {/* Rapport history */}
+        {/* Pendiepte jobs — one entry per UUID, all states */}
+        {pendiepteJobs.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
+            <div className="border-b border-white/6 px-6 py-4">
+              <h2 className="font-condensed text-lg font-bold text-white">Pendiepte berekeningen</h2>
+              <p className="mt-0.5 text-xs text-white/40">
+                Klik om het voorbereidend rapport, de veldmeting of het opleverrapport te openen
+              </p>
+            </div>
+            <div className="divide-y divide-white/5">
+              {pendiepteJobs.map((calc) => {
+                const meting = calc.pendiepte_metingen?.[0] ?? null;
+                const metingStatus = meting?.status ?? 'none';
+                const badge = metingStatusBadge[metingStatus] ?? metingStatusBadge.none;
+                const showAction = metingStatus === 'submitted';
+
+                return (
+                  <Link
+                    key={calc.id}
+                    href={`/pendiepte-rapport/${calc.id}`}
+                    className="flex items-center gap-3 px-6 py-4 hover:bg-white/3 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                        {calc.risicoklasse && (
+                          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${riskColors[calc.risicoklasse] ?? 'border-white/10 text-white/40'}`}>
+                            Klasse {calc.risicoklasse}
+                          </span>
+                        )}
+                        {showAction && (
+                          <span className="shrink-0 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2 py-0.5 text-[10px] font-bold text-yellow-300">
+                            Actie vereist
+                          </span>
+                        )}
+                      </div>
+                      {calc.rapport_naam ? (
+                        <p className="text-sm font-semibold text-white truncate">{calc.rapport_naam}</p>
+                      ) : (
+                        <p className="text-sm text-white/50">
+                          {calc.postcode ?? 'Geen postcode'}
+                        </p>
+                      )}
+                      {meting?.monteur_email && (
+                        <p className="text-xs text-white/30">{meting.monteur_email}</p>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-xs text-white/30">
+                      {new Date(calc.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
+                    </div>
+                    <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* NEN 1010 rapport history */}
         <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
           <div className="flex items-center justify-between border-b border-white/6 px-6 py-4">
-            <h2 className="font-condensed text-lg font-bold text-white">Opleverrapporten</h2>
+            <h2 className="font-condensed text-lg font-bold text-white">NEN 1010 opleverrapporten</h2>
             <Link
               href="/rapport/nieuw"
               className="rounded-lg border border-[#E8761A]/30 px-3 py-1.5 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
@@ -232,31 +333,19 @@ export default async function DashboardPage({
           )}
         </div>
 
-        {/* Calculation history */}
-        <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
-          <div className="border-b border-white/6 px-6 py-4">
-            <h2 className="font-condensed text-lg font-bold text-white">Recente berekeningen</h2>
-          </div>
-
-          {calcs.length === 0 ? (
-            <div className="px-6 py-10 text-center">
-              <p className="mb-3 text-sm text-white/40">Nog geen berekeningen</p>
-              <Link href="/tool/ohm" className="text-xs text-[#E8761A] hover:underline">
-                Start met de Weerstand Calculator
-              </Link>
+        {/* Weerstand calculation history */}
+        {ohmCalcs.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
+            <div className="border-b border-white/6 px-6 py-4">
+              <h2 className="font-condensed text-lg font-bold text-white">Weerstand berekeningen</h2>
             </div>
-          ) : (
             <div className="divide-y divide-white/5">
-              {calcs.map((calc) => (
+              {ohmCalcs.map((calc) => (
                 <div key={calc.id} className="flex items-center gap-4 px-6 py-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-                        calc.tool === 'ohm'
-                          ? 'border-blue-500/30 bg-blue-500/10 text-blue-400'
-                          : 'border-[#E8761A]/30 bg-[#E8761A]/10 text-[#E8761A]'
-                      }`}>
-                        {calc.tool === 'ohm' ? 'Weerstand' : 'Pendiepte'}
+                      <span className="shrink-0 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400">
+                        Weerstand
                       </span>
                       {calc.risicoklasse && (
                         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${riskColors[calc.risicoklasse] ?? 'border-white/10 text-white/40'}`}>
@@ -284,8 +373,8 @@ export default async function DashboardPage({
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Account */}
         <div className="rounded-2xl border border-white/8 bg-[#111] p-6">
