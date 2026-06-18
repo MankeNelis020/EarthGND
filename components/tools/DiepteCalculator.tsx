@@ -10,7 +10,7 @@ import { PostcodeInput } from './PostcodeInput';
 import { useCalculator } from '@/lib/context/CalculatorContext';
 import { calcRhoEffective } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
-import { calcZMax, METHOD_SOFT_LIMIT, DRIVE_METHOD_LABELS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
+import { calcAllMethods, DRIVE_METHOD_LABELS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -481,6 +481,7 @@ function DriveabilityBlock({
   soilSamples:  ReadonlyArray<{ depth: number; lithoClass: number }>;
   zReq:         number;
 }) {
+  const allMethods = calcAllMethods(soilSamples, zReq);
   const methods = Object.keys(DRIVE_METHOD_LABELS) as DriveMethod[];
   return (
     <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
@@ -496,7 +497,7 @@ function DriveabilityBlock({
       </div>
       <div className="divide-y divide-white/5">
         {methods.map(m => {
-          const d = calcZMax(soilSamples, m, zReq);
+          const d = allMethods[m];
           const active = m === method;
           return (
             <div key={m} className={`flex items-center gap-3 px-5 py-2.5 ${active ? 'bg-white/3' : ''}`}>
