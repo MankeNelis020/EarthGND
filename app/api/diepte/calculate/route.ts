@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   const primaryDimension = gemiddeld.depth ?? gemiddeld.length ?? 0;
 
   // Log to DB — await to capture the UUID for the monteur flow
-  const { data: calcRow } = await supabase.from('calculations').insert({
+  const { data: calcRow, error: calcDbError } = await supabase.from('calculations').insert({
     user_id:         user.id,
     tool:            'diepte',
     postcode:        typeof body.postcode === 'string' ? body.postcode : null,
@@ -57,6 +57,8 @@ export async function POST(request: NextRequest) {
     risicoklasse:    kernelResult.riskClass.riskClass,
     credit_gebruikt: true,
   }).select('id').single();
+
+  if (calcDbError) console.error('[diepte/calculate] DB insert failed:', calcDbError.message, calcDbError.details, calcDbError.hint);
 
   return NextResponse.json({
     ...kernelResult,  // scenarios, electrodeType, rhoDry, rhoWet, gwGunstig/Gemiddeld/Ongunstig, riskClass, corrosionClass, parallelAdvice
