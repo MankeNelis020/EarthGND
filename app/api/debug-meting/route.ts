@@ -42,7 +42,7 @@ export async function GET() {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     );
 
-    // All rows matching this email (any status) — reveals case mismatches / stale status
+    // All rows matching this email (any status) — exact match
     const { data: admin_by_email, error: admin_error } = await admin
       .from('pendiepte_metingen')
       .select('calculation_id, status, monteur_email, monteur_user_id, calculator_user_id, created_at')

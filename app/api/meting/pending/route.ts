@@ -28,7 +28,7 @@ export async function GET() {
   const { data: meting, error: metingError } = await adminClient
     .from('pendiepte_metingen')
     .select('calculation_id, status, monteur_email')
-    .eq('monteur_email', user.email)
+    .ilike('monteur_email', user.email)
     .eq('status', 'invited')
     .order('created_at', { ascending: false })
     .limit(1)

@@ -15,10 +15,12 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
 
-  const { monteurEmail } = await request.json() as { monteurEmail: string };
-  if (!monteurEmail || !monteurEmail.includes('@')) {
+  const { monteurEmail: monteurEmailRaw } = await request.json() as { monteurEmail: string };
+  if (!monteurEmailRaw || !monteurEmailRaw.includes('@')) {
     return NextResponse.json({ error: 'Geldig e-mailadres vereist' }, { status: 400 });
   }
+  // Normalise to lowercase — avoids case-sensitive lookup failures on login
+  const monteurEmail = monteurEmailRaw.toLowerCase();
 
   // Verify calculation belongs to this user
   const { data: calc } = await supabase
