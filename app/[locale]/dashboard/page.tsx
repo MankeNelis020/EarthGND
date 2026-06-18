@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { Link } from '@/i18n/navigation';
 import { PLANS } from '@/lib/plans';
 import { LogoutButton } from '@/components/ui/LogoutButton';
+import { PostAuthRedirect } from '@/components/auth/PostAuthRedirect';
 
 interface MetingInfo {
   status: string;
@@ -113,6 +114,7 @@ export default async function DashboardPage({
 
   return (
     <div className="min-h-screen bg-[#0d0d0d]">
+      <PostAuthRedirect />
       <div className="mx-auto max-w-4xl px-4 py-12">
 
         {params.checkout === 'success' && <SuccessBanner />}
