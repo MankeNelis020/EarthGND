@@ -243,10 +243,30 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
         </div>
       )}
 
-      {/* No meting yet message for calculator */}
+      {/* No meting yet — prompt to invite monteur */}
       {isCalculator && !meting && (
         <div className="rounded-xl border border-white/10 bg-white/3 p-6 text-center">
-          <p className="text-sm text-white/60">De monteur heeft nog geen meting ingediend.</p>
+          <p className="mb-1 text-sm font-semibold text-white/70">Nog geen veldmeting gekoppeld</p>
+          <p className="mb-4 text-xs text-white/40 leading-relaxed">
+            Ga terug naar de Pendiepte Calculator en gebruik de knop &ldquo;Mail monteur&rdquo; om een veldmeting te koppelen.
+          </p>
+          <a
+            href="/nl/tool/diepte"
+            className="inline-block rounded-lg border border-[#E8761A]/30 bg-[#E8761A]/10 px-4 py-2 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/20 transition-colors"
+          >
+            Naar Pendiepte Calculator
+          </a>
+        </div>
+      )}
+
+      {/* Meting invited but not yet submitted */}
+      {isCalculator && meting && status === 'invited' && (
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-center">
+          <p className="text-sm text-blue-400">Wachten op monteur</p>
+          <p className="mt-1 text-xs text-white/50">
+            De uitnodiging is verstuurd naar {meting.monteur_email ?? 'de monteur'}.
+            U ontvangt een e-mail zodra de meting is ingediend.
+          </p>
         </div>
       )}
     </div>
