@@ -58,8 +58,12 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     monteur_invited_at:  new Date().toISOString(),
   }).eq('id', uuid);
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? request.headers.get('origin') ?? 'https://earthgnd.com';
-  const redirectTo = `${baseUrl}/auth/callback?next=/nl/meting/${uuid}`;
+  // Normalise to lowercase — Supabase allowlist matching is case-sensitive
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? request.headers.get('origin') ?? 'https://earthgnd.com')
+    .toLowerCase()
+    .replace(/\/$/, '');
+  const redirectTo = `${baseUrl}/auth/callback?next=${encodeURIComponent(`/nl/meting/${uuid}`)}`;
+  console.log('[notify] redirectTo sent to Supabase:', redirectTo);
 
   const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
     type: 'magiclink',
