@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { reverseGeocode, forwardGeocode } from '@/lib/geocoding';
 
 interface DepthPoint { depth: number; ra: number }
@@ -40,6 +40,8 @@ function buildInitialCurve(maxDepth: number): DepthPoint[] {
 
 export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expectedDepth, savedMeting }: Props) {
   const router = useRouter();
+  const params = useParams();
+  const locale = (params?.locale as string) ?? 'nl';
 
   // Determine if there's meaningful saved data to restore
   const hasSaved = !!savedMeting?.lat || (savedMeting?.depth_curve?.length ?? 0) > 0;
@@ -80,6 +82,7 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const [submitting, setSubmitting] = useState(false);
+  const [saving,     setSaving]     = useState(false);
   const [error, setError]           = useState('');
 
   // ── Refs for stale closure guard (forward geocode) ──────────────────────
@@ -195,6 +198,22 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
     setDepthCurve(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
   }
 
+  // ── Save & close ────────────────────────────────────────────────────────
+  async function handleSaveAndClose() {
+    clearTimeout(autoSaveTimer.current);
+    setSaving(true);
+    try {
+      await fetch(`/api/meting/${uuid}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentPayload()),
+      });
+    } finally {
+      setSaving(false);
+      router.push(`/${locale}/dashboard`);
+    }
+  }
+
   // ── Submit ───────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -246,14 +265,24 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
-      {/* Restore banner */}
-      {hasSaved && (
-        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3">
+      {/* Top: save & close + restore banner */}
+      <div className="flex items-center justify-between gap-3">
+        {hasSaved ? (
           <p className="text-xs text-blue-300">
-            ↩ Eerdere voortgang hersteld — u kunt doorgaan waar u was gebleven.
+            ↩ Voortgang hersteld — ga verder waar u was gebleven.
           </p>
-        </div>
-      )}
+        ) : (
+          <p className="text-xs text-white/30">Voortgang wordt automatisch opgeslagen.</p>
+        )}
+        <button
+          type="button"
+          onClick={handleSaveAndClose}
+          disabled={saving || submitting}
+          className="shrink-0 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-40 transition-colors"
+        >
+          {saving ? 'Opslaan…' : '↗ Opslaan & sluiten'}
+        </button>
+      </div>
 
       {/* Location */}
       <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
@@ -476,14 +505,23 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || saving}
         className="rounded-2xl bg-[#E8761A] py-4 text-sm font-bold text-white transition-opacity hover:bg-[#d06510] disabled:opacity-50"
       >
         {submitting ? 'Indienen…' : 'Meting bevestigen & indienen'}
       </button>
 
+      <button
+        type="button"
+        onClick={handleSaveAndClose}
+        disabled={saving || submitting}
+        className="rounded-2xl border border-white/10 bg-white/4 py-3.5 text-sm font-semibold text-white/60 hover:bg-white/8 hover:text-white disabled:opacity-40 transition-colors"
+      >
+        {saving ? 'Opslaan…' : '↗ Tijdelijk opslaan & sluiten'}
+      </button>
+
       <p className="text-center text-[10px] text-white/40">
-        Uw voortgang wordt automatisch opgeslagen. Na indienen zijn de meetwaarden vergrendeld.
+        Na indienen zijn de meetwaarden vergrendeld. De opdrachtgever ontvangt automatisch een bericht.
       </p>
     </form>
   );
