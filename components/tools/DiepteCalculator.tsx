@@ -468,14 +468,12 @@ function RaHaalbaarheidsCheck({ raGemiddeld, raOngunstig }: { raGemiddeld: numbe
 
 function DriveabilityBlock({
   method,
-  zMax,
   refusalLayer,
   isLimited,
   soilSamples,
   zReq,
 }: {
   method:       DriveMethod;
-  zMax:         ZMaxBand;
   refusalLayer: RefusalLayer | null;
   isLimited:    boolean;
   soilSamples:  ReadonlyArray<{ depth: number; lithoClass: number }>;
@@ -1150,7 +1148,6 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           {calcResult.electrodeType === 'pen' && calcResult.driveability && (
             <DriveabilityBlock
               method={calcResult.driveability.method}
-              zMax={calcResult.driveability.zMax}
               refusalLayer={calcResult.driveability.refusalLayer}
               isLimited={calcResult.driveability.isLimited}
               soilSamples={soilData?.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })) ?? []}
