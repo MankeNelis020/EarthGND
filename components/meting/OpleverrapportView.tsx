@@ -229,18 +229,21 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Dieptecurve</p>
           </div>
           <div className="divide-y divide-white/5">
-            {meting.depth_curve.map((pt, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-2.5">
-                <span className="w-16 text-sm text-white/60">{pt.depth} m</span>
-                <div className="flex-1 h-1.5 rounded-full bg-white/5">
-                  <div
-                    className="h-full rounded-full bg-[#E8761A]/60"
-                    style={{ width: `${Math.min((pt.ra / (meting.depth_curve[0]?.ra || 1)) * 100, 100)}%` }}
-                  />
+            {(() => {
+              const maxRa = Math.max(...meting.depth_curve.map(pt => pt.ra), 1);
+              return meting.depth_curve.map((pt, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-2.5">
+                  <span className="w-16 text-sm text-white/60">{pt.depth} m</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-white/5">
+                    <div
+                      className="h-full rounded-full bg-[#E8761A]/60"
+                      style={{ width: `${Math.min((pt.ra / maxRa) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <span className="w-16 text-right text-sm font-semibold text-white">{pt.ra} Ω</span>
                 </div>
-                <span className="w-16 text-right text-sm font-semibold text-white">{pt.ra} Ω</span>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       )}
@@ -305,7 +308,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
             Ga terug naar de Pendiepte Calculator en gebruik de knop &ldquo;Mail monteur&rdquo; om een veldmeting te koppelen.
           </p>
           <a
-            href="/nl/tool/diepte"
+            href="/tool/diepte"
             className="inline-block rounded-lg border border-[#E8761A]/30 bg-[#E8761A]/10 px-4 py-2 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/20 transition-colors"
           >
             Naar Pendiepte Calculator

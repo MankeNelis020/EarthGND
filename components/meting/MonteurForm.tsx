@@ -47,6 +47,11 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
 
   const fwdTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
+  const straatnaamRef = useRef(straatnaam);
+  const woonplaatsRef = useRef(woonplaats);
+  useEffect(() => { straatnaamRef.current = straatnaam; }, [straatnaam]);
+  useEffect(() => { woonplaatsRef.current = woonplaats; }, [woonplaats]);
+
   // Forward geocode: postcode + huisnummer → lat/lon (only when GPS hasn't been used yet)
   useEffect(() => {
     if (coordsSource === 'gps') return;
@@ -61,13 +66,12 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
       setLon(result.lon);
       setAcc(null);
       setCoordsSource('address');
-      if (!straatnaam && result.straatnaam) setStraatnaam(result.straatnaam);
-      if (!woonplaats && result.woonplaats) setWoonplaats(result.woonplaats);
+      // Use refs to get current values — avoids stale closure overwriting user input
+      if (!straatnaamRef.current && result.straatnaam) setStraatnaam(result.straatnaam);
+      if (!woonplaatsRef.current && result.woonplaats) setWoonplaats(result.woonplaats);
     }, 600);
 
     return () => clearTimeout(fwdTimerRef.current);
-    // straatnaam/woonplaats intentionally omitted — only postcode/huisnummer should retrigger
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postcode, huisnummer, coordsSource]);
 
   function buildInitialCurve(maxDepth: number): DepthPoint[] {

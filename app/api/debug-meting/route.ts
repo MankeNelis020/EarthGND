@@ -5,6 +5,8 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
+const ALLOWED_EMAILS = ['niel.baaijens@gmail.com'];
+
 export async function GET() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
@@ -22,7 +24,11 @@ export async function GET() {
   };
 
   if (!user?.email) {
-    return NextResponse.json({ ...result, note: 'Not logged in — no further checks possible' });
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  }
+
+  if (!ALLOWED_EMAILS.includes(user.email.toLowerCase())) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   // 2. Check pendiepte_metingen via regular client (RLS active)
