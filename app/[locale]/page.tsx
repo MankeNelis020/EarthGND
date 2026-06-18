@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 
 function Check() {
@@ -8,26 +9,17 @@ function Check() {
   );
 }
 
-const FEATURES_FREE = [
-  'Weerstand Calculator onbeperkt',
-  'TT- en TN-stelsel',
-  'NEN 1010 normen',
-  'Geen account nodig',
-];
+type Props = { params: Promise<{ locale: string }> };
 
-const FEATURES_PAID = [
-  'BRO bodemdata per postcode',
-  'Risicoklasse I – IV',
-  'Drie berekende scenario\'s',
-  'PDF rapport',
-  'Grondwater & pH correcties',
-];
+export default async function HomePage({ params }: Props) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'home' });
 
-export default function HomePage() {
+  const featuresFree = [t('featuresFree.f1'), t('featuresFree.f2'), t('featuresFree.f3'), t('featuresFree.f4')];
+  const featuresPaid = [t('featuresPaid.f1'), t('featuresPaid.f2'), t('featuresPaid.f3'), t('featuresPaid.f4'), t('featuresPaid.f5')];
+
   return (
     <div className="min-h-screen bg-[#0d0d0d]">
-
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden px-4 pb-24 pt-20">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(232,118,26,0.12),transparent)]" />
         <div className="relative mx-auto max-w-4xl text-center">
@@ -35,101 +27,72 @@ export default function HomePage() {
             NEN 1010 · NEN 62305 · NEN 50522
           </div>
           <h1 className="font-condensed mb-6 text-5xl font-black leading-[1.05] tracking-tight text-white sm:text-7xl">
-            Aardingsweerstand.<br />
-            <span className="text-[#E8761A]">Direct bepaald.</span>
+            {t('title').split('. ')[0]}.<br />
+            <span className="text-[#E8761A]">{t('title').split('. ')[1]}</span>
           </h1>
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-white/55">
-            Twee professionele calculators voor elektrotechnici en aannemers. Van maximale aardingsweerstand tot exacte pendiepte — onderbouwd met BRO bodemdata.
-          </p>
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-white/55">{t('subtitle')}</p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link
-              href="/tool/ohm"
-              className="rounded-xl bg-[#E8761A] px-8 py-3.5 text-sm font-bold text-white hover:bg-[#d06510] transition-colors"
-            >
-              Weerstand berekenen — gratis
+            <Link href="/tool/ohm" className="rounded-xl bg-[#E8761A] px-8 py-3.5 text-sm font-bold text-white hover:bg-[#d06510] transition-colors">
+              {t('ctaPrimary')}
             </Link>
-            <Link
-              href="/pricing"
-              className="rounded-xl border border-white/15 px-8 py-3.5 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white transition-colors"
-            >
-              Bekijk tarieven
+            <Link href="/pricing" className="rounded-xl border border-white/15 px-8 py-3.5 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white transition-colors">
+              {t('ctaSecondary')}
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ── Product cards ─────────────────────────────────────────────────── */}
       <section className="px-4 pb-24">
         <div className="mx-auto max-w-5xl grid gap-4 md:grid-cols-2">
-
-          {/* Card 1: Weerstand Calculator — free */}
           <div className="flex flex-col rounded-2xl border border-white/8 bg-[#111] p-7">
-            <div className="mb-5 flex items-center justify-between">
+            <div className="mb-5">
               <span className="rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-xs font-semibold text-green-400">
-                Altijd gratis
+                {t('card1Label')}
               </span>
             </div>
-            <h2 className="font-condensed mb-2 text-2xl font-black text-white">Weerstand Calculator</h2>
-            <p className="mb-6 text-sm leading-relaxed text-white/55">
-              Bereken de maximale aardingsweerstand per NEN 1010. Kies je stelsel, installatietype en aardlekschakelaar — krijg direct vier outputlagen: wettelijk maximum, praktisch maximum, ontwerpdoel en streefwaarde.
-            </p>
+            <h2 className="font-condensed mb-2 text-2xl font-black text-white">{t('card1Title')}</h2>
+            <p className="mb-6 text-sm leading-relaxed text-white/55">{t('card1Desc')}</p>
             <ul className="mb-8 flex flex-col gap-2">
-              {FEATURES_FREE.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-white/60">
-                  <Check />
-                  {f}
-                </li>
+              {featuresFree.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-white/60"><Check />{f}</li>
               ))}
             </ul>
             <div className="mt-auto">
-              <Link
-                href="/tool/ohm"
-                className="block w-full rounded-xl border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#E8761A]/50 hover:text-[#E8761A] transition-colors"
-              >
-                Open calculator
+              <Link href="/tool/ohm" className="block w-full rounded-xl border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#E8761A]/50 hover:text-[#E8761A] transition-colors">
+                {t('card1Cta')}
               </Link>
             </div>
           </div>
 
-          {/* Card 2: Pendiepte Calculator — paid */}
           <div className="flex flex-col rounded-2xl border border-[#E8761A]/25 bg-gradient-to-b from-[#E8761A]/8 to-[#111] p-7">
             <div className="mb-5 flex items-center justify-between">
               <span className="rounded-full border border-[#E8761A]/30 bg-[#E8761A]/10 px-2.5 py-1 text-xs font-semibold text-[#E8761A]">
-                Vanaf 10/mnd
+                {t('card2Label')}
               </span>
-              <span className="text-xs text-white/30">of 2,95 per berekening</span>
+              <span className="text-xs text-white/30">{t('card2PriceNote')}</span>
             </div>
-            <h2 className="font-condensed mb-2 text-2xl font-black text-white">Pendiepte Calculator</h2>
-            <p className="mb-6 text-sm leading-relaxed text-white/55">
-              Voer een postcode in. EarthGND haalt automatisch grondsoort, grondwaterstand en pH op via het BRO — en berekent hoe diep de aardpen moet. Inclusief risicoklasse I t/m IV.
-            </p>
+            <h2 className="font-condensed mb-2 text-2xl font-black text-white">{t('card2Title')}</h2>
+            <p className="mb-6 text-sm leading-relaxed text-white/55">{t('card2Desc')}</p>
             <ul className="mb-8 flex flex-col gap-2">
-              {FEATURES_PAID.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-white/60">
-                  <Check />
-                  {f}
-                </li>
+              {featuresPaid.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-white/60"><Check />{f}</li>
               ))}
             </ul>
             <div className="mt-auto">
-              <Link
-                href="/pricing"
-                className="block w-full rounded-xl bg-[#E8761A] py-3 text-center text-sm font-bold text-white hover:bg-[#d06510] transition-colors"
-              >
-                Bekijk tarieven
+              <Link href="/pricing" className="block w-full rounded-xl bg-[#E8761A] py-3 text-center text-sm font-bold text-white hover:bg-[#d06510] transition-colors">
+                {t('card2Cta')}
               </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Three pillars ─────────────────────────────────────────────────── */}
       <section className="border-t border-white/5 px-4 py-16">
         <div className="mx-auto max-w-5xl grid gap-px grid-cols-1 overflow-hidden rounded-2xl border border-white/8 sm:grid-cols-3">
           {[
-            { title: 'BRO Bodemdata', desc: 'Grondsoort, grondwaterstand en pH rechtstreeks uit het Basis Registratie Ondergrond op postcode.' },
-            { title: 'NEN 1010 normen', desc: 'Alle berekeningen conform NEN 1010, NEN 62305 en NEN 50522 — inclusief wettelijk maximum.' },
-            { title: 'Indicatief rapport', desc: 'Exporteer een onderbouwde PDF met invoerwaarden, formule en risicoklasse voor uw dossier.' },
+            { title: t('pillar1Title'), desc: t('pillar1Desc') },
+            { title: t('pillar2Title'), desc: t('pillar2Desc') },
+            { title: t('pillar3Title'), desc: t('pillar3Desc') },
           ].map((item) => (
             <div key={item.title} className="bg-[#111] px-7 py-8">
               <p className="font-condensed mb-2 text-lg font-bold text-white">{item.title}</p>

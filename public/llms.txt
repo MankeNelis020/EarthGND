@@ -1,0 +1,39 @@
+# EarthGND
+
+> Professional grounding calculation tools for electricians and contractors in the Netherlands and Europe.
+
+EarthGND provides two professional calculators for electrical grounding (Dutch: aarding, German: Erdung):
+
+## Tools
+
+- Resistance Calculator (/nl/tool/ohm, /en/tool/ohm, /de/tool/ohm): Free. Calculate maximum grounding resistance per NEN 1010, NEN 62305, NEN 50522. Supports TT and TN grid systems, all common RCD types.
+- Rod Depth Calculator (/nl/tool/diepte, /en/tool/diepte, /de/tool/diepte): Pro (from €10/month). Calculate exact grounding rod depth based on Dutch BRO soil data (soil type, groundwater depth, pH). Uses Dwight's formula. Outputs three scenarios (favourable/average/unfavourable) and risk class I–IV.
+
+## Key Technical Features
+
+- BRO (Basis Registratie Ondergrond) soil data integration by Dutch postal code
+- Soil resistivity (ρ), groundwater depth and pH corrections
+- NEN 1010, NEN 62305, NEN 50522 compliance
+- Risk classification I–IV (NEN 62305 / EN 50522)
+- PDF calculation reports
+- Field measurement workflow: calculator invites monteur, monteur submits field measurements, engineer confirms delivery report (opleverrapport)
+- Dwight's formula with harmonic mean for effective soil resistivity
+
+## Pricing
+
+- Resistance Calculator: Free, no account required
+- Rod Depth Calculator: €10/month subscription or €2.95 per calculation (credits)
+
+## Supported Languages
+
+- Dutch (nl): https://earthgnd.com/nl/
+- English (en): https://earthgnd.com/en/
+- German (de): https://earthgnd.com/de/
+
+## FAQ
+
+See /nl/faq, /en/faq, /de/faq for technical Q&A on grounding calculations, NEN standards and BRO soil data.
+
+## Contact
+
+hello@earthgnd.com | https://earthgnd.com
