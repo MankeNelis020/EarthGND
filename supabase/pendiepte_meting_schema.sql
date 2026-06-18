@@ -1,10 +1,16 @@
 -- ─── Pendiepte veldmeting — koppeling berekening ↔ monteur ─────────────────
 -- Voer uit in Supabase SQL editor (of via CLI: supabase db push)
 
--- 1. Monteur-email opslaan op de berekening
+-- 1. Extra kolommen op de berekening
 alter table public.calculations
   add column if not exists monteur_email text,
-  add column if not exists monteur_invited_at timestamptz;
+  add column if not exists monteur_invited_at timestamptz,
+  -- Vrije naam voor het opleverrapport (ingesteld zodra een CTA wordt gebruikt)
+  add column if not exists rapport_naam text;
+
+-- TODO (gevroren): KLIC-melding integratie in Pendiepte Calculator
+--   Idee: vanuit de calculator een KLIC-melding starten op basis van de locatie (postcode/GPS).
+--   Afhankelijk van KLIC/Kadaster API beschikbaarheid en authenticatieflow.
 
 -- 2. Veldmeting tabel
 create table if not exists public.pendiepte_metingen (

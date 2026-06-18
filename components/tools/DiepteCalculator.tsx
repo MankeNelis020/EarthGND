@@ -577,6 +577,9 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
     setMonteurSending(true);
     setMonteurError('');
     try {
+      // Ensure draft record exists and rapport_naam is set before sending invite
+      await fetch(`/api/calculations/${calcResult.calculationId}/draft`, { method: 'POST' });
+
       const res = await fetch(`/api/calculations/${calcResult.calculationId}/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1135,6 +1138,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               riskClass:      calcResult.riskClass,
               corrosionClass: calcResult.corrosionClass,
             }}
+            calculationId={calcResult.calculationId}
           />
         </div>
       )}

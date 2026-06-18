@@ -14,6 +14,7 @@ interface Calculation {
   id: string;
   tool: 'ohm' | 'diepte';
   postcode: string | null;
+  rapport_naam: string | null;
   risicoklasse: string | null;
   pdf_url: string | null;
   created_at: string;
@@ -82,7 +83,7 @@ export default async function DashboardPage({
       .single(),
     supabase
       .from('calculations')
-      .select('id, tool, postcode, risicoklasse, pdf_url, created_at, pendiepte_metingen(status, monteur_email)')
+      .select('id, tool, postcode, rapport_naam, risicoklasse, pdf_url, created_at, pendiepte_metingen(status, monteur_email)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20),
@@ -247,12 +248,16 @@ export default async function DashboardPage({
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-white/60">
-                        {calc.postcode ? calc.postcode : 'Geen postcode'}
-                        {meting?.monteur_email && (
-                          <span className="ml-2 text-white/30">· {meting.monteur_email}</span>
-                        )}
-                      </p>
+                      {calc.rapport_naam ? (
+                        <p className="text-sm font-semibold text-white truncate">{calc.rapport_naam}</p>
+                      ) : (
+                        <p className="text-sm text-white/50">
+                          {calc.postcode ?? 'Geen postcode'}
+                        </p>
+                      )}
+                      {meting?.monteur_email && (
+                        <p className="text-xs text-white/30">{meting.monteur_email}</p>
+                      )}
                     </div>
                     <div className="shrink-0 text-xs text-white/30">
                       {new Date(calc.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}

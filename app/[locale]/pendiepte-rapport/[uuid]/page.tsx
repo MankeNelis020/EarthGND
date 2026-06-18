@@ -20,7 +20,7 @@ export default async function PendiepteRapportPage({ params }: Ctx) {
 
   const [{ data: meting }, { data: calc }] = await Promise.all([
     supabase.from('pendiepte_metingen').select('*').eq('calculation_id', uuid).single(),
-    supabase.from('calculations').select('*').eq('id', uuid).single(),
+    supabase.from('calculations').select('*, rapport_naam').eq('id', uuid).single(),
   ]);
 
   if (!calc) notFound();

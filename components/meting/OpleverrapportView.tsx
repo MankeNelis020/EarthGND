@@ -27,6 +27,7 @@ interface Calc {
   id: string;
   postcode: string | null;
   risicoklasse: string | null;
+  rapport_naam: string | null;
   resultaat: { dimension?: number; achievedResistance?: number } | null;
   input: { electrodeType?: string; targetResistance?: number; rho?: number; groundwaterDepth?: number } | null;
   created_at?: string;
@@ -64,9 +65,30 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
 
+  // Inline rename state
+  const [naam, setNaam]           = useState(calc.rapport_naam ?? '');
+  const [editingNaam, setEditing] = useState(false);
+  const [naamSaving, setNaamSaving] = useState(false);
+
   const input     = calc.input     as Calc['input'];
   const resultaat = calc.resultaat as Calc['resultaat'];
   const status    = meting?.status ?? 'draft';
+
+  async function saveNaam() {
+    if (!naam.trim() || naam.trim() === calc.rapport_naam) { setEditing(false); return; }
+    setNaamSaving(true);
+    try {
+      await fetch(`/api/calculations/${uuid}/draft`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rapport_naam: naam.trim() }),
+      });
+      router.refresh();
+    } finally {
+      setNaamSaving(false);
+      setEditing(false);
+    }
+  }
 
   async function handleConfirm() {
     setConfirming(true);
@@ -85,12 +107,45 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
+      {/* Header with editable name */}
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">Opleverrapport</p>
-          <h1 className="mt-1 text-2xl font-bold text-[#F5EFE6]">Pendiepte meting</h1>
-          {calc.postcode && <p className="mt-1 text-sm text-white/60">{calc.postcode}</p>}
+          {isCalculator && editingNaam ? (
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                autoFocus
+                value={naam}
+                onChange={e => setNaam(e.target.value)}
+                onBlur={saveNaam}
+                onKeyDown={e => { if (e.key === 'Enter') saveNaam(); if (e.key === 'Escape') setEditing(false); }}
+                disabled={naamSaving}
+                className="flex-1 rounded-lg border border-[#E8761A]/40 bg-white/5 px-3 py-1.5 text-lg font-bold text-[#F5EFE6] focus:outline-none focus:border-[#E8761A]"
+              />
+              <button onClick={saveNaam} disabled={naamSaving}
+                className="text-xs text-[#E8761A] hover:text-[#d06510]">
+                {naamSaving ? '…' : 'Opslaan'}
+              </button>
+            </div>
+          ) : (
+            <div className="group mt-1 flex items-center gap-2">
+              <h1 className="truncate text-2xl font-bold text-[#F5EFE6]">
+                {calc.rapport_naam ?? 'Pendiepte meting'}
+              </h1>
+              {isCalculator && status !== 'confirmed' && (
+                <button
+                  onClick={() => { setNaam(calc.rapport_naam ?? ''); setEditing(true); }}
+                  className="shrink-0 rounded p-1 text-white/20 opacity-0 transition-opacity group-hover:opacity-100 hover:text-white/60"
+                  title="Naam wijzigen"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+          {calc.postcode && <p className="mt-1 text-sm text-white/50">{calc.postcode}</p>}
         </div>
         <StatusBadge status={status} />
       </div>
