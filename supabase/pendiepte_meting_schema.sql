@@ -71,8 +71,9 @@ create policy "Monteur mag bijwerken"
 -- Service role (API routes) mag alles
 -- (service_role bypasses RLS by default in Supabase)
 
--- Index voor proximity queries (toekomstige pipeline-integratie)
+-- Eenvoudige index op locatie voor toekomstige proximity queries.
+-- Voor echte afstandsberekeningen: enable de cube + earthdistance extensies
+-- en vervang door: USING gist (ll_to_earth(lat, lon))
 create index if not exists pendiepte_metingen_location
-  on public.pendiepte_metingen using gist (
-    ll_to_earth(lat, lon)
-  ) where status = 'confirmed' and lat is not null;
+  on public.pendiepte_metingen (lat, lon)
+  where status = 'confirmed' and lat is not null;
