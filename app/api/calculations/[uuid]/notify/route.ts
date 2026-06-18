@@ -58,11 +58,11 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     monteur_invited_at:  new Date().toISOString(),
   }).eq('id', uuid);
 
-  // Normalise to lowercase — Supabase allowlist matching is case-sensitive
+  // UUID in the path — query params are stripped by Google OAuth round-trips
   const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? request.headers.get('origin') ?? 'https://earthgnd.com')
     .toLowerCase()
     .replace(/\/$/, '');
-  const redirectTo = `${baseUrl}/auth/callback?next=${encodeURIComponent(`/nl/meting/${uuid}`)}`;
+  const redirectTo = `${baseUrl}/auth/callback/meting/${uuid}`;
   console.log('[notify] redirectTo sent to Supabase:', redirectTo);
 
   const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
