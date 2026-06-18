@@ -8,7 +8,7 @@ import { DRIVE_METHOD_LABELS, type DriveMethod } from '@/lib/pipeline/driveabili
 interface DepthPoint { depth: number; ra: number }
 interface RodMeting  { rod_number: number; installed_depth: string; achieved_ra: string }
 
-interface SavedMeting {
+export interface SavedMeting {
   status:          string;
   lat:             number | null;
   lon:             number | null;

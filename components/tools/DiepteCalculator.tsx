@@ -987,8 +987,18 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   gwDepth={groundwaterDepth}
                   numRods={numRods}
                   spacing={rodSpacing}
-                  refusalDepth={calcResult.parallelAdvice?.refusalLayer?.depth}
-                  refusalSoil={calcResult.parallelAdvice?.refusalLayer?.soil}
+                  refusalDepth={
+                    (calcResult.parallelAdvice?.refusalLayer?.warning === true ||
+                     calcResult.parallelAdvice?.refusalLayer?.lithoClass === 6)
+                      ? calcResult.parallelAdvice?.refusalLayer?.depth
+                      : undefined
+                  }
+                  refusalSoil={
+                    (calcResult.parallelAdvice?.refusalLayer?.warning === true ||
+                     calcResult.parallelAdvice?.refusalLayer?.lithoClass === 6)
+                      ? calcResult.parallelAdvice?.refusalLayer?.soil
+                      : undefined
+                  }
                 />
                 {/* Two-layer legend */}
                 {calcResult.rhoDry && calcResult.rhoWet && (

@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { MonteurForm } from '@/components/meting/MonteurForm';
+import { MonteurForm, type SavedMeting } from '@/components/meting/MonteurForm';
 
 export const runtime = 'nodejs';
 
@@ -144,7 +144,7 @@ export default async function MetingPage({ params }: Ctx) {
             expectedDepth={resultaat?.dimension}
             recommendedAantalPennen={resultaat?.aantalPennen ?? 1}
             recommendedDrijfmethode={input?.drijfmethode}
-            savedMeting={meting as never}
+            savedMeting={meting as SavedMeting}
           />
         )}
       </div>

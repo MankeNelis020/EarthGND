@@ -19,7 +19,7 @@ interface Meting {
   installed_depth: number | null;
   electrode_type: string | null;
   drijfmethode: string | null;
-  rods: { rod_number: number; installed_depth: number; achieved_ra: number }[];
+  rods: { rod_number: number; installed_depth: number; achieved_ra: number }[] | null;
   aantal_pennen: number | null;
   notes: string | null;
   submitted_at: string | null;
@@ -31,7 +31,7 @@ interface Calc {
   postcode: string | null;
   rapport_naam: string | null;
   result: { dimension?: number; achievedResistance?: number } | null;
-  input_values: { electrodeType?: string; targetResistance?: number; rho?: number; groundwaterDepth?: number } | null;
+  input_values: { electrodeType?: string; targetResistance?: number; rho?: number; groundwaterDepth?: number; drijfmethode?: string } | null;
   created_at?: string;
 }
 
@@ -171,7 +171,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
           },
           {
             label: 'Drijfmethode',
-            berekend: (input as { drijfmethode?: string } | null)?.drijfmethode ?? '—',
+            berekend: input?.drijfmethode ?? '—',
             gemeten:  meting?.drijfmethode ?? '—',
           },
           {
@@ -215,15 +215,15 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
       </div>
 
       {/* Per-rod measurements (multi-rod only) */}
-      {meting?.rods && meting.rods.length > 1 && (
+      {(meting?.rods?.length ?? 0) > 1 && (
         <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
           <div className="border-b border-white/8 px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
-              Meting per pen — {meting.rods.length} pennen geplaatst
+              Meting per pen — {meting?.rods?.length} pennen geplaatst
             </p>
           </div>
           <div className="divide-y divide-white/5">
-            {meting.rods.map(rod => (
+            {(meting?.rods ?? []).map(rod => (
               <div key={rod.rod_number} className="flex items-center gap-4 px-4 py-2.5">
                 <span className="w-12 shrink-0 text-xs font-semibold text-white/60">Pen {rod.rod_number}</span>
                 <span className="w-20 text-sm text-white">{rod.installed_depth?.toFixed(2) ?? '—'} m</span>
