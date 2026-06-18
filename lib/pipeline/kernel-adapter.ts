@@ -75,10 +75,14 @@ function solveNRods(
   target:   number,
   diameter: number,
 ): { n: number; rParallel: number; rSingle: number; targetUnreachable: boolean } {
-  // Single rod resistance at the capped depth
+  // If 1 rod at Dwight-optimal depth (using uniform rhoEff) already fits within zMax, use it.
   const single = calcDiepte({ rho: rhoEff, targetResistance: target, gwDepth: 0, rhoDry: rhoEff, rhoWet: rhoEff });
-  const rSingle = single.achievedResistance;
+  if (single.depth <= zMax && single.achievedResistance <= target) {
+    return { n: 1, rParallel: single.achievedResistance, rSingle: single.achievedResistance, targetUnreachable: false };
+  }
 
+  // Optimal depth exceeds zMax — compute resistance of 1 rod at exactly zMax.
+  const rSingle = calcParallelRa(rhoEff, zMax, diameter, 1).rParallel;
   if (rSingle <= target) return { n: 1, rParallel: rSingle, rSingle, targetUnreachable: false };
 
   for (let n = 2; n <= 6; n++) {
