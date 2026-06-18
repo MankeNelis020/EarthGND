@@ -74,8 +74,8 @@ export default async function MetingPage({ params }: Ctx) {
     .eq('id', uuid)
     .single();
 
-  const resultaat = calc?.result       as { dimension?: number; achievedResistance?: number } | null;
-  const input     = calc?.input_values as { electrodeType?: string; targetResistance?: number } | null;
+  const resultaat = calc?.result       as { dimension?: number; achievedResistance?: number; aantalPennen?: number } | null;
+  const input     = calc?.input_values as { electrodeType?: string; targetResistance?: number; drijfmethode?: string } | null;
   const isSubmitted = meting.status === 'submitted';
 
   return (
@@ -117,6 +117,15 @@ export default async function MetingPage({ params }: Ctx) {
                 {resultaat?.achievedResistance != null ? `${resultaat.achievedResistance.toFixed(2)} Ω` : '—'}
               </p>
             </div>
+            {(resultaat?.aantalPennen ?? 1) > 1 && (
+              <div className="col-span-2 sm:col-span-2">
+                <p className="text-[10px] text-white/50">Aanbevolen configuratie</p>
+                <p className="text-sm font-semibold text-white">
+                  {resultaat!.aantalPennen} pennen parallel
+                  {input?.drijfmethode && ` · ${input.drijfmethode}`}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -133,7 +142,9 @@ export default async function MetingPage({ params }: Ctx) {
             initialPostcode={typeof calc?.postcode === 'string' ? calc.postcode : undefined}
             initialElectrodeType={input?.electrodeType === 'lint' ? 'lint' : 'pen'}
             expectedDepth={resultaat?.dimension}
-            savedMeting={meting}
+            recommendedAantalPennen={resultaat?.aantalPennen ?? 1}
+            recommendedDrijfmethode={input?.drijfmethode}
+            savedMeting={meting as never}
           />
         )}
       </div>

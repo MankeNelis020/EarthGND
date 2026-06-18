@@ -53,6 +53,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 interface DepthPoint { depth: number; ra: number }
+interface RodMeting  { rod_number: number; installed_depth: number; achieved_ra: number }
 
 // PATCH — monteur auto-saves draft (no status change, no validation)
 export async function PATCH(request: NextRequest, { params }: Ctx) {
@@ -99,6 +100,9 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       achieved_ra:     body.achieved_ra ?? null,
       installed_depth: body.installed_depth ?? null,
       electrode_type:  body.electrode_type ?? null,
+      drijfmethode:    body.drijfmethode ?? null,
+      rods:            body.rods ?? [],
+      aantal_pennen:   body.rods?.length ?? null,
       notes:           body.notes ?? null,
       // status stays unchanged
     })
@@ -119,6 +123,8 @@ interface MetingBody {
   achieved_ra:     number;
   installed_depth: number;
   electrode_type?: string;
+  drijfmethode?:   string;
+  rods?:           RodMeting[];
   notes?:          string;
 }
 
@@ -155,11 +161,18 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 
   const body = await request.json() as MetingBody;
 
-  if (!body.depth_curve || !Array.isArray(body.depth_curve)) {
-    return NextResponse.json({ error: 'Dieptecurve ontbreekt' }, { status: 400 });
-  }
-  if (body.achieved_ra == null || body.installed_depth == null) {
-    return NextResponse.json({ error: 'Eindmeting (Ra en diepte) verplicht' }, { status: 400 });
+  const isMultiRod = Array.isArray(body.rods) && body.rods.length > 1;
+  if (isMultiRod) {
+    const incomplete = body.rods!.some(r => r.installed_depth == null || r.achieved_ra == null);
+    if (incomplete) return NextResponse.json({ error: 'Alle pennen vereisen diepte en Ra-meting' }, { status: 400 });
+    if (body.achieved_ra == null) return NextResponse.json({ error: 'Gecombineerde Ra is verplicht' }, { status: 400 });
+  } else {
+    if (!body.depth_curve || !Array.isArray(body.depth_curve)) {
+      return NextResponse.json({ error: 'Dieptecurve ontbreekt' }, { status: 400 });
+    }
+    if (body.achieved_ra == null || body.installed_depth == null) {
+      return NextResponse.json({ error: 'Eindmeting (Ra en diepte) verplicht' }, { status: 400 });
+    }
   }
 
   const { error: updateError } = await admin
@@ -177,6 +190,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       achieved_ra:     body.achieved_ra,
       installed_depth: body.installed_depth,
       electrode_type:  body.electrode_type,
+      drijfmethode:    body.drijfmethode ?? null,
+      rods:            body.rods ?? [],
+      aantal_pennen:   body.rods?.length ?? null,
       notes:           body.notes,
       status:          'submitted',
       submitted_at:    new Date().toISOString(),
