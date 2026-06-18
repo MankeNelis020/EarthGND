@@ -211,7 +211,8 @@ export function MonteurForm({ uuid, initialPostcode, initialElectrodeType, expec
       });
     } finally {
       setSaving(false);
-      router.push(`/${locale}/dashboard`);
+      // Volledige navigatie — RSC-push stuitert terug bij dashboard-render errors
+      window.location.href = `/${locale}/dashboard`;
     }
   }
 
