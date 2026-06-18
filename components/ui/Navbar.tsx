@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useRouter, usePathname } from '@/i18n/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { createClient } from '@/utils/supabase/client';
+import { routing, localeLabels } from '@/i18n/routing';
 import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface Profile {
@@ -12,10 +13,12 @@ interface Profile {
 }
 
 export function Navbar() {
-  const locale = useLocale();
+  const locale  = useLocale();
   const pathname = usePathname();
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const router  = useRouter();
+  const t       = useTranslations('nav');
+
+  const [user,    setUser]    = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -59,6 +62,7 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 border-b border-white/8 bg-[#111]/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-0">
+
         {/* Logo */}
         <Link href="/" className="flex items-center gap-0 py-4 select-none">
           <span className="font-condensed text-xl font-bold tracking-tight text-white">Earth</span>
@@ -68,33 +72,29 @@ export function Navbar() {
 
         {/* Centre nav */}
         <div className="hidden items-center gap-1 md:flex">
-          <NavLink href="/tool/ohm" label="Weerstand" active={isActive('/tool/ohm')} />
-          <NavLink
-            href="/tool/diepte"
-            label="Pendiepte"
-            active={isActive('/tool/diepte')}
-            locked={!user}
-          />
-          <NavLink href="/pricing" label="Tarieven" active={isActive('/pricing')} />
+          <NavLink href="/tool/ohm"   label={t('weerstand')} active={isActive('/tool/ohm')} />
+          <NavLink href="/tool/diepte" label={t('pendiepte')} active={isActive('/tool/diepte')} locked={!user} />
+          <NavLink href="/pricing"    label={t('pricing')}   active={isActive('/pricing')} />
         </div>
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          {/* Language switch */}
+
+          {/* Language switcher — driven by routing.locales, no code change needed for new languages */}
           <div className="hidden items-center gap-0.5 md:flex">
-            <button
-              onClick={() => switchLocale('nl')}
-              className={`px-1.5 py-1 text-xs font-semibold transition-colors ${locale === 'nl' ? 'text-[#E8761A]' : 'text-white/60 hover:text-white/70'}`}
-            >
-              NL
-            </button>
-            <span className="text-white/70 text-xs">/</span>
-            <button
-              onClick={() => switchLocale('en')}
-              className={`px-1.5 py-1 text-xs font-semibold transition-colors ${locale === 'en' ? 'text-[#E8761A]' : 'text-white/60 hover:text-white/70'}`}
-            >
-              EN
-            </button>
+            {routing.locales.map((loc, i) => (
+              <span key={loc} className="flex items-center">
+                {i > 0 && <span className="text-white/30 text-xs">/</span>}
+                <button
+                  onClick={() => switchLocale(loc)}
+                  className={`px-1.5 py-1 text-xs font-semibold transition-colors ${
+                    locale === loc ? 'text-[#E8761A]' : 'text-white/60 hover:text-white/70'
+                  }`}
+                >
+                  {localeLabels[loc] ?? loc.toUpperCase()}
+                </button>
+              </span>
+            ))}
           </div>
 
           {user ? (
@@ -112,13 +112,13 @@ export function Navbar() {
                 href="/dashboard"
                 className="hidden text-sm text-white/60 hover:text-white transition-colors md:block"
               >
-                Dashboard
+                {t('dashboard')}
               </Link>
               <button
                 onClick={handleLogout}
                 className="hidden rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/60 hover:border-white/30 hover:text-white transition-colors md:block"
               >
-                Uitloggen
+                {t('logout')}
               </button>
             </>
           ) : (
@@ -126,7 +126,7 @@ export function Navbar() {
               href="/login"
               className="rounded-lg bg-[#E8761A] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#d06510] transition-colors"
             >
-              Inloggen
+              {t('login')}
             </Link>
           )}
 
@@ -149,19 +149,35 @@ export function Navbar() {
       {menuOpen && (
         <div className="border-t border-white/8 bg-[#111] px-4 py-4 md:hidden">
           <div className="flex flex-col gap-1">
-            <MobileLink href="/tool/ohm" label="Weerstand Calculator" onClick={() => setMenuOpen(false)} />
-            <MobileLink href="/tool/diepte" label={`Pendiepte Calculator${!user ? ' (inloggen vereist)' : ''}`} onClick={() => setMenuOpen(false)} />
-            <MobileLink href="/pricing" label="Tarieven" onClick={() => setMenuOpen(false)} />
-            {user && <MobileLink href="/dashboard" label="Dashboard" onClick={() => setMenuOpen(false)} />}
-            {!user && <MobileLink href="/login" label="Inloggen" onClick={() => setMenuOpen(false)} />}
+            <MobileLink href="/tool/ohm"    label={t('weerstand') + ' Calculator'} onClick={() => setMenuOpen(false)} />
+            <MobileLink href="/tool/diepte" label={t('pendiepte') + ' Calculator' + (!user ? ` (${t('login').toLowerCase()} vereist)` : '')} onClick={() => setMenuOpen(false)} />
+            <MobileLink href="/pricing"     label={t('pricing')}                   onClick={() => setMenuOpen(false)} />
+            {user  && <MobileLink href="/dashboard" label={t('dashboard')} onClick={() => setMenuOpen(false)} />}
+            {!user && <MobileLink href="/login"     label={t('login')}     onClick={() => setMenuOpen(false)} />}
             {user && (
               <button
                 onClick={() => { handleLogout(); setMenuOpen(false); }}
                 className="mt-2 w-full rounded-lg border border-white/10 py-2.5 text-sm text-white/60"
               >
-                Uitloggen
+                {t('logout')}
               </button>
             )}
+            {/* Mobile language switcher */}
+            <div className="mt-3 flex items-center gap-1 border-t border-white/8 pt-3">
+              {routing.locales.map((loc, i) => (
+                <span key={loc} className="flex items-center">
+                  {i > 0 && <span className="text-white/30 text-xs px-1">/</span>}
+                  <button
+                    onClick={() => { switchLocale(loc); setMenuOpen(false); }}
+                    className={`text-xs font-semibold transition-colors ${
+                      locale === loc ? 'text-[#E8761A]' : 'text-white/50 hover:text-white'
+                    }`}
+                  >
+                    {localeLabels[loc] ?? loc.toUpperCase()}
+                  </button>
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       )}
