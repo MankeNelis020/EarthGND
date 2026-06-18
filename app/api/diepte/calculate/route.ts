@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       ph:               body.ph,
       electrodeType:    body.electrodeType ?? 'pen',
       lithoClass:       body.lithoClass,
+      drijfmethode:     body.drijfmethode,
     },
     result: { dimension: primaryDimension, achievedResistance: gemiddeld.achievedResistance },
   }).select('id').single();
