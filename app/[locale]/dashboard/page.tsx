@@ -54,13 +54,6 @@ interface Profile {
 }
 
 
-const metingStatusBadge: Record<string, { label: string; cls: string }> = {
-  draft:     { label: 'Berekend',            cls: 'border-white/15 bg-white/5 text-white/50' },
-  invited:   { label: 'Monteur uitgenodigd', cls: 'border-blue-500/30 bg-blue-500/5 text-blue-400' },
-  submitted: { label: 'Meting ingediend',    cls: 'border-yellow-500/30 bg-yellow-500/5 text-yellow-400' },
-  confirmed: { label: 'Rapport bevestigd',   cls: 'border-green-500/30 bg-green-500/5 text-green-400' },
-  none:      { label: 'Berekend',            cls: 'border-white/15 bg-white/5 text-white/50' },
-};
 
 function SuccessBanner() {
   return (
@@ -133,14 +126,18 @@ export default async function DashboardPage({
     ? new Date(profile.credits_reset).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })
     : '1e van de maand';
 
-  // Split pendiepte calculations that have a flow active from plain ohm/diepte list
   const diepteCalcs = calcs.filter(c => c.tool === 'diepte');
   const ohmCalcs    = calcs.filter(c => c.tool === 'ohm');
-  const pendiepteJobs = diepteCalcs;
 
-  // Monteur jobs — exclude any that this user also owns as calculator
-  const ownCalcIds    = new Set(calcs.map(c => c.id));
-  const monteurJobs   = ((monteurJobsRaw as MonteurJob[]) ?? [])
+  // Split pendiepte calcs by meting phase
+  const metingStatus = (c: Calculation) => c.pendiepte_metingen?.[0]?.status ?? 'none';
+  const calcPhase     = diepteCalcs.filter(c => ['none', 'draft'].includes(metingStatus(c)));
+  const metingPhase   = diepteCalcs.filter(c => ['invited', 'submitted'].includes(metingStatus(c)));
+  const rapportPhase  = diepteCalcs.filter(c => metingStatus(c) === 'confirmed');
+
+  // Monteur jobs — exclude calculations this user also owns as calculator
+  const ownCalcIds  = new Set(calcs.map(c => c.id));
+  const monteurJobs = ((monteurJobsRaw as MonteurJob[]) ?? [])
     .filter(j => !ownCalcIds.has(j.calculation_id));
 
   return (
@@ -239,22 +236,51 @@ export default async function DashboardPage({
           </Link>
         </div>
 
-        {/* Pendiepte jobs — one entry per UUID, all states */}
-        {pendiepteJobs.length > 0 && (
+        {/* ── 1. Pendiepte berekeningen (geen actieve meting) ─────────────────── */}
+        {calcPhase.length > 0 && (
           <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
             <div className="border-b border-white/6 px-6 py-4">
               <h2 className="font-condensed text-lg font-bold text-white">Pendiepte berekeningen</h2>
-              <p className="mt-0.5 text-xs text-white/40">
-                Klik om het voorbereidend rapport, de veldmeting of het opleverrapport te openen
-              </p>
+              <p className="mt-0.5 text-xs text-white/40">Nog geen monteur uitgenodigd</p>
             </div>
             <div className="divide-y divide-white/5">
-              {pendiepteJobs.map((calc) => {
-                const meting = calc.pendiepte_metingen?.[0] ?? null;
-                const metingStatus = meting?.status ?? 'none';
-                const badge = metingStatusBadge[metingStatus] ?? metingStatusBadge.none;
-                const showAction = metingStatus === 'submitted';
+              {calcPhase.map((calc) => (
+                <Link
+                  key={calc.id}
+                  href={`/pendiepte-rapport/${calc.id}`}
+                  className="flex items-center gap-3 px-6 py-4 hover:bg-white/3 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-white truncate">
+                      {calc.rapport_naam ?? calc.postcode ?? 'Geen postcode'}
+                    </p>
+                    <p className="text-xs text-white/30">
+                      {new Date(calc.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
+        {/* ── 2. Veldmetingen (uitgenodigd / ingediend — als opdrachtgever of monteur) */}
+        {(metingPhase.length > 0 || monteurJobs.length > 0) && (
+          <div className="mb-6 rounded-2xl border border-blue-500/15 bg-[#111]">
+            <div className="border-b border-white/6 px-6 py-4">
+              <h2 className="font-condensed text-lg font-bold text-white">Veldmetingen</h2>
+              <p className="mt-0.5 text-xs text-white/40">Openstaande en ingediende metingen</p>
+            </div>
+            <div className="divide-y divide-white/5">
+
+              {/* Als opdrachtgever — meting invited of submitted */}
+              {metingPhase.map((calc) => {
+                const meting = calc.pendiepte_metingen?.[0];
+                const s = meting?.status ?? 'invited';
+                const isSubmitted = s === 'submitted';
                 return (
                   <Link
                     key={calc.id}
@@ -263,22 +289,22 @@ export default async function DashboardPage({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${badge.cls}`}>
-                          {badge.label}
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                          isSubmitted
+                            ? 'border-yellow-500/30 bg-yellow-500/5 text-yellow-400'
+                            : 'border-blue-500/30 bg-blue-500/5 text-blue-400'
+                        }`}>
+                          {isSubmitted ? 'Meting ingediend' : 'Monteur uitgenodigd'}
                         </span>
-                        {showAction && (
+                        {isSubmitted && (
                           <span className="shrink-0 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2 py-0.5 text-[10px] font-bold text-yellow-300">
                             Actie vereist
                           </span>
                         )}
                       </div>
-                      {calc.rapport_naam ? (
-                        <p className="text-sm font-semibold text-white truncate">{calc.rapport_naam}</p>
-                      ) : (
-                        <p className="text-sm text-white/50">
-                          {calc.postcode ?? 'Geen postcode'}
-                        </p>
-                      )}
+                      <p className="text-sm font-semibold text-white truncate">
+                        {calc.rapport_naam ?? calc.postcode ?? 'Geen postcode'}
+                      </p>
                       {meting?.monteur_email && (
                         <p className="text-xs text-white/30">{meting.monteur_email}</p>
                       )}
@@ -292,35 +318,16 @@ export default async function DashboardPage({
                   </Link>
                 );
               })}
-            </div>
-          </div>
-        )}
 
-        {/* Monteur jobs — metingen assigned to this user */}
-        {monteurJobs.length > 0 && (
-          <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
-            <div className="border-b border-white/6 px-6 py-4">
-              <h2 className="font-condensed text-lg font-bold text-white">Mijn veldmetingen</h2>
-              <p className="mt-0.5 text-xs text-white/40">
-                Openstaande en afgeronde metingen die aan u zijn toegewezen
-              </p>
-            </div>
-            <div className="divide-y divide-white/5">
+              {/* Als monteur — toegewezen door iemand anders */}
               {monteurJobs.map((job) => {
-                const isDone = job.status === 'submitted' || job.status === 'confirmed';
-                const href   = isDone
+                const isSubmitted = job.status === 'submitted';
+                const href = isSubmitted
                   ? `/pendiepte-rapport/${job.calculation_id}`
                   : `/meting/${job.calculation_id}`;
-                const badge  = {
-                  invited:   { label: 'Openstaand',  cls: 'border-blue-500/30 bg-blue-500/5 text-blue-400' },
-                  submitted: { label: 'Ingediend',   cls: 'border-yellow-500/30 bg-yellow-500/5 text-yellow-400' },
-                  confirmed: { label: 'Bevestigd',   cls: 'border-green-500/30 bg-green-500/5 text-green-400' },
-                  draft:     { label: 'Concept',     cls: 'border-white/15 bg-white/5 text-white/50' },
-                }[job.status] ?? { label: job.status, cls: 'border-white/15 bg-white/5 text-white/50' };
                 const location = [job.straatnaam, job.woonplaats].filter(Boolean).join(', ')
                   || job.postcode
                   || 'Onbekend adres';
-
                 return (
                   <Link
                     key={job.calculation_id}
@@ -329,15 +336,13 @@ export default async function DashboardPage({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="mb-1">
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${badge.cls}`}>
-                          {badge.label}
+                        <span className="rounded-full border border-blue-500/30 bg-blue-500/5 px-2 py-0.5 text-[10px] font-bold text-blue-400">
+                          Toe te meten
                         </span>
                       </div>
                       <p className="truncate text-sm font-semibold text-white">{location}</p>
                       <p className="text-xs text-white/30">
-                        {isDone && job.submitted_at
-                          ? `Ingediend: ${new Date(job.submitted_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}`
-                          : `Uitgenodigd: ${new Date(job.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}`}
+                        Uitgenodigd: {new Date(job.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
                       </p>
                     </div>
                     <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -350,27 +355,53 @@ export default async function DashboardPage({
           </div>
         )}
 
-        {/* NEN 1010 rapport history */}
-        <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
-          <div className="flex items-center justify-between border-b border-white/6 px-6 py-4">
-            <h2 className="font-condensed text-lg font-bold text-white">NEN 1010 opleverrapporten</h2>
-            <Link
-              href="/rapport/nieuw"
-              className="rounded-lg border border-[#E8761A]/30 px-3 py-1.5 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
-            >
-              + Nieuw
-            </Link>
-          </div>
-
-          {rapporten.length === 0 ? (
-            <div className="px-6 py-10 text-center">
-              <p className="mb-3 text-sm text-white/40">Nog geen opleverrapporten</p>
-              <Link href="/rapport/nieuw" className="text-xs text-[#E8761A] hover:underline">
-                Maak uw eerste NEN 1010 deel 6 rapport aan
+        {/* ── 3. Opleverrapporten (bevestigde pendiepte metingen + NEN 1010) ── */}
+        {(rapportPhase.length > 0 || rapporten.length > 0) && (
+          <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
+            <div className="flex items-center justify-between border-b border-white/6 px-6 py-4">
+              <div>
+                <h2 className="font-condensed text-lg font-bold text-white">Opleverrapporten</h2>
+                <p className="mt-0.5 text-xs text-white/40">Bevestigde pendiepte metingen en NEN 1010 rapporten</p>
+              </div>
+              <Link
+                href="/rapport/nieuw"
+                className="rounded-lg border border-[#E8761A]/30 px-3 py-1.5 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
+              >
+                + NEN 1010
               </Link>
             </div>
-          ) : (
             <div className="divide-y divide-white/5">
+
+              {/* Bevestigde pendiepte metingen */}
+              {rapportPhase.map((calc) => (
+                <Link
+                  key={calc.id}
+                  href={`/pendiepte-rapport/${calc.id}`}
+                  className="flex items-center gap-4 px-6 py-4 hover:bg-white/3 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-0.5 flex items-center gap-2">
+                      <span className="shrink-0 rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-[10px] font-bold text-green-400">
+                        Bevestigd
+                      </span>
+                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-white/40">
+                        Pendiepte
+                      </span>
+                    </div>
+                    <p className="truncate text-sm font-semibold text-white">
+                      {calc.rapport_naam ?? calc.postcode ?? 'Geen postcode'}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-xs text-white/30">
+                    {new Date(calc.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
+                  </div>
+                  <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </Link>
+              ))}
+
+              {/* NEN 1010 rapporten */}
               {rapporten.map((r) => (
                 <Link
                   key={r.id}
@@ -378,13 +409,16 @@ export default async function DashboardPage({
                   className="flex items-center gap-4 px-6 py-4 hover:bg-white/3 transition-colors"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="mb-0.5 flex items-center gap-2">
                       <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
                         r.status === 'ondertekend'
                           ? 'border-green-500/30 bg-green-500/10 text-green-400'
                           : 'border-yellow-500/20 bg-yellow-500/8 text-yellow-400'
                       }`}>
                         {r.status === 'ondertekend' ? 'Ondertekend' : 'Concept'}
+                      </span>
+                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-white/40">
+                        NEN 1010
                       </span>
                       {r.systeemtype && (
                         <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-white/40">
@@ -405,8 +439,29 @@ export default async function DashboardPage({
                 </Link>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* NEN 1010 lege staat (geen enkel rapport bestaat nog) */}
+        {rapportPhase.length === 0 && rapporten.length === 0 && (
+          <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
+            <div className="flex items-center justify-between border-b border-white/6 px-6 py-4">
+              <h2 className="font-condensed text-lg font-bold text-white">Opleverrapporten</h2>
+              <Link
+                href="/rapport/nieuw"
+                className="rounded-lg border border-[#E8761A]/30 px-3 py-1.5 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
+              >
+                + NEN 1010
+              </Link>
+            </div>
+            <div className="px-6 py-10 text-center">
+              <p className="mb-3 text-sm text-white/40">Nog geen opleverrapporten</p>
+              <Link href="/rapport/nieuw" className="text-xs text-[#E8761A] hover:underline">
+                Maak uw eerste NEN 1010 deel 6 rapport aan
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Weerstand calculation history */}
         {ohmCalcs.length > 0 && (
