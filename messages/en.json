@@ -26,7 +26,21 @@
     "pillar2Title": "NEN 1010 standards",
     "pillar2Desc": "All calculations conform to NEN 1010, NEN 62305 and NEN 50522 — including legal maximum.",
     "pillar3Title": "Indicative report",
-    "pillar3Desc": "Export a substantiated PDF with input values, formula and risk class for your file."
+    "pillar3Desc": "Export a substantiated PDF with input values, formula and risk class for your file.",
+    "featuresFree": {
+      "f1": "Resistance Calculator unlimited",
+      "f2": "TT and TN grid systems",
+      "f3": "NEN 1010 standards",
+      "f4": "No account needed"
+    },
+    "featuresPaid": {
+      "f1": "BRO soil data by postal code",
+      "f2": "Risk class I – IV",
+      "f3": "Three calculated scenarios",
+      "f4": "PDF report",
+      "f5": "Groundwater & pH corrections"
+    },
+    "card2PriceNote": "or €2.95 per calculation"
   },
   "ohm": {
     "title": "Resistance Calculator",
@@ -129,5 +143,29 @@
     "calcFailed": "Calculation failed",
     "insufficientCredits": "Insufficient credits",
     "notLoggedIn": "Not signed in"
+  },
+  "meta": {
+    "title": "EarthGND — Professional Grounding Calculations",
+    "description": "Calculate grounding resistance and rod depth using BRO soil data. Compliant with NEN 1010, NEN 62305 and NEN 50522. Free Resistance Calculator, Pro Rod Depth Calculator."
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "subtitle": "Technical answers on grounding, NEN standards and the EarthGND calculators.",
+    "q1": "How do I calculate the maximum grounding resistance?",
+    "a1": "The maximum grounding resistance depends on the grid system (TT or TN), the type of RCD and the touch voltage limit (UL). The formula is Ra ≤ UL / Ia. The EarthGND Resistance Calculator computes this instantly per NEN 1010, NEN 62305 and NEN 50522.",
+    "q2": "How deep does a grounding rod need to be?",
+    "a2": "Required rod depth depends on soil resistivity (ρ), groundwater depth and target resistance. In dry sandy soil this may be 6–15 m; in clay or wet soil often 3–6 m. The Rod Depth Calculator computes this precisely using BRO soil data for your Dutch postal code.",
+    "q3": "What does NEN 1010 require for grounding resistance?",
+    "a3": "NEN 1010 states Ra ≤ UL / Ia. For a 30 mA RCD: Ra ≤ 1667 Ω. For a B16 circuit breaker without RCD: Ra ≤ 0.63 Ω. EarthGND calculates the exact limit for each installation scenario.",
+    "q4": "What is BRO soil data and how does it work?",
+    "a4": "BRO (Basis Registratie Ondergrond) is the Dutch national soil registration database. EarthGND connects to it automatically: enter a postal code and the calculator retrieves soil type, groundwater depth and pH from the nearest measurement point.",
+    "q5": "When are parallel grounding rods recommended?",
+    "a5": "Parallel rods are needed when a single rod cannot achieve the target resistance — typically for low Ra requirements (< 1 Ω) or unfavourable soil. EarthGND automatically advises on the number of rods and minimum spacing.",
+    "q6": "What is the difference between TT and TN grounding systems?",
+    "a6": "In a TT system the installation earthing is independent and relies on a local earth rod. In a TN system the supply neutral is already earthed. Maximum grounding resistance requirements differ significantly: TT systems with RCDs impose stricter Ra limits.",
+    "q7": "What do risk classes I–IV mean for grounding?",
+    "a7": "Risk classes (per NEN 62305 / EN 50522) indicate lightning protection requirements: class I is the highest risk (buildings with hazardous content), class IV the lowest. Soil resistivity affects the classification. EarthGND displays the risk class after each calculation.",
+    "q8": "Can EarthGND be used for grounding calculations in Germany or Belgium?",
+    "a8": "Dwight's formula and NEN/EN standards are internationally applicable. However, BRO soil data is only available for Dutch postal codes. For locations outside the Netherlands, you can manually enter soil resistivity based on a local soil survey."
   }
 }

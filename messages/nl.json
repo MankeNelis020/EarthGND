@@ -26,7 +26,21 @@
     "pillar2Title": "NEN 1010 normen",
     "pillar2Desc": "Alle berekeningen conform NEN 1010, NEN 62305 en NEN 50522 — inclusief wettelijk maximum.",
     "pillar3Title": "Indicatief rapport",
-    "pillar3Desc": "Exporteer een onderbouwde PDF met invoerwaarden, formule en risicoklasse voor uw dossier."
+    "pillar3Desc": "Exporteer een onderbouwde PDF met invoerwaarden, formule en risicoklasse voor uw dossier.",
+    "featuresFree": {
+      "f1": "Weerstand Calculator onbeperkt",
+      "f2": "TT- en TN-stelsel",
+      "f3": "NEN 1010 normen",
+      "f4": "Geen account nodig"
+    },
+    "featuresPaid": {
+      "f1": "BRO bodemdata per postcode",
+      "f2": "Risicoklasse I – IV",
+      "f3": "Drie berekende scenario's",
+      "f4": "PDF rapport",
+      "f5": "Grondwater & pH correcties"
+    },
+    "card2PriceNote": "of €2,95 per berekening"
   },
   "ohm": {
     "title": "Weerstand Calculator",
@@ -129,5 +143,29 @@
     "calcFailed": "Berekening mislukt",
     "insufficientCredits": "Onvoldoende credits",
     "notLoggedIn": "Niet ingelogd"
+  },
+  "meta": {
+    "title": "EarthGND — Professionele Aardingsberekeningen",
+    "description": "Bereken aardingsweerstand en pendiepte met BRO bodemdata. Conform NEN 1010, NEN 62305 en NEN 50522. Gratis Weerstand Calculator, Pro Pendiepte Calculator."
+  },
+  "faq": {
+    "title": "Veelgestelde vragen",
+    "subtitle": "Technische antwoorden op vragen over aarding, NEN-normen en de EarthGND calculators.",
+    "q1": "Hoe bereken ik de maximale aardingsweerstand?",
+    "a1": "De maximale aardingsweerstand is afhankelijk van het netwerkstelsel (TT of TN), het type aardlekschakelaar en de aanraakspanningsgrens (UL). De formule is Ra ≤ UL / Ia. De EarthGND Weerstand Calculator berekent dit direct conform NEN 1010, NEN 62305 en NEN 50522.",
+    "q2": "Hoe diep moet een aardpen in Nederland?",
+    "a2": "De benodigde pendiepte hangt af van de bodemweerstand (ρ), de grondwaterstand en de doelweerstand. In droog zand kan dit 6–15 m zijn; in klei of natte grond vaak 3–6 m. De Pendiepte Calculator berekent dit exact op basis van BRO bodemdata per postcode.",
+    "q3": "Wat is de NEN 1010 norm voor aardingsweerstand?",
+    "a3": "NEN 1010 schrijft Ra ≤ UL / Ia voor. Bij een 30 mA aardlekschakelaar geldt Ra ≤ 1667 Ω; bij een B16-automaat zonder aardlek geldt Ra ≤ 0,63 Ω. EarthGND berekent de exacte grens per installatiesituatie.",
+    "q4": "Wat is BRO bodemdata en hoe werkt het?",
+    "a4": "BRO staat voor Basis Registratie Ondergrond — het Nederlandse openbare register voor bodemmetingen. EarthGND koppelt hier automatisch aan: vul een postcode in en de calculator haalt grondsoort, grondwaterstand en pH op van de dichtstbijzijnde meting.",
+    "q5": "Wanneer is parallelschakeling van aardpennen nodig?",
+    "a5": "Parallelschakeling is nodig wanneer één pen de doelweerstand niet haalt — typisch bij lage Ra-eisen (< 1 Ω) of slechte bodemopbouw. EarthGND adviseert automatisch het benodigde aantal pennen en de minimale onderlinge afstand.",
+    "q6": "Wat is het verschil tussen TT- en TN-stelsel?",
+    "a6": "Bij een TT-stelsel is de aarding los van het net en afhankelijk van een eigen aardingspen. Bij TN is de nuldraad van het net al geaard. De maximale aardingsweerstand verschilt significant: TT met aardlekschakelaar stelt strengere eisen aan Ra.",
+    "q7": "Wat betekenen risicoklassen I–IV bij aarding?",
+    "a7": "Risicoklassen (conform NEN 62305 / EN 50522) geven het risico op bliksemschade aan: klasse I is het hoogste risico (gebouwen met gevaarlijke inhoud), klasse IV het laagste. De bodemweerstand speelt een rol bij de bepaling. EarthGND toont de klasse direct na berekening.",
+    "q8": "Kan EarthGND gebruikt worden voor berekeningen in Duitsland of België?",
+    "a8": "De Dwight-formule en NEN/EN-normen zijn internationaal toepasbaar. BRO bodemdata is echter uitsluitend beschikbaar voor Nederlandse postcodes. Voor buitenlandse locaties kunt u de bodemweerstand handmatig invoeren op basis van een lokale meting."
   }
 }
