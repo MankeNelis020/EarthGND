@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code');
   const next = searchParams.get('next') ?? '';
 
+  console.log('[auth/callback] hit — code present:', !!code, '| next:', next || '(none)', '| origin:', origin);
+
   if (!code) {
     return NextResponse.redirect(`${origin}/nl/login?error=auth`);
   }
@@ -44,27 +46,31 @@ export async function GET(request: NextRequest) {
 
   if (!next) {
     const email = sessionData.user?.email;
-    if (email) {
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    console.log('[auth/callback] meting lookup — email:', email, '| service_key_set:', !!serviceKey);
+    if (email && serviceKey) {
       try {
         const adminClient = createAdminClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          serviceKey,
         );
-        const { data: meting } = await adminClient
+        const { data: meting, error: metingError } = await adminClient
           .from('pendiepte_metingen')
-          .select('calculation_id')
+          .select('calculation_id, status, monteur_email')
           .eq('monteur_email', email)
           .eq('status', 'invited')
           .order('created_at', { ascending: false })
           .limit(1)
           .single();
 
+        console.log('[auth/callback] admin query result — meting:', JSON.stringify(meting), '| error:', metingError?.message ?? null);
+
         if (meting?.calculation_id) {
           redirectPath = `/nl/meting/${meting.calculation_id}`;
           console.log('[auth/callback] monteur meting found:', redirectPath);
         }
-      } catch {
-        // Non-blocking — fall through to dashboard
+      } catch (err) {
+        console.error('[auth/callback] admin lookup threw:', err);
       }
     }
   }
