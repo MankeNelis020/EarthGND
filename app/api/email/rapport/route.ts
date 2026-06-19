@@ -7,9 +7,12 @@ import type { DiepteRapportProps } from '@/components/pdf/DiepteRapportTemplate'
 
 export const runtime = 'nodejs';
 
-const resend = new Resend(process.env.RESEND_API_KEY ?? 'placeholder');
-
 export async function POST(request: NextRequest) {
+  if (!process.env.RESEND_API_KEY) {
+    return NextResponse.json({ error: 'E-mail niet geconfigureerd op deze server' }, { status: 503 });
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -156,14 +159,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (sendError) {
-      console.error('[email/rapport] Resend error:', sendError);
       return NextResponse.json({ error: sendError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[email/rapport] Unhandled error:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

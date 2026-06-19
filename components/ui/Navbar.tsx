@@ -18,9 +18,10 @@ export function Navbar() {
   const router  = useRouter();
   const t       = useTranslations('nav');
 
-  const [user,    setUser]    = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [user,         setUser]        = useState<User | null>(null);
+  const [profile,      setProfile]     = useState<Profile | null>(null);
+  const [menuOpen,     setMenuOpen]    = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -53,6 +54,7 @@ export function Navbar() {
   }
 
   async function handleLogout() {
+    setIsLoggingOut(true);
     await createClient().auth.signOut();
     router.push('/');
   }
@@ -116,9 +118,10 @@ export function Navbar() {
               </Link>
               <button
                 onClick={handleLogout}
-                className="hidden rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/60 hover:border-white/30 hover:text-white transition-colors md:block"
+                disabled={isLoggingOut}
+                className="hidden rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/60 hover:border-white/30 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed md:block"
               >
-                {t('logout')}
+                {isLoggingOut ? '…' : t('logout')}
               </button>
             </>
           ) : (

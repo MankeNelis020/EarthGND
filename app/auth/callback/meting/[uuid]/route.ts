@@ -35,7 +35,6 @@ export async function GET(request: NextRequest, { params }: Ctx) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    console.error('[auth/callback/meting] session exchange error:', error.message);
     return NextResponse.redirect(`${origin}/${refLocale}/login?error=auth`);
   }
 
