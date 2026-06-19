@@ -10,6 +10,7 @@ import { PostAuthRedirect } from '@/components/auth/PostAuthRedirect';
 export const runtime = 'nodejs';
 
 interface MetingInfo {
+  calculation_id: string;
   status: string;
   monteur_email: string | null;
 }
@@ -32,7 +33,6 @@ interface Calculation {
   rapport_naam: string | null;
   pdf_url: string | null;
   created_at: string;
-  pendiepte_metingen: MetingInfo[];
 }
 
 interface Rapport {
@@ -86,7 +86,7 @@ export default async function DashboardPage({
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  const [{ data: profileRaw }, { data: calculations }, { data: rapports }, { data: monteurJobsRaw }] = await Promise.all([
+  const [{ data: profileRaw }, { data: calculations }, { data: rapports }, { data: monteurJobsRaw }, { data: calcMetingenRaw }] = await Promise.all([
     supabase
       .from('profiles')
       .select('plan, credits_left, credits_reset, email, created_at')
@@ -94,7 +94,7 @@ export default async function DashboardPage({
       .single(),
     supabase
       .from('calculations')
-      .select('id, tool, postcode, rapport_naam, pdf_url, created_at, pendiepte_metingen(status, monteur_email)')
+      .select('id, tool, postcode, rapport_naam, pdf_url, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20),
@@ -104,23 +104,29 @@ export default async function DashboardPage({
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
       .limit(8),
-    // Metingen where this user is the monteur (case-insensitive email match)
+    // Metingen where this user is the monteur (assigned by someone else)
     admin
       .from('pendiepte_metingen')
       .select('calculation_id, status, postcode, straatnaam, woonplaats, created_at, submitted_at, confirmed_at')
       .ilike('monteur_email', user.email ?? '')
       .order('created_at', { ascending: false })
       .limit(20),
+    // Metingen where this user is the calculator — direct query, no FK join needed
+    admin
+      .from('pendiepte_metingen')
+      .select('calculation_id, status, monteur_email')
+      .eq('calculator_user_id', user.id)
+      .limit(50),
   ]);
 
-  const profile = profileRaw as Profile | null;
-  const calcs = (calculations as Calculation[]) ?? [];
+  const profile   = profileRaw as Profile | null;
+  const calcs     = (calculations as Calculation[]) ?? [];
   const rapporten = (rapports as Rapport[]) ?? [];
 
-  const planConfig = PLANS[(profile?.plan ?? 'gratis') as keyof typeof PLANS];
+  const planConfig   = PLANS[(profile?.plan ?? 'gratis') as keyof typeof PLANS];
   const totalCredits = planConfig.credits;
-  const creditsLeft = profile?.credits_left ?? 0;
-  const creditsPct = totalCredits > 0 ? Math.round((creditsLeft / totalCredits) * 100) : 0;
+  const creditsLeft  = profile?.credits_left ?? 0;
+  const creditsPct   = totalCredits > 0 ? Math.round((creditsLeft / totalCredits) * 100) : 0;
 
   const resetDate = profile?.credits_reset
     ? new Date(profile.credits_reset).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })
@@ -129,11 +135,14 @@ export default async function DashboardPage({
   const diepteCalcs = calcs.filter(c => c.tool === 'diepte');
   const ohmCalcs    = calcs.filter(c => c.tool === 'ohm');
 
-  // Split pendiepte calcs by meting phase
-  const metingStatus = (c: Calculation) => c.pendiepte_metingen?.[0]?.status ?? 'none';
-  const calcPhase     = diepteCalcs.filter(c => ['none', 'draft'].includes(metingStatus(c)));
-  const metingPhase   = diepteCalcs.filter(c => ['invited', 'submitted'].includes(metingStatus(c)));
-  const rapportPhase  = diepteCalcs.filter(c => metingStatus(c) === 'confirmed');
+  // Map calculation_id → meting from the direct query (bypasses FK join issues)
+  const calcMetingen = (calcMetingenRaw as MetingInfo[]) ?? [];
+  const metingMap = new Map(calcMetingen.map(m => [m.calculation_id, m]));
+
+  const getStatus  = (c: Calculation) => metingMap.get(c.id)?.status ?? 'none';
+  const calcPhase  = diepteCalcs.filter(c => ['none', 'draft'].includes(getStatus(c)));
+  const metingPhase  = diepteCalcs.filter(c => ['invited', 'submitted'].includes(getStatus(c)));
+  const rapportPhase = diepteCalcs.filter(c => getStatus(c) === 'confirmed');
 
   // Monteur jobs — exclude calculations this user also owns as calculator
   const ownCalcIds  = new Set(calcs.map(c => c.id));
@@ -268,17 +277,22 @@ export default async function DashboardPage({
         )}
 
         {/* ── 2. Veldmetingen (uitgenodigd / ingediend — als opdrachtgever of monteur) */}
-        {(metingPhase.length > 0 || monteurJobs.length > 0) && (
-          <div className="mb-6 rounded-2xl border border-blue-500/15 bg-[#111]">
-            <div className="border-b border-white/6 px-6 py-4">
-              <h2 className="font-condensed text-lg font-bold text-white">Veldmetingen</h2>
-              <p className="mt-0.5 text-xs text-white/40">Openstaande en ingediende metingen</p>
+        <div className="mb-6 rounded-2xl border border-blue-500/15 bg-[#111]">
+          <div className="border-b border-white/6 px-6 py-4">
+            <h2 className="font-condensed text-lg font-bold text-white">Veldmetingen</h2>
+            <p className="mt-0.5 text-xs text-white/40">Openstaande en ingediende metingen</p>
+          </div>
+          {metingPhase.length === 0 && monteurJobs.length === 0 ? (
+            <div className="px-6 py-8 text-center">
+              <p className="text-sm text-white/40">Geen openstaande veldmetingen</p>
+              <p className="mt-1 text-xs text-white/25">Nodig een monteur uit via de Pendiepte Calculator</p>
             </div>
+          ) : (
             <div className="divide-y divide-white/5">
 
               {/* Als opdrachtgever — meting invited of submitted */}
               {metingPhase.map((calc) => {
-                const meting = calc.pendiepte_metingen?.[0];
+                const meting = metingMap.get(calc.id);
                 const s = meting?.status ?? 'invited';
                 const isSubmitted = s === 'submitted';
                 return (
@@ -352,8 +366,8 @@ export default async function DashboardPage({
                 );
               })}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* ── 3. Opleverrapporten (bevestigde pendiepte metingen + NEN 1010) ── */}
         {(rapportPhase.length > 0 || rapporten.length > 0) && (
