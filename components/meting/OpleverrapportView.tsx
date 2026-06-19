@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
 
 interface Meting {
   id: string;
@@ -64,6 +65,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) {
   const router = useRouter();
+  const locale = useLocale();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
 
@@ -96,13 +98,13 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
     setConfirming(true);
     setError('');
     try {
-      const res = await fetch(`/api/meting/${uuid}/confirm`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? 'Bevestigen mislukt'); return; }
-      router.refresh();
+      const res  = await fetch(`/api/meting/${uuid}/confirm`, { method: 'POST' });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) { setError(data.error ?? 'Bevestigen mislukt'); setConfirming(false); return; }
+      // Navigate to dashboard so the user sees the confirmed item in Opleverrapporten
+      router.push(`/${locale}/dashboard`);
     } catch {
       setError('Verbindingsfout — probeer opnieuw.');
-    } finally {
       setConfirming(false);
     }
   }

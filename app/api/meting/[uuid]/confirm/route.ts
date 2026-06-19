@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
@@ -23,8 +24,13 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
 
   if (!calc) return NextResponse.json({ error: 'Berekening niet gevonden of geen toegang' }, { status: 404 });
 
-  // Check meting is in submitted state
-  const { data: meting } = await supabase
+  // Use admin client to bypass RLS when reading/updating pendiepte_metingen
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { data: meting } = await admin
     .from('pendiepte_metingen')
     .select('status')
     .eq('calculation_id', uuid)
@@ -35,7 +41,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: 'Meting kan alleen worden bevestigd als de status "ingediend" is' }, { status: 409 });
   }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('pendiepte_metingen')
     .update({
       status:       'confirmed',
@@ -47,3 +53,4 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
 
   return NextResponse.json({ ok: true });
 }
+
