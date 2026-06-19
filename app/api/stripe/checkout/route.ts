@@ -27,12 +27,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
   }
 
-  const body = await request.json() as { planKey: string; mode?: 'subscription' | 'payment' };
-  const { planKey, mode = 'subscription' } = body;
+  const body = await request.json() as { planKey: string; mode?: 'subscription' | 'payment'; locale?: string };
+  const { planKey, mode = 'subscription', locale = 'nl' } = body;
 
   const priceId = resolvePriceId(planKey);
   if (!priceId) {
     return NextResponse.json({ error: `Onbekend plan: ${planKey}` }, { status: 400 });
+  }
+
+  // Placeholder IDs are short and descriptive; real Stripe IDs are long random strings
+  if (priceId.length < 15) {
+    return NextResponse.json({ error: 'Stripe prijs-ID niet geconfigureerd voor dit plan' }, { status: 503 });
   }
 
   const stripe = getStripe();
@@ -44,8 +49,8 @@ export async function POST(request: NextRequest) {
       line_items: [{ price: priceId, quantity: 1 }],
       customer_email: user.email,
       metadata: { userId: user.id },
-      success_url: `${baseUrl}/nl/dashboard?checkout=success`,
-      cancel_url: `${baseUrl}/nl/pricing`,
+      success_url: `${baseUrl}/${locale}/dashboard?checkout=success`,
+      cancel_url: `${baseUrl}/${locale}/pricing`,
     });
 
     return NextResponse.json({ url: session.url });

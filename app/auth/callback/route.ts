@@ -12,8 +12,11 @@ export async function GET(request: NextRequest) {
 
   console.log('[auth/callback] hit — code present:', !!code, '| next:', next || '(none)', '| origin:', origin);
 
+  // Derive locale from the ?next= param if present, otherwise default to 'nl'
+  const nextLocale = next.match(/^\/(nl|en|de)\//)?.[1] ?? 'nl';
+
   if (!code) {
-    return NextResponse.redirect(`${origin}/nl/login?error=auth`);
+    return NextResponse.redirect(`${origin}/${nextLocale}/login?error=auth`);
   }
 
   // Collect cookies written during session exchange so we can attach them
@@ -35,14 +38,14 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error('[auth/callback] exchangeCodeForSession error:', error.message);
-    return NextResponse.redirect(`${origin}/nl/login?error=auth`);
+    return NextResponse.redirect(`${origin}/${nextLocale}/login?error=auth`);
   }
 
   // Priority 1: explicit ?next= (survives when redirect_to comes through intact)
   // Priority 2: DB lookup via admin client — finds pending meting by email even
   //             when monteur_user_id is still NULL (first login via Google OAuth)
   // Fallback: dashboard
-  let redirectPath = next || '/nl/dashboard';
+  let redirectPath = next || `/${nextLocale}/dashboard`;
 
   if (!next) {
     const email = sessionData.user?.email;
@@ -66,7 +69,7 @@ export async function GET(request: NextRequest) {
         console.log('[auth/callback] admin query result — meting:', JSON.stringify(meting), '| error:', metingError?.message ?? null);
 
         if (meting?.calculation_id) {
-          redirectPath = `/nl/meting/${meting.calculation_id}`;
+          redirectPath = `/${nextLocale}/meting/${meting.calculation_id}`;
           console.log('[auth/callback] monteur meting found:', redirectPath);
         }
       } catch (err) {

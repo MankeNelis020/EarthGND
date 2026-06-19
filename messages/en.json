@@ -10,6 +10,8 @@
   },
   "home": {
     "title": "Earth resistance. Instantly determined.",
+    "titleLine1": "Earthing resistance.",
+    "titleLine2": "Instantly calculated.",
     "subtitle": "Two professional calculators for electricians and contractors. From maximum resistance to exact rod depth — backed by BRO soil data.",
     "ctaPrimary": "Calculate resistance — free",
     "ctaSecondary": "View pricing",
@@ -165,8 +167,8 @@
       "noReportsSub": "Confirm a measurement or create a NEN 1010 report"
     },
     "archive": {
-      "title": "Archive",
-      "subtitle": "Older calculations, measurements and reports",
+      "title": "History",
+      "subtitle": "Previous calculations, measurements and reports",
       "backToDashboard": "← Dashboard",
       "noCalculations": "No archived calculations",
       "noMeasurements": "No archived measurements",

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
+import { useLocale } from 'next-intl';
 import { PLANS, LOSSE_CREDITS } from '@/lib/plans';
 import { createClient } from '@/utils/supabase/client';
 
@@ -45,11 +46,14 @@ const PLAN_FEATURES: Record<string, string[]> = {
 
 export default function PricingPage() {
   const router = useRouter();
+  const locale = useLocale();
   const [loading, setLoading] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const stripeReady = true;
 
   async function handleCheckout(planKey: string, mode: 'subscription' | 'payment') {
     setLoading(planKey);
+    setCheckoutError(null);
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -58,13 +62,18 @@ export default function PricingPage() {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planKey, mode }),
+        body: JSON.stringify({ planKey, mode, locale }),
       });
       const data = await res.json() as { url?: string; error?: string };
       if (data.url) {
         window.location.href = data.url;
       } else {
-        console.error('Checkout fout:', data.error);
+        const errMsg = data.error ?? 'Onbekend fout';
+        if (errMsg.includes('niet geconfigureerd') || errMsg.includes('price_')) {
+          setCheckoutError('Betalen is nog niet beschikbaar. Mail info@earthgnd.com of probeer het later opnieuw.');
+        } else {
+          setCheckoutError(errMsg);
+        }
       }
     } finally {
       setLoading(null);
@@ -73,6 +82,11 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-[#0d0d0d]">
+      {checkoutError && (
+        <div className="border-b border-red-500/20 bg-red-500/8 px-4 py-3 text-center">
+          <p className="text-sm text-red-400">{checkoutError}</p>
+        </div>
+      )}
       <div className="mx-auto max-w-6xl px-4 py-20">
 
         {/* Header */}

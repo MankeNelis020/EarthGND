@@ -10,6 +10,8 @@
   },
   "home": {
     "title": "Erdungswiderstand. Sofort berechnet.",
+    "titleLine1": "Erdungswiderstand.",
+    "titleLine2": "Sofort berechnet.",
     "subtitle": "Zwei professionelle Rechner für Elektriker und Unternehmer. Vom maximalen Widerstand bis zur genauen Stabtiefe — gestützt auf BRO-Bodendaten.",
     "ctaPrimary": "Widerstand berechnen — kostenlos",
     "ctaSecondary": "Preise ansehen",
@@ -165,8 +167,8 @@
       "noReportsSub": "Bestätigen Sie eine Messung oder erstellen Sie einen NEN 1010 Bericht"
     },
     "archive": {
-      "title": "Archiv",
-      "subtitle": "Ältere Berechnungen, Messungen und Berichte",
+      "title": "Verlauf",
+      "subtitle": "Frühere Berechnungen, Messungen und Berichte",
       "backToDashboard": "← Dashboard",
       "noCalculations": "Keine archivierten Berechnungen",
       "noMeasurements": "Keine archivierten Messungen",

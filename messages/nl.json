@@ -10,6 +10,8 @@
   },
   "home": {
     "title": "Aardingsweerstand. Direct bepaald.",
+    "titleLine1": "Aardingsweerstand.",
+    "titleLine2": "Direct bepaald.",
     "subtitle": "Twee professionele calculators voor elektrotechnici en aannemers. Van maximale weerstand tot exacte pendiepte — onderbouwd met BRO bodemdata.",
     "ctaPrimary": "Weerstand berekenen — gratis",
     "ctaSecondary": "Bekijk tarieven",
@@ -165,8 +167,8 @@
       "noReportsSub": "Bevestig een veldmeting of maak een NEN 1010 rapport aan"
     },
     "archive": {
-      "title": "Archief",
-      "subtitle": "Oudere berekeningen, veldmetingen en rapporten",
+      "title": "Geschiedenis",
+      "subtitle": "Eerdere berekeningen, veldmetingen en rapporten",
       "backToDashboard": "← Dashboard",
       "noCalculations": "Geen gearchiveerde berekeningen",
       "noMeasurements": "Geen gearchiveerde veldmetingen",

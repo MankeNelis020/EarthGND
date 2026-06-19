@@ -27,8 +27,8 @@ export default async function HomePage({ params }: Props) {
             NEN 1010 · NEN 62305 · NEN 50522
           </div>
           <h1 className="font-condensed mb-6 text-5xl font-black leading-[1.05] tracking-tight text-white sm:text-7xl">
-            {t('title').split('. ')[0]}.<br />
-            <span className="text-[#E8761A]">{t('title').split('. ')[1]}</span>
+            {t('titleLine1')}<br />
+            <span className="text-[#E8761A]">{t('titleLine2')}</span>
           </h1>
           <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-white/55">{t('subtitle')}</p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
