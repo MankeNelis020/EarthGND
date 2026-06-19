@@ -95,13 +95,6 @@ function IconArchive() {
   );
 }
 
-function IconChevron() {
-  return (
-    <svg className="h-3.5 w-3.5 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M9 18l6-6-6-6" />
-    </svg>
-  );
-}
 
 /* ── Primitives ─────────────────────────────────────────────────────────────── */
 
@@ -424,7 +417,7 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
 
   /* ── Section helper to render a row, handling the union type ─────────────── */
 
-  function renderMetingRow(item: CalcItem | MonteurJob, idx: number) {
+  function renderMetingRow(item: CalcItem | MonteurJob) {
     if ('calculation_id' in item) {
       return <MonteurRow key={item.calculation_id} job={item} />;
     }
@@ -452,7 +445,7 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
         <SectionHeader step="02" title={t('sections.measurements')} subtitle={t('sections.measurementsSubtitle')} />
         {displayMeting.length === 0
           ? <EmptyRow text={t('empty.noMeasurements')} sub={t('empty.noMeasurementsSub')} />
-          : <ul>{displayMeting.map((item, i) => renderMetingRow(item, i))}</ul>
+          : <ul>{displayMeting.map(item => renderMetingRow(item))}</ul>
         }
         {hasMoreMeting && <DashboardMoreLink href={archivePath} label={t('more')} />}
       </div>
