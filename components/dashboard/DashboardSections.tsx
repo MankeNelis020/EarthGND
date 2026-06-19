@@ -85,6 +85,15 @@ function IconTrash() {
   );
 }
 
+function IconRevoke() {
+  return (
+    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+    </svg>
+  );
+}
+
 function IconArchive() {
   return (
     <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -103,12 +112,13 @@ function ActionBtn({
 }: {
   onClick: (e: React.MouseEvent) => void;
   title: string;
-  variant?: 'default' | 'danger' | 'archive';
+  variant?: 'default' | 'danger' | 'archive' | 'revoke';
   children: React.ReactNode;
 }) {
   const cls =
     variant === 'danger'  ? 'text-white/25 hover:bg-red-500/12 hover:text-red-400' :
     variant === 'archive' ? 'text-white/25 hover:bg-[#E8761A]/12 hover:text-[#E8761A]' :
+    variant === 'revoke'  ? 'text-white/25 hover:bg-yellow-500/12 hover:text-yellow-400' :
                             'text-white/25 hover:bg-white/6 hover:text-white/70';
   return (
     <button
@@ -193,6 +203,12 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
   const [archivedIds,   setArchivedIds]   = useState<Set<string>>(new Set());
   const [archiveError,  setArchiveError]  = useState('');
 
+  // Revoke state
+  const [revokeTarget, setRevokeTarget] = useState<{ id: string; naam: string } | null>(null);
+  const [revokingId,   setRevokingId]   = useState<string | null>(null);
+  const [revokedIds,   setRevokedIds]   = useState<Set<string>>(new Set());
+  const [revokeError,  setRevokeError]  = useState('');
+
   // Rename state
   const [renameTarget, setRenameTarget] = useState<{ id: string; naam: string } | null>(null);
   const [renameValue,  setRenameValue]  = useState('');
@@ -209,6 +225,10 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
 
   function openArchive(e: React.MouseEvent, id: string, naam: string, apiPath: string) {
     e.preventDefault(); setArchiveTarget({ id, naam, apiPath }); setArchiveError('');
+  }
+
+  function openRevoke(e: React.MouseEvent, id: string, naam: string) {
+    e.preventDefault(); setRevokeTarget({ id, naam }); setRevokeError('');
   }
 
   function openRename(e: React.MouseEvent, id: string, naam: string) {
@@ -245,6 +265,20 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
     finally   { setArchivingId(null); }
   }
 
+  async function confirmRevoke() {
+    if (!revokeTarget) return;
+    setRevokingId(revokeTarget.id); setRevokeError('');
+    try {
+      const res  = await fetch(`/api/meting/${revokeTarget.id}/revoke`, { method: 'PATCH' });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) { setRevokeError(data.error ?? 'Intrekken mislukt'); return; }
+      setRevokedIds(prev => { const s = new Set(Array.from(prev)); s.add(revokeTarget.id); return s; });
+      setRevokeTarget(null);
+      router.refresh();
+    } catch { setRevokeError(t('modal.connectionError')); }
+    finally   { setRevokingId(null); }
+  }
+
   async function confirmRename(e: React.FormEvent) {
     e.preventDefault();
     if (!renameTarget || !renameValue.trim()) return;
@@ -266,7 +300,7 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
   /* ── Derived lists (client-side exclusions + limit) ───────────────────────── */
 
   const visibleCalc    = calcPhase  .filter(c => !deletedIds.has(c.id) && !archivedIds.has(c.id));
-  const visibleMeting  = metingPhase.filter(c => !deletedIds.has(c.id) && !archivedIds.has(c.id));
+  const visibleMeting  = metingPhase.filter(c => !deletedIds.has(c.id) && !archivedIds.has(c.id) && !revokedIds.has(c.id));
   const visibleRapport = rapportPhase.filter(r => !archivedIds.has(r.id));
 
   const displayCalc    = visibleCalc.slice(0, MAX);
@@ -331,6 +365,11 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
           <ActionBtn onClick={e => { e.preventDefault(); router.push(`/pendiepte-rapport/${calc.id}`); }} title={t('actions.open')}>
             <IconEye />
           </ActionBtn>
+          {!isSubmitted && (
+            <ActionBtn onClick={e => openRevoke(e, calc.id, naam)} title={t('actions.revoke')} variant="revoke">
+              <IconRevoke />
+            </ActionBtn>
+          )}
         </div>
       </li>
     );
@@ -537,6 +576,39 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
                 className="flex-1 rounded-xl bg-[#E8761A] py-2.5 text-sm font-bold text-white hover:bg-[#d06510] disabled:opacity-50 transition-colors"
               >
                 {archivingId ? '…' : t('modal.archiveConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Revoke modal ─────────────────────────────────────────────────────── */}
+      {revokeTarget && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 shadow-2xl">
+            <h3 className="mb-2 text-base font-bold text-white">{t('modal.revokeTitle')}</h3>
+            <p className="text-sm text-white/60 leading-relaxed mb-4">
+              {t('modal.revokeBody').replace('{naam}', revokeTarget.naam)}
+            </p>
+            {revokeError && (
+              <p className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                {revokeError}
+              </p>
+            )}
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => { setRevokeTarget(null); setRevokeError(''); }}
+                disabled={!!revokingId}
+                className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold text-white/60 hover:text-white disabled:opacity-50 transition-colors"
+              >
+                {t('modal.revokeCancel')}
+              </button>
+              <button
+                onClick={confirmRevoke}
+                disabled={!!revokingId}
+                className="flex-1 rounded-xl bg-yellow-600 py-2.5 text-sm font-bold text-white hover:bg-yellow-700 disabled:opacity-50 transition-colors"
+              >
+                {revokingId ? '…' : t('modal.revokeConfirm')}
               </button>
             </div>
           </div>

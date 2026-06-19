@@ -144,7 +144,8 @@
       "rename": "Hernoemen",
       "archive": "Archiveren",
       "restore": "Zet terug",
-      "delete": "Verwijderen"
+      "delete": "Verwijderen",
+      "revoke": "Intrekken"
     },
     "status": {
       "invited": "Uitgenodigd",
@@ -185,7 +186,11 @@
       "archiveConfirm": "Archiveren",
       "archiveCancel": "Annuleer",
       "newReport": "+ Nieuw",
-      "connectionError": "Verbindingsfout — probeer opnieuw."
+      "connectionError": "Verbindingsfout — probeer opnieuw.",
+      "revokeTitle": "Uitnodiging intrekken",
+      "revokeBody": "Je trekt de uitnodiging voor {naam} in. De monteur krijgt hiervan geen melding.",
+      "revokeConfirm": "Ja, intrekken",
+      "revokeCancel": "Annuleer"
     }
   },
   "auth": {

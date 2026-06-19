@@ -144,7 +144,8 @@
       "rename": "Rename",
       "archive": "Archive",
       "restore": "Restore",
-      "delete": "Delete"
+      "delete": "Delete",
+      "revoke": "Revoke"
     },
     "status": {
       "invited": "Invited",
@@ -185,7 +186,11 @@
       "archiveConfirm": "Archive",
       "archiveCancel": "Cancel",
       "newReport": "+ New",
-      "connectionError": "Connection error — please try again."
+      "connectionError": "Connection error — please try again.",
+      "revokeTitle": "Revoke invitation",
+      "revokeBody": "You are revoking the invitation for {naam}. The installer will not be notified.",
+      "revokeConfirm": "Yes, revoke",
+      "revokeCancel": "Cancel"
     }
   },
   "auth": {

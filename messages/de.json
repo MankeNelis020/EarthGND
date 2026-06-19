@@ -144,7 +144,8 @@
       "rename": "Umbenennen",
       "archive": "Archivieren",
       "restore": "Wiederherstellen",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "revoke": "Widerrufen"
     },
     "status": {
       "invited": "Eingeladen",
@@ -185,7 +186,11 @@
       "archiveConfirm": "Archivieren",
       "archiveCancel": "Abbrechen",
       "newReport": "+ Neu",
-      "connectionError": "Verbindungsfehler — bitte erneut versuchen."
+      "connectionError": "Verbindungsfehler — bitte erneut versuchen.",
+      "revokeTitle": "Einladung widerrufen",
+      "revokeBody": "Sie widerrufen die Einladung für {naam}. Der Monteur wird nicht benachrichtigt.",
+      "revokeConfirm": "Ja, widerrufen",
+      "revokeCancel": "Abbrechen"
     }
   },
   "auth": {
