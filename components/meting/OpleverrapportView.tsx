@@ -109,12 +109,28 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
     }
   }
 
+  // ── Identity helpers ──────────────────────────────────────────────────────
+  const identityPostcode = meting?.postcode ?? calc.postcode ?? null;
+  const identityDateRaw  = meting?.confirmed_at ?? meting?.submitted_at ?? calc.created_at ?? null;
+  const identityDate     = identityDateRaw
+    ? new Date(identityDateRaw).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+  const identityShortId  = `#${uuid.slice(0, 8)}`;
+  const identityLine     = [identityPostcode, identityDate, identityShortId].filter(Boolean).join(' · ');
+
+  // Default title when no custom name: street+nr or postcode
+  const locationTitle = meting?.straatnaam
+    ? `${meting.straatnaam}${meting.huisnummer ? ` ${meting.huisnummer}` : ''}${meting.postcode ? `, ${meting.postcode}` : ''}`
+    : (identityPostcode ?? 'Pendiepte meting');
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Header with editable name */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">Opleverrapport</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">Opleverrapport · Pendiepte</p>
+
+          {/* Editable name (only when calculator + not yet confirmed) */}
           {isCalculator && editingNaam ? (
             <div className="mt-1 flex items-center gap-2">
               <input
@@ -124,6 +140,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
                 onBlur={saveNaam}
                 onKeyDown={e => { if (e.key === 'Enter') saveNaam(); if (e.key === 'Escape') setEditing(false); }}
                 disabled={naamSaving}
+                placeholder={locationTitle}
                 className="flex-1 rounded-lg border border-[#E8761A]/40 bg-white/5 px-3 py-1.5 text-lg font-bold text-[#F5EFE6] focus:outline-none focus:border-[#E8761A]"
               />
               <button onClick={saveNaam} disabled={naamSaving}
@@ -134,7 +151,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
           ) : (
             <div className="group mt-1 flex items-center gap-2">
               <h1 className="truncate text-2xl font-bold text-[#F5EFE6]">
-                {calc.rapport_naam ?? 'Pendiepte meting'}
+                {calc.rapport_naam ?? locationTitle}
               </h1>
               {isCalculator && status !== 'confirmed' && (
                 <button
@@ -149,7 +166,9 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
               )}
             </div>
           )}
-          {calc.postcode && <p className="mt-1 text-sm text-white/50">{calc.postcode}</p>}
+
+          {/* Identity line — always visible */}
+          <p className="mt-1 font-mono text-[11px] text-white/35 tracking-tight">{identityLine}</p>
         </div>
         <StatusBadge status={status} />
       </div>
