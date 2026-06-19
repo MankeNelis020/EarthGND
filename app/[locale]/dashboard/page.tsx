@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { Link } from '@/i18n/navigation';
 import { PLANS } from '@/lib/plans';
+import { toIntlLocale } from '@/lib/locale-utils';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 import { PostAuthRedirect } from '@/components/auth/PostAuthRedirect';
 import { DashboardSections } from '@/components/dashboard/DashboardSections';
@@ -123,8 +124,9 @@ export default async function DashboardPage({
   const creditsLeft  = profile?.credits_left ?? 0;
   const creditsPct   = totalCredits > 0 ? Math.round((creditsLeft / totalCredits) * 100) : 0;
 
+  const intlLocale = toIntlLocale(locale);
   const resetDate = profile?.credits_reset
-    ? new Date(profile.credits_reset).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })
+    ? new Date(profile.credits_reset).toLocaleDateString(intlLocale, { day: 'numeric', month: 'long' })
     : '1e van de maand';
 
   const diepteCalcs = calcs.filter(c => c.tool === 'diepte');
@@ -269,7 +271,7 @@ export default async function DashboardPage({
               {
                 label: 'Lid sinds',
                 value: profile?.created_at
-                  ? new Date(profile.created_at).toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' })
+                  ? new Date(profile.created_at).toLocaleDateString(intlLocale, { month: 'long', year: 'numeric' })
                   : '—',
               },
             ].map(({ label, value }) => (

@@ -214,12 +214,12 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const { data: callerData } = await admin.auth.admin.getUserById(calcRow.user_id);
     const callerEmail = callerData?.user?.email;
 
-    if (callerEmail) {
+    if (callerEmail && process.env.RESEND_API_KEY) {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://earthgnd.com';
       const rapportLink = `${baseUrl}/nl/pendiepte-rapport/${uuid}`;
       const postcode = typeof calcRow.postcode === 'string' ? calcRow.postcode : '—';
 
-      const resend = new Resend(process.env.RESEND_API_KEY ?? 'placeholder');
+      const resend = new Resend(process.env.RESEND_API_KEY);
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL ?? 'noreply@earthgnd.com',
         to: callerEmail,

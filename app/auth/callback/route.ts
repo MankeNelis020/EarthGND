@@ -10,8 +10,6 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code');
   const next = searchParams.get('next') ?? '';
 
-  console.log('[auth/callback] hit — code present:', !!code, '| next:', next || '(none)', '| origin:', origin);
-
   // Derive locale from the ?next= param if present, otherwise default to 'nl'
   const nextLocale = next.match(/^\/(nl|en|de)\//)?.[1] ?? 'nl';
 
@@ -37,7 +35,6 @@ export async function GET(request: NextRequest) {
   const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    console.error('[auth/callback] exchangeCodeForSession error:', error.message);
     return NextResponse.redirect(`${origin}/${nextLocale}/login?error=auth`);
   }
 
@@ -50,14 +47,13 @@ export async function GET(request: NextRequest) {
   if (!next) {
     const email = sessionData.user?.email;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    console.log('[auth/callback] meting lookup — email:', email, '| service_key_set:', !!serviceKey);
     if (email && serviceKey) {
       try {
         const adminClient = createAdminClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           serviceKey,
         );
-        const { data: meting, error: metingError } = await adminClient
+        const { data: meting } = await adminClient
           .from('pendiepte_metingen')
           .select('calculation_id, status, monteur_email')
           .ilike('monteur_email', email)
@@ -66,19 +62,14 @@ export async function GET(request: NextRequest) {
           .limit(1)
           .single();
 
-        console.log('[auth/callback] admin query result — meting:', JSON.stringify(meting), '| error:', metingError?.message ?? null);
-
         if (meting?.calculation_id) {
           redirectPath = `/${nextLocale}/meting/${meting.calculation_id}`;
-          console.log('[auth/callback] monteur meting found:', redirectPath);
         }
-      } catch (err) {
-        console.error('[auth/callback] admin lookup threw:', err);
+      } catch {
+        // Admin lookup failure is non-fatal; fall through to dashboard
       }
     }
   }
-
-  console.log('[auth/callback] redirecting to:', redirectPath);
 
   const response = NextResponse.redirect(`${origin}${redirectPath}`);
   pendingCookies.forEach(({ name, value, options }) => {

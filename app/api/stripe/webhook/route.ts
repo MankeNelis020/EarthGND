@@ -137,7 +137,8 @@ export async function POST(request: NextRequest) {
         const customerEmail = invoice.customer_email as string | undefined;
         if (!customerEmail) break;
 
-        const resend = new Resend(process.env.RESEND_API_KEY ?? 'placeholder');
+        if (!process.env.RESEND_API_KEY) break;
+        const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL ?? 'EarthGND <noreply@earthgnd.com>',
           to: customerEmail,
@@ -154,8 +155,8 @@ export async function POST(request: NextRequest) {
         break;
       }
     }
-  } catch (err) {
-    console.error('Webhook handler error:', err);
+  } catch {
+    // Webhook errors are non-fatal; always acknowledge receipt to Stripe
   }
 
   return NextResponse.json({ received: true });

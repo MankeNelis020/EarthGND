@@ -16,7 +16,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
 
   const { monteurEmail: monteurEmailRaw } = await request.json() as { monteurEmail: string };
-  if (!monteurEmailRaw || !monteurEmailRaw.includes('@')) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!monteurEmailRaw || !emailRegex.test(monteurEmailRaw.trim())) {
     return NextResponse.json({ error: 'Geldig e-mailadres vereist' }, { status: 400 });
   }
   // Normalise to lowercase — avoids case-sensitive lookup failures on login
@@ -65,7 +66,6 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     .toLowerCase()
     .replace(/\/$/, '');
   const redirectTo = `${baseUrl}/auth/callback/meting/${uuid}`;
-  console.log('[notify] redirectTo sent to Supabase:', redirectTo);
 
   const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
     type: 'magiclink',
@@ -91,7 +91,10 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   const postcode           = typeof calc.postcode === 'string' ? calc.postcode : '—';
 
   // Send invite email via Resend
-  const resend = new Resend(process.env.RESEND_API_KEY ?? 'placeholder');
+  if (!process.env.RESEND_API_KEY) {
+    return NextResponse.json({ error: 'E-mail niet geconfigureerd op deze server' }, { status: 503 });
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const { error: emailError } = await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL ?? 'noreply@earthgnd.com',
     to: monteurEmail,
