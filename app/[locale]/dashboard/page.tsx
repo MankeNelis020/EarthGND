@@ -6,6 +6,7 @@ import { Link } from '@/i18n/navigation';
 import { PLANS } from '@/lib/plans';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 import { PostAuthRedirect } from '@/components/auth/PostAuthRedirect';
+import { DashboardSections } from '@/components/dashboard/DashboardSections';
 
 export const runtime = 'nodejs';
 
@@ -53,16 +54,6 @@ interface Profile {
   created_at: string;
 }
 
-
-
-function SuccessBanner() {
-  return (
-    <div className="mb-6 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
-      <p className="text-sm font-semibold text-green-400">Betaling geslaagd — je credits zijn bijgeschreven.</p>
-    </div>
-  );
-}
-
 export default async function DashboardPage({
   params: paramsPromise,
   searchParams,
@@ -79,14 +70,18 @@ export default async function DashboardPage({
 
   const params = await searchParams;
 
-  // Admin client needed for monteur jobs query — monteur_user_id may still
-  // be null (first login), so the regular RLS SELECT policy won't match.
   const admin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  const [{ data: profileRaw }, { data: calculations }, { data: rapports }, { data: monteurJobsRaw }, { data: calcMetingenRaw }] = await Promise.all([
+  const [
+    { data: profileRaw },
+    { data: calculations },
+    { data: rapports },
+    { data: monteurJobsRaw },
+    { data: calcMetingenRaw },
+  ] = await Promise.all([
     supabase
       .from('profiles')
       .select('plan, credits_left, credits_reset, email, created_at')
@@ -104,14 +99,12 @@ export default async function DashboardPage({
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
       .limit(8),
-    // Metingen where this user is the monteur (assigned by someone else)
     admin
       .from('pendiepte_metingen')
       .select('calculation_id, status, postcode, straatnaam, woonplaats, created_at, submitted_at, confirmed_at')
       .ilike('monteur_email', user.email ?? '')
       .order('created_at', { ascending: false })
       .limit(20),
-    // Metingen where this user is the calculator — direct query, no FK join needed
     admin
       .from('pendiepte_metingen')
       .select('calculation_id, status, monteur_email')
@@ -133,413 +126,159 @@ export default async function DashboardPage({
     : '1e van de maand';
 
   const diepteCalcs = calcs.filter(c => c.tool === 'diepte');
-  const ohmCalcs    = calcs.filter(c => c.tool === 'ohm');
 
-  // Map calculation_id → meting from the direct query (bypasses FK join issues)
   const calcMetingen = (calcMetingenRaw as MetingInfo[]) ?? [];
-  const metingMap = new Map(calcMetingen.map(m => [m.calculation_id, m]));
+  const metingMap    = new Map(calcMetingen.map(m => [m.calculation_id, m]));
+  const getStatus    = (c: Calculation) => metingMap.get(c.id)?.status ?? 'none';
 
-  const getStatus  = (c: Calculation) => metingMap.get(c.id)?.status ?? 'none';
-  const calcPhase  = diepteCalcs.filter(c => ['none', 'draft'].includes(getStatus(c)));
+  const calcPhase    = diepteCalcs.filter(c => ['none', 'draft'].includes(getStatus(c)));
   const metingPhase  = diepteCalcs.filter(c => ['invited', 'submitted'].includes(getStatus(c)));
   const rapportPhase = diepteCalcs.filter(c => getStatus(c) === 'confirmed');
 
-  // Monteur jobs — exclude calculations this user also owns as calculator
   const ownCalcIds  = new Set(calcs.map(c => c.id));
   const monteurJobs = ((monteurJobsRaw as MonteurJob[]) ?? [])
     .filter(j => !ownCalcIds.has(j.calculation_id));
 
+  // Normalise to a single flat list for the rapport section
+  const rapportItems = [
+    ...rapportPhase.map(c => ({
+      id:         c.id,
+      type:       'pendiepte' as const,
+      label:      '',
+      status:     'confirmed',
+      naam:       c.rapport_naam ?? c.postcode ?? 'Geen postcode',
+      created_at: c.created_at,
+      href:       `/pendiepte-rapport/${c.id}`,
+    })),
+    ...rapporten.map(r => ({
+      id:         r.id,
+      type:       'nen1010' as const,
+      label:      r.systeemtype ?? '',
+      status:     r.status,
+      naam:       r.locatie ?? r.opdrachtgever ?? 'Naamloos rapport',
+      created_at: r.updated_at,
+      href:       `/rapport/${r.id}`,
+    })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
   return (
     <div className="min-h-screen bg-[#0d0d0d]">
       <PostAuthRedirect />
-      <div className="mx-auto max-w-4xl px-4 py-12">
+      <div className="mx-auto max-w-3xl px-4 py-10">
 
-        {params.checkout === 'success' && <SuccessBanner />}
+        {params.checkout === 'success' && (
+          <div className="mb-6 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
+            <p className="text-sm font-semibold text-green-400">Betaling geslaagd — je credits zijn bijgeschreven.</p>
+          </div>
+        )}
 
-        <h1 className="font-condensed mb-8 text-3xl font-black text-white">Dashboard</h1>
+        <h1 className="font-condensed mb-6 text-3xl font-black text-white">Dashboard</h1>
 
-        {/* Credits overview */}
-        <div className="mb-6 rounded-2xl border border-white/8 bg-[#111] p-6">
-          <div className="mb-5 flex items-start justify-between">
+        {/* ── Credits + quick actions ────────────────────────────────────── */}
+        <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
+          <div className="flex items-center justify-between border-b border-white/6 px-6 py-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-white/30">Huidig plan</p>
-              <p className="font-condensed mt-1 text-2xl font-black text-white">{planConfig.label}</p>
+              <p className="font-condensed mt-0.5 text-xl font-black text-white">{planConfig.label}</p>
             </div>
             <Link
               href="/pricing"
-              className="rounded-lg border border-[#E8761A]/30 px-3 py-1.5 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
+              className="shrink-0 rounded-lg border border-[#E8761A]/30 px-3 py-1.5 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
             >
               {profile?.plan === 'gratis' ? 'Upgraden' : 'Credits bijkopen'}
             </Link>
           </div>
-
-          {totalCredits > 0 ? (
-            <>
-              <div className="mb-2 flex items-center justify-between text-sm">
-                <span className="text-white/60">Credits resterend</span>
-                <span className="font-semibold text-white">
-                  {creditsLeft} <span className="text-white/40">/ {totalCredits}</span>
-                </span>
-              </div>
-              <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-white/8">
-                <div
-                  className="h-full rounded-full bg-[#E8761A] transition-all"
-                  style={{ width: `${creditsPct}%` }}
-                />
-              </div>
-              <p className="text-xs text-white/35">Reset op: {resetDate}</p>
-            </>
-          ) : (
-            <p className="text-sm text-white/50">
-              Gratis plan — de Weerstand Calculator is onbeperkt beschikbaar.
-            </p>
-          )}
-        </div>
-
-        {/* Quick links */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Link
-            href="/tool/ohm"
-            className="group flex items-center gap-3 rounded-xl border border-white/8 bg-[#111] px-4 py-4 hover:border-white/15 transition-colors"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/8 bg-white/5">
-              <svg className="h-4 w-4 text-[#E8761A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white group-hover:text-[#E8761A] transition-colors">Weerstand</p>
-              <p className="text-xs text-white/40">Calculator openen</p>
-            </div>
-          </Link>
-          <Link
-            href="/tool/diepte"
-            className="group flex items-center gap-3 rounded-xl border border-white/8 bg-[#111] px-4 py-4 hover:border-white/15 transition-colors"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/8 bg-white/5">
-              <svg className="h-4 w-4 text-[#E8761A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2v20M2 12h20" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white group-hover:text-[#E8761A] transition-colors">Pendiepte</p>
-              <p className="text-xs text-white/40">Calculator openen</p>
-            </div>
-          </Link>
-          <Link
-            href="/rapport/nieuw"
-            className="group flex items-center gap-3 rounded-xl border border-[#E8761A]/20 bg-[#E8761A]/5 px-4 py-4 hover:border-[#E8761A]/35 transition-colors col-span-2 sm:col-span-1"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#E8761A]/20 bg-[#E8761A]/10">
-              <svg className="h-4 w-4 text-[#E8761A]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="12" y1="18" x2="12" y2="12" />
-                <line x1="9" y1="15" x2="15" y2="15" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-[#E8761A] group-hover:text-[#f08530] transition-colors">Opleverrapport</p>
-              <p className="text-xs text-white/40">NEN 1010 rapport aanmaken</p>
-            </div>
-          </Link>
-        </div>
-
-        {/* ── 1. Pendiepte berekeningen (geen actieve meting) ─────────────────── */}
-        {calcPhase.length > 0 && (
-          <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
-            <div className="border-b border-white/6 px-6 py-4">
-              <h2 className="font-condensed text-lg font-bold text-white">Pendiepte berekeningen</h2>
-              <p className="mt-0.5 text-xs text-white/40">Nog geen monteur uitgenodigd</p>
-            </div>
-            <div className="divide-y divide-white/5">
-              {calcPhase.map((calc) => (
-                <Link
-                  key={calc.id}
-                  href={`/pendiepte-rapport/${calc.id}`}
-                  className="flex items-center gap-3 px-6 py-4 hover:bg-white/3 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white truncate">
-                      {calc.rapport_naam ?? calc.postcode ?? 'Geen postcode'}
-                    </p>
-                    <p className="text-xs text-white/30">
-                      {new Date(calc.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
-                  </div>
-                  <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── 2. Veldmetingen (uitgenodigd / ingediend — als opdrachtgever of monteur) */}
-        <div className="mb-6 rounded-2xl border border-blue-500/15 bg-[#111]">
-          <div className="border-b border-white/6 px-6 py-4">
-            <h2 className="font-condensed text-lg font-bold text-white">Veldmetingen</h2>
-            <p className="mt-0.5 text-xs text-white/40">Openstaande en ingediende metingen</p>
-          </div>
-          {metingPhase.length === 0 && monteurJobs.length === 0 ? (
-            <div className="px-6 py-8 text-center">
-              <p className="text-sm text-white/40">Geen openstaande veldmetingen</p>
-              <p className="mt-1 text-xs text-white/25">Nodig een monteur uit via de Pendiepte Calculator</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-white/5">
-
-              {/* Als opdrachtgever — meting invited of submitted */}
-              {metingPhase.map((calc) => {
-                const meting = metingMap.get(calc.id);
-                const s = meting?.status ?? 'invited';
-                const isSubmitted = s === 'submitted';
-                return (
-                  <Link
-                    key={calc.id}
-                    href={`/pendiepte-rapport/${calc.id}`}
-                    className="flex items-center gap-3 px-6 py-4 hover:bg-white/3 transition-colors"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-                          isSubmitted
-                            ? 'border-yellow-500/30 bg-yellow-500/5 text-yellow-400'
-                            : 'border-blue-500/30 bg-blue-500/5 text-blue-400'
-                        }`}>
-                          {isSubmitted ? 'Meting ingediend' : 'Monteur uitgenodigd'}
-                        </span>
-                        {isSubmitted && (
-                          <span className="shrink-0 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2 py-0.5 text-[10px] font-bold text-yellow-300">
-                            Actie vereist
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm font-semibold text-white truncate">
-                        {calc.rapport_naam ?? calc.postcode ?? 'Geen postcode'}
-                      </p>
-                      {meting?.monteur_email && (
-                        <p className="text-xs text-white/30">{meting.monteur_email}</p>
-                      )}
-                    </div>
-                    <div className="shrink-0 text-xs text-white/30">
-                      {new Date(calc.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
-                    </div>
-                    <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                  </Link>
-                );
-              })}
-
-              {/* Als monteur — toegewezen door iemand anders */}
-              {monteurJobs.map((job) => {
-                const isSubmitted = job.status === 'submitted';
-                const href = isSubmitted
-                  ? `/pendiepte-rapport/${job.calculation_id}`
-                  : `/meting/${job.calculation_id}`;
-                const location = [job.straatnaam, job.woonplaats].filter(Boolean).join(', ')
-                  || job.postcode
-                  || 'Onbekend adres';
-                return (
-                  <Link
-                    key={job.calculation_id}
-                    href={href}
-                    className="flex items-center gap-3 px-6 py-4 hover:bg-white/3 transition-colors"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1">
-                        <span className="rounded-full border border-blue-500/30 bg-blue-500/5 px-2 py-0.5 text-[10px] font-bold text-blue-400">
-                          Toe te meten
-                        </span>
-                      </div>
-                      <p className="truncate text-sm font-semibold text-white">{location}</p>
-                      <p className="text-xs text-white/30">
-                        Uitgenodigd: {new Date(job.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
-                      </p>
-                    </div>
-                    <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── 3. Opleverrapporten (bevestigde pendiepte metingen + NEN 1010) ── */}
-        {(rapportPhase.length > 0 || rapporten.length > 0) && (
-          <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
-            <div className="flex items-center justify-between border-b border-white/6 px-6 py-4">
-              <div>
-                <h2 className="font-condensed text-lg font-bold text-white">Opleverrapporten</h2>
-                <p className="mt-0.5 text-xs text-white/40">Bevestigde pendiepte metingen en NEN 1010 rapporten</p>
-              </div>
-              <Link
-                href="/rapport/nieuw"
-                className="rounded-lg border border-[#E8761A]/30 px-3 py-1.5 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
-              >
-                + NEN 1010
-              </Link>
-            </div>
-            <div className="divide-y divide-white/5">
-
-              {/* Bevestigde pendiepte metingen */}
-              {rapportPhase.map((calc) => (
-                <Link
-                  key={calc.id}
-                  href={`/pendiepte-rapport/${calc.id}`}
-                  className="flex items-center gap-4 px-6 py-4 hover:bg-white/3 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-0.5 flex items-center gap-2">
-                      <span className="shrink-0 rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-[10px] font-bold text-green-400">
-                        Bevestigd
-                      </span>
-                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-white/40">
-                        Pendiepte
-                      </span>
-                    </div>
-                    <p className="truncate text-sm font-semibold text-white">
-                      {calc.rapport_naam ?? calc.postcode ?? 'Geen postcode'}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-xs text-white/30">
-                    {new Date(calc.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
-                  </div>
-                  <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </Link>
-              ))}
-
-              {/* NEN 1010 rapporten */}
-              {rapporten.map((r) => (
-                <Link
-                  key={r.id}
-                  href={`/rapport/${r.id}`}
-                  className="flex items-center gap-4 px-6 py-4 hover:bg-white/3 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-0.5 flex items-center gap-2">
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-                        r.status === 'ondertekend'
-                          ? 'border-green-500/30 bg-green-500/10 text-green-400'
-                          : 'border-yellow-500/20 bg-yellow-500/8 text-yellow-400'
-                      }`}>
-                        {r.status === 'ondertekend' ? 'Ondertekend' : 'Concept'}
-                      </span>
-                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-white/40">
-                        NEN 1010
-                      </span>
-                      {r.systeemtype && (
-                        <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-bold text-white/40">
-                          {r.systeemtype}
-                        </span>
-                      )}
-                    </div>
-                    <p className="truncate text-sm font-semibold text-white">
-                      {r.locatie ?? r.opdrachtgever ?? 'Naamloos rapport'}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-xs text-white/30">
-                    {new Date(r.updated_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
-                  </div>
-                  <svg className="h-4 w-4 shrink-0 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* NEN 1010 lege staat (geen enkel rapport bestaat nog) */}
-        {rapportPhase.length === 0 && rapporten.length === 0 && (
-          <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
-            <div className="flex items-center justify-between border-b border-white/6 px-6 py-4">
-              <h2 className="font-condensed text-lg font-bold text-white">Opleverrapporten</h2>
-              <Link
-                href="/rapport/nieuw"
-                className="rounded-lg border border-[#E8761A]/30 px-3 py-1.5 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
-              >
-                + NEN 1010
-              </Link>
-            </div>
-            <div className="px-6 py-10 text-center">
-              <p className="mb-3 text-sm text-white/40">Nog geen opleverrapporten</p>
-              <Link href="/rapport/nieuw" className="text-xs text-[#E8761A] hover:underline">
-                Maak uw eerste NEN 1010 deel 6 rapport aan
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Weerstand calculation history */}
-        {ohmCalcs.length > 0 && (
-          <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
-            <div className="border-b border-white/6 px-6 py-4">
-              <h2 className="font-condensed text-lg font-bold text-white">Weerstand berekeningen</h2>
-            </div>
-            <div className="divide-y divide-white/5">
-              {ohmCalcs.map((calc) => (
-                <div key={calc.id} className="flex items-center gap-4 px-6 py-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="shrink-0 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400">
-                        Weerstand
-                      </span>
-                      {calc.postcode && (
-                        <span className="truncate text-xs text-white/40">{calc.postcode}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-xs text-white/30">
-                    {new Date(calc.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
-                  </div>
-                  {calc.pdf_url && (
-                    <a
-                      href={calc.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="shrink-0 text-xs text-[#E8761A] hover:underline"
-                    >
-                      PDF
-                    </a>
-                  )}
+          <div className="px-6 py-4">
+            {totalCredits > 0 ? (
+              <>
+                <div className="mb-1.5 flex items-center justify-between text-xs">
+                  <span className="text-white/50">Credits resterend</span>
+                  <span className="font-semibold text-white">
+                    {creditsLeft} <span className="text-white/30">/ {totalCredits}</span>
+                  </span>
                 </div>
-              ))}
-            </div>
+                <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
+                  <div className="h-full rounded-full bg-[#E8761A] transition-all" style={{ width: `${creditsPct}%` }} />
+                </div>
+                <p className="text-[11px] text-white/30">Reset op: {resetDate}</p>
+              </>
+            ) : (
+              <p className="text-sm text-white/40">Gratis plan — Weerstand Calculator onbeperkt beschikbaar.</p>
+            )}
           </div>
-        )}
+          {/* Quick links inside credits card */}
+          <div className="grid grid-cols-3 divide-x divide-white/6 border-t border-white/6">
+            {[
+              { href: '/tool/ohm',    label: 'Weerstand',   sub: 'Calculator' },
+              { href: '/tool/diepte', label: 'Pendiepte',   sub: 'Calculator' },
+              { href: '/rapport/nieuw', label: 'NEN 1010',  sub: 'Nieuw rapport' },
+            ].map(({ href, label, sub }) => (
+              <Link
+                key={href}
+                href={href}
+                className="group flex flex-col items-center gap-0.5 py-3.5 hover:bg-white/3 transition-colors"
+              >
+                <span className="text-xs font-semibold text-white group-hover:text-[#E8761A] transition-colors">{label}</span>
+                <span className="text-[10px] text-white/30">{sub}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
 
-        {/* Account */}
-        <div className="rounded-2xl border border-white/8 bg-[#111] p-6">
-          <h2 className="font-condensed mb-4 text-lg font-bold text-white">Account</h2>
-          <div className="flex flex-col gap-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-white/40">E-mail</span>
-              <span className="text-white">{user.email}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/40">Plan</span>
-              <span className="text-white">{planConfig.label}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-white/40">Lid sinds</span>
-              <span className="text-white">
-                {profile?.created_at
-                  ? new Date(profile.created_at).toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' })
-                  : '—'}
-              </span>
-            </div>
+        {/* ── Workflow sections (client component handles delete + modal) ── */}
+        <DashboardSections
+          calcPhase={calcPhase.map(c => ({
+            id:          c.id,
+            postcode:    c.postcode,
+            rapport_naam: c.rapport_naam,
+            created_at:  c.created_at,
+          }))}
+          metingPhase={metingPhase.map(c => ({
+            id:           c.id,
+            postcode:     c.postcode,
+            rapport_naam: c.rapport_naam,
+            created_at:   c.created_at,
+            metingStatus: metingMap.get(c.id)?.status,
+            monteurEmail: metingMap.get(c.id)?.monteur_email,
+          }))}
+          monteurJobs={monteurJobs.map(j => ({
+            calculation_id: j.calculation_id,
+            status:         j.status,
+            postcode:       j.postcode,
+            straatnaam:     j.straatnaam,
+            woonplaats:     j.woonplaats,
+            created_at:     j.created_at,
+          }))}
+          rapportPhase={rapportItems}
+        />
+
+        {/* ── Account ───────────────────────────────────────────────────── */}
+        <div className="mt-6 rounded-2xl border border-white/8 bg-[#111]">
+          <div className="border-b border-white/6 px-6 py-4">
+            <h2 className="font-condensed text-base font-bold text-white">Account</h2>
           </div>
-          <div className="mt-5 border-t border-white/6 pt-5">
+          <div className="divide-y divide-white/5 px-6">
+            {[
+              { label: 'E-mail', value: user.email ?? '—' },
+              { label: 'Plan',   value: planConfig.label },
+              {
+                label: 'Lid sinds',
+                value: profile?.created_at
+                  ? new Date(profile.created_at).toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' })
+                  : '—',
+              },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between py-3 text-sm">
+                <span className="text-white/40">{label}</span>
+                <span className="text-white">{value}</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-white/6 px-6 py-4">
             <LogoutButton />
           </div>
         </div>
+
       </div>
     </div>
   );
