@@ -14,6 +14,8 @@ interface MetingInfo {
   calculation_id: string;
   status: string;
   monteur_email: string | null;
+  submitted_at: string | null;
+  confirmed_at: string | null;
 }
 
 interface MonteurJob {
@@ -107,7 +109,7 @@ export default async function DashboardPage({
       .limit(20),
     admin
       .from('pendiepte_metingen')
-      .select('calculation_id, status, monteur_email')
+      .select('calculation_id, status, monteur_email, submitted_at, confirmed_at')
       .eq('calculator_user_id', user.id)
       .limit(50),
   ]);
@@ -227,6 +229,7 @@ export default async function DashboardPage({
 
         {/* ── Workflow sections (client component handles delete + modal) ── */}
         <DashboardSections
+          locale={locale}
           calcPhase={calcPhase.map(c => ({
             id:          c.id,
             postcode:    c.postcode,
@@ -234,12 +237,14 @@ export default async function DashboardPage({
             created_at:  c.created_at,
           }))}
           metingPhase={metingPhase.map(c => ({
-            id:           c.id,
-            postcode:     c.postcode,
-            rapport_naam: c.rapport_naam,
-            created_at:   c.created_at,
-            metingStatus: metingMap.get(c.id)?.status,
-            monteurEmail: metingMap.get(c.id)?.monteur_email,
+            id:                   c.id,
+            postcode:             c.postcode,
+            rapport_naam:         c.rapport_naam,
+            created_at:           c.created_at,
+            metingStatus:         metingMap.get(c.id)?.status,
+            monteurEmail:         metingMap.get(c.id)?.monteur_email,
+            metingSubmittedAt:    metingMap.get(c.id)?.submitted_at ?? null,
+            metingConfirmedAt:    metingMap.get(c.id)?.confirmed_at ?? null,
           }))}
           monteurJobs={monteurJobs.map(j => ({
             calculation_id: j.calculation_id,

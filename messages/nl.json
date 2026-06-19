@@ -123,7 +123,70 @@
     "logout": "Uitloggen",
     "weerstand": "Weerstand",
     "pendiepte": "Pendiepte",
-    "successBanner": "Betaling geslaagd — je credits zijn bijgeschreven."
+    "successBanner": "Betaling geslaagd — je credits zijn bijgeschreven.",
+    "more": "Meer >",
+    "sections": {
+      "calculations": "Berekeningen",
+      "calculationsSubtitle": "Pendiepte — nog geen monteur uitgenodigd",
+      "measurements": "Veldmetingen",
+      "measurementsSubtitle": "Openstaande en ingediende metingen",
+      "reports": "Opleverrapporten",
+      "reportsSubtitle": "Bevestigde metingen en NEN 1010"
+    },
+    "date": {
+      "createdAt": "Aangemaakt",
+      "submittedAt": "Ingediend",
+      "confirmedAt": "Bevestigd",
+      "updatedAt": "Bijgewerkt"
+    },
+    "actions": {
+      "open": "Openen",
+      "rename": "Hernoemen",
+      "archive": "Archiveren",
+      "restore": "Zet terug",
+      "delete": "Verwijderen"
+    },
+    "status": {
+      "invited": "Uitgenodigd",
+      "submitted": "Ingediend",
+      "confirmed": "Bevestigd",
+      "ondertekend": "Ondertekend",
+      "concept": "Concept",
+      "actionRequired": "Actie vereist",
+      "yourMeasurement": "Jouw meting"
+    },
+    "empty": {
+      "noCalculations": "Geen berekeningen",
+      "noCalculationsSub": "Open de Pendiepte Calculator om te starten",
+      "noMeasurements": "Geen openstaande veldmetingen",
+      "noMeasurementsSub": "Nodig een monteur uit via de Pendiepte Calculator",
+      "noReports": "Nog geen opleverrapporten",
+      "noReportsSub": "Bevestig een veldmeting of maak een NEN 1010 rapport aan"
+    },
+    "archive": {
+      "title": "Archief",
+      "subtitle": "Oudere berekeningen, veldmetingen en rapporten",
+      "backToDashboard": "← Dashboard",
+      "noCalculations": "Geen gearchiveerde berekeningen",
+      "noMeasurements": "Geen gearchiveerde veldmetingen",
+      "noReports": "Geen gearchiveerde rapporten"
+    },
+    "modal": {
+      "renameTitle": "Naam wijzigen",
+      "renameSave": "Opslaan",
+      "renameSaving": "Opslaan…",
+      "renameCancel": "Annuleer",
+      "deleteTitle": "Berekening verwijderen",
+      "deleteBody": "Je verwijdert {naam}. Hierdoor gaan de gegevens verloren. Wil je doorgaan?",
+      "deleteConfirm": "Ja, verwijder",
+      "deleteCancel": "Nee, annuleer",
+      "archiveTitle": "Archiveren",
+      "archiveBody": "Je archiveert {naam}. Het item blijft beschikbaar in het archief.",
+      "archiveConfirm": "Archiveren",
+      "archiveCancel": "Annuleer",
+      "newReport": "+ Nieuw",
+      "connectionError": "Verbindingsfout — probeer opnieuw."
+    }
   },
   "auth": {
     "title": "Inloggen bij EarthGND",

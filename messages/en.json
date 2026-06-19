@@ -123,7 +123,70 @@
     "logout": "Sign out",
     "weerstand": "Resistance",
     "pendiepte": "Rod Depth",
-    "successBanner": "Payment successful — credits have been added to your account."
+    "successBanner": "Payment successful — credits have been added to your account.",
+    "more": "More >",
+    "sections": {
+      "calculations": "Calculations",
+      "calculationsSubtitle": "Rod depth — no installer invited yet",
+      "measurements": "Field measurements",
+      "measurementsSubtitle": "Open and submitted measurements",
+      "reports": "Delivery reports",
+      "reportsSubtitle": "Confirmed measurements and NEN 1010"
+    },
+    "date": {
+      "createdAt": "Created",
+      "submittedAt": "Submitted",
+      "confirmedAt": "Confirmed",
+      "updatedAt": "Updated"
+    },
+    "actions": {
+      "open": "Open",
+      "rename": "Rename",
+      "archive": "Archive",
+      "restore": "Restore",
+      "delete": "Delete"
+    },
+    "status": {
+      "invited": "Invited",
+      "submitted": "Submitted",
+      "confirmed": "Confirmed",
+      "ondertekend": "Signed",
+      "concept": "Draft",
+      "actionRequired": "Action required",
+      "yourMeasurement": "Your measurement"
+    },
+    "empty": {
+      "noCalculations": "No calculations",
+      "noCalculationsSub": "Open the Rod Depth Calculator to get started",
+      "noMeasurements": "No open field measurements",
+      "noMeasurementsSub": "Invite an installer via the Rod Depth Calculator",
+      "noReports": "No delivery reports yet",
+      "noReportsSub": "Confirm a measurement or create a NEN 1010 report"
+    },
+    "archive": {
+      "title": "Archive",
+      "subtitle": "Older calculations, measurements and reports",
+      "backToDashboard": "← Dashboard",
+      "noCalculations": "No archived calculations",
+      "noMeasurements": "No archived measurements",
+      "noReports": "No archived reports"
+    },
+    "modal": {
+      "renameTitle": "Rename",
+      "renameSave": "Save",
+      "renameSaving": "Saving…",
+      "renameCancel": "Cancel",
+      "deleteTitle": "Delete calculation",
+      "deleteBody": "You are deleting {naam}. This data will be lost. Continue?",
+      "deleteConfirm": "Yes, delete",
+      "deleteCancel": "No, cancel",
+      "archiveTitle": "Archive",
+      "archiveBody": "You are archiving {naam}. The item remains available in the archive.",
+      "archiveConfirm": "Archive",
+      "archiveCancel": "Cancel",
+      "newReport": "+ New",
+      "connectionError": "Connection error — please try again."
+    }
   },
   "auth": {
     "title": "Sign in to EarthGND",

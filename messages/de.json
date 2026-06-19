@@ -123,7 +123,70 @@
     "logout": "Abmelden",
     "weerstand": "Widerstand",
     "pendiepte": "Stabtiefe",
-    "successBanner": "Zahlung erfolgreich — Credits wurden Ihrem Konto gutgeschrieben."
+    "successBanner": "Zahlung erfolgreich — Credits wurden Ihrem Konto gutgeschrieben.",
+    "more": "Mehr >",
+    "sections": {
+      "calculations": "Berechnungen",
+      "calculationsSubtitle": "Stabtiefe — noch kein Monteur eingeladen",
+      "measurements": "Feldmessungen",
+      "measurementsSubtitle": "Offene und eingereichte Messungen",
+      "reports": "Ablieferungsberichte",
+      "reportsSubtitle": "Bestätigte Messungen und NEN 1010"
+    },
+    "date": {
+      "createdAt": "Erstellt",
+      "submittedAt": "Eingereicht",
+      "confirmedAt": "Bestätigt",
+      "updatedAt": "Aktualisiert"
+    },
+    "actions": {
+      "open": "Öffnen",
+      "rename": "Umbenennen",
+      "archive": "Archivieren",
+      "restore": "Wiederherstellen",
+      "delete": "Löschen"
+    },
+    "status": {
+      "invited": "Eingeladen",
+      "submitted": "Eingereicht",
+      "confirmed": "Bestätigt",
+      "ondertekend": "Unterzeichnet",
+      "concept": "Entwurf",
+      "actionRequired": "Aktion erforderlich",
+      "yourMeasurement": "Ihre Messung"
+    },
+    "empty": {
+      "noCalculations": "Keine Berechnungen",
+      "noCalculationsSub": "Öffnen Sie den Stabtiefe-Rechner um zu beginnen",
+      "noMeasurements": "Keine offenen Feldmessungen",
+      "noMeasurementsSub": "Laden Sie über den Stabtiefe-Rechner einen Monteur ein",
+      "noReports": "Noch keine Ablieferungsberichte",
+      "noReportsSub": "Bestätigen Sie eine Messung oder erstellen Sie einen NEN 1010 Bericht"
+    },
+    "archive": {
+      "title": "Archiv",
+      "subtitle": "Ältere Berechnungen, Messungen und Berichte",
+      "backToDashboard": "← Dashboard",
+      "noCalculations": "Keine archivierten Berechnungen",
+      "noMeasurements": "Keine archivierten Messungen",
+      "noReports": "Keine archivierten Berichte"
+    },
+    "modal": {
+      "renameTitle": "Umbenennen",
+      "renameSave": "Speichern",
+      "renameSaving": "Speichern…",
+      "renameCancel": "Abbrechen",
+      "deleteTitle": "Berechnung löschen",
+      "deleteBody": "Sie löschen {naam}. Diese Daten gehen verloren. Fortfahren?",
+      "deleteConfirm": "Ja, löschen",
+      "deleteCancel": "Nein, abbrechen",
+      "archiveTitle": "Archivieren",
+      "archiveBody": "Sie archivieren {naam}. Das Element bleibt im Archiv verfügbar.",
+      "archiveConfirm": "Archivieren",
+      "archiveCancel": "Abbrechen",
+      "newReport": "+ Neu",
+      "connectionError": "Verbindungsfehler — bitte erneut versuchen."
+    }
   },
   "auth": {
     "title": "Bei EarthGND anmelden",
