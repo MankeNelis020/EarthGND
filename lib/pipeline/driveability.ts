@@ -34,7 +34,10 @@ export interface RefusalLayer {
 export interface DriveabilityResult {
   zMax:              ZMaxBand;
   refusalLayer:      RefusalLayer | null;
+  /** typical < zReq: methode zit aan zijn gemiddelde grens — toon waarschuwing in UI */
   isLimited:         boolean;
+  /** high < zReq: zelfs in optimale condities onhaalbaar met 1 pen — activeer paralleladvies */
+  requiresParallel:  boolean;
   targetUnreachable: boolean;
 }
 
@@ -83,7 +86,8 @@ export function calcZMax(
       return {
         zMax: { low: s.depth, typical: s.depth, high: s.depth },
         refusalLayer: { depth: s.depth, lithoClass: s.lithoClass, soil: LITHO_NAMES[s.lithoClass] ?? 'onbekend' },
-        isLimited: true,
+        isLimited:        true,
+        requiresParallel: true,
         targetUnreachable: false,
       };
     }
@@ -104,7 +108,8 @@ export function calcZMax(
           soil:      LITHO_NAMES[s.lithoClass] ?? 'onbekend',
           warning:   entry.warning,
         },
-        isLimited: zMax.typical < zReq,
+        isLimited:        zMax.typical < zReq,
+        requiresParallel: zMax.high    < zReq,
         targetUnreachable: false,
       };
     }
@@ -116,15 +121,17 @@ export function calcZMax(
     ? entryForLitho(sorted[0].lithoClass, method)
     : getDriveEntry('zand_los', method);
 
-  const isLimited = dominantEntry.typical < zReq;
+  const isLimited        = dominantEntry.typical < zReq;
+  const requiresParallel = dominantEntry.high    < zReq;
   return {
     zMax: {
-      low:     Math.round(Math.min(dominantEntry.low, zReq)                                   * 10) / 10,
-      typical: Math.round((isLimited ? dominantEntry.typical : zReq)                          * 10) / 10,
-      high:    Math.round(dominantEntry.high                                                   * 10) / 10,
+      low:     Math.round(Math.min(dominantEntry.low, zReq)              * 10) / 10,
+      typical: Math.round((isLimited ? dominantEntry.typical : zReq)     * 10) / 10,
+      high:    Math.round(dominantEntry.high                              * 10) / 10,
     },
     refusalLayer: null,
     isLimited,
+    requiresParallel,
     targetUnreachable: false,
   };
 }
