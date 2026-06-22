@@ -10,7 +10,7 @@ import { PostcodeInput } from './PostcodeInput';
 import { useCalculator } from '@/lib/context/CalculatorContext';
 import { calcRhoEffective } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
-import { calcAllMethods, DRIVE_METHOD_LABELS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
+import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -525,7 +525,7 @@ function DriveabilityBlock({
         <div className="border-t border-white/6 px-5 py-3 text-[10px] text-white/60 leading-relaxed">
           Grind op {refusalLayer.depth.toFixed(1)} m — GeoTOP/BRO bron.
           Weerstand van {refusalLayer.soil} is representatief voor de laag; actuele grenzen variëren.
-          Voor voorboren: grind is geen harde grens.
+          Voor pneumatisch is grind bereikbaar maar moeilijk; overweeg voorboren.
         </div>
       )}
     </div>
@@ -762,7 +762,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             <div className="mt-3">
               <p className="mb-1.5 text-xs text-white/70">Drijfmethode</p>
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                {(Object.keys(DRIVE_METHOD_LABELS) as DriveMethod[]).map(m => (
+                {ACTIVE_DRIVE_METHODS.map(m => (
                   <button
                     key={m}
                     onClick={() => { setDrijfmethode(m); setCalcResult(null); }}
@@ -976,7 +976,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               </div>
               {isDriveabilityLimited && calcResult.parallelAdvice?.targetUnreachable && (
                 <div className="border-b border-red-500/20 bg-red-500/5 px-5 py-2.5 text-xs text-red-300">
-                  Doelweerstand niet haalbaar met verticale pennen in deze grond. Overweeg horizontaal lint, aardmat of voorboren.
+                  Doelweerstand niet haalbaar met verticale pennen in deze grond. Overweeg horizontaal lint of aardmat.
                 </div>
               )}
               <div className="px-5 py-4">

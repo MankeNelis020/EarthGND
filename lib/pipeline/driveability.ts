@@ -49,6 +49,9 @@ export const DRIVE_METHOD_LABELS: Record<DriveMethod, string> = {
   voorboren:   'Voorboren',
 };
 
+/** Methoden die zichtbaar zijn in de UI. Handslag en Voorboren zijn uit productie genomen. */
+export const ACTIVE_DRIVE_METHODS: DriveMethod[] = ['sds', 'pneumatisch'];
+
 const LITHO_NAMES: Record<number, string> = {
   1: 'klei', 2: 'leem', 3: 'zand', 4: 'grind', 5: 'veen', 6: 'rots/keien',
 };

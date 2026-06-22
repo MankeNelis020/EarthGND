@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { reverseGeocode, forwardGeocode } from '@/lib/geocoding';
-import { DRIVE_METHOD_LABELS, type DriveMethod } from '@/lib/pipeline/driveability';
+import { DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod } from '@/lib/pipeline/driveability';
 
 interface DepthPoint { depth: number; ra: number }
 interface RodMeting  { rod_number: number; installed_depth: string; achieved_ra: string }
@@ -53,7 +53,7 @@ function buildInitialRods(n: number): RodMeting[] {
   }));
 }
 
-const DRIVE_METHODS = Object.keys(DRIVE_METHOD_LABELS) as DriveMethod[];
+const DRIVE_METHODS = ACTIVE_DRIVE_METHODS;
 
 export function MonteurForm({
   uuid, initialPostcode, initialElectrodeType,
@@ -452,7 +452,7 @@ export function MonteurForm({
                 </span>
               )}
             </p>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-1.5">
               {DRIVE_METHODS.map(m => (
                 <button
                   key={m} type="button" onClick={() => setDrijfmethode(m)}
