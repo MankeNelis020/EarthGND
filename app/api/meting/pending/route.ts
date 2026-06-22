@@ -13,9 +13,7 @@ export async function GET() {
   if (!user?.email) return NextResponse.json({ calculationId: null });
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) {
-    return NextResponse.json({ calculationId: null });
-  }
+  if (!serviceKey) return NextResponse.json({ calculationId: null });
 
   // Admin client — monteur_user_id is still NULL on first login,
   // so RLS SELECT policies block a regular client query by email.
