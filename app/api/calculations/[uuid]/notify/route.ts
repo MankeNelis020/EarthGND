@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
 
   const { monteurEmail: monteurEmailRaw } = await request.json() as { monteurEmail: string };
-  if (!monteurEmailRaw || !monteurEmailRaw.includes('@')) {
+  if (!monteurEmailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(monteurEmailRaw)) {
     return NextResponse.json({ error: 'Geldig e-mailadres vereist' }, { status: 400 });
   }
   // Normalise to lowercase — avoids case-sensitive lookup failures on login
@@ -40,32 +40,25 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  // Upsert pendiepte_metingen record (one per calculation)
+  // Upsert pendiepte_metingen record — status stays 'draft' until email succeeds
   const { error: upsertError } = await adminClient
     .from('pendiepte_metingen')
     .upsert({
       calculation_id:     uuid,
       calculator_user_id: user.id,
       monteur_email:      monteurEmail,
-      status:             'invited',
-    }, { onConflict: 'calculation_id' });
+      status:             'draft',
+    }, { onConflict: 'calculation_id', ignoreDuplicates: false });
 
   if (upsertError) {
     return NextResponse.json({ error: 'Database fout: ' + upsertError.message }, { status: 500 });
   }
-
-  // Store monteur email + invite timestamp on calculation row
-  await supabase.from('calculations').update({
-    monteur_email:       monteurEmail,
-    monteur_invited_at:  new Date().toISOString(),
-  }).eq('id', uuid);
 
   // UUID in the path — query params are stripped by Google OAuth round-trips
   const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? request.headers.get('origin') ?? 'https://earthgnd.com')
     .toLowerCase()
     .replace(/\/$/, '');
   const redirectTo = `${baseUrl}/auth/callback/meting/${uuid}`;
-  console.log('[notify] redirectTo sent to Supabase:', redirectTo);
 
   const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
     type: 'magiclink',
@@ -89,7 +82,10 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   const postcode           = typeof calc.postcode === 'string' ? calc.postcode : '—';
 
   // Send invite email via Resend
-  const resend = new Resend(process.env.RESEND_API_KEY ?? 'placeholder');
+  if (!process.env.RESEND_API_KEY) {
+    return NextResponse.json({ error: 'E-mail niet geconfigureerd op deze server' }, { status: 503 });
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const { error: emailError } = await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL ?? 'noreply@earthgnd.com',
     to: monteurEmail,
@@ -147,6 +143,17 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   if (emailError) {
     return NextResponse.json({ error: 'E-mail verzenden mislukt: ' + emailError.message }, { status: 500 });
   }
+
+  // Email succeeded — now promote status to 'invited' and store invite metadata
+  await adminClient
+    .from('pendiepte_metingen')
+    .update({ status: 'invited' })
+    .eq('calculation_id', uuid);
+
+  await supabase.from('calculations').update({
+    monteur_email:      monteurEmail,
+    monteur_invited_at: new Date().toISOString(),
+  }).eq('id', uuid);
 
   return NextResponse.json({ ok: true });
 }

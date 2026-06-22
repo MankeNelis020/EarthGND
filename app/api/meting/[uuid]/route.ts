@@ -203,7 +203,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       const rapportLink = `${baseUrl}/nl/pendiepte-rapport/${uuid}`;
       const postcode = typeof calcRow.postcode === 'string' ? calcRow.postcode : '—';
 
-      const resend = new Resend(process.env.RESEND_API_KEY ?? 'placeholder');
+      if (!process.env.RESEND_API_KEY) return NextResponse.json({ ok: true });
+      const resend = new Resend(process.env.RESEND_API_KEY);
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL ?? 'noreply@earthgnd.com',
         to: callerEmail,
