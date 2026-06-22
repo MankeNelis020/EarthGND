@@ -61,22 +61,26 @@ export interface KernelResult {
   corrosionClass: CorrosionClass;
   parallelAdvice: ParallelAdvice | null;
   driveability?: {
-    method:    DriveMethod;
-    zMax:      ZMaxBand;
-    refusalLayer: RefusalLayer | null;
-    isLimited: boolean;
+    method:           DriveMethod;
+    zMax:             ZMaxBand;
+    refusalLayer:     RefusalLayer | null;
+    isLimited:        boolean;
+    requiresParallel: boolean;
   };
 }
 
 /** Iteratively find the minimum number of parallel rods at z_max that achieve targetR. */
 function solveNRods(
-  rhoEff:   number,
-  zMax:     number,
-  target:   number,
-  diameter: number,
+  rhoEff:      number,
+  zMax:        number,
+  target:      number,
+  diameter:    number,
+  rhoDry:      number,
+  rhoWet:      number,
+  gwGemiddeld: number,
 ): { n: number; rParallel: number; rSingle: number; targetUnreachable: boolean } {
-  // If 1 rod at Dwight-optimal depth (using uniform rhoEff) already fits within zMax, use it.
-  const single = calcDiepte({ rho: rhoEff, targetResistance: target, gwDepth: 0, rhoDry: rhoEff, rhoWet: rhoEff });
+  // If 1 rod at Dwight-optimal depth (using two-layer ρ at gwGemiddeld) fits within zMax, use it.
+  const single = calcDiepte({ rho: rhoEff, targetResistance: target, gwDepth: gwGemiddeld, rhoDry, rhoWet });
   if (single.depth <= zMax && single.achievedResistance <= target) {
     return { n: 1, rParallel: single.achievedResistance, rSingle: single.achievedResistance, targetUnreachable: false };
   }
@@ -143,13 +147,14 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
       : (lithoClass ? [{ depth: primaryDim * 0.5, lithoClass }] : []);
 
     const drive = calcZMax(samples, drijfmethode, primaryDim);
-    driveabilityInfo = { method: drijfmethode, zMax: drive.zMax, refusalLayer: drive.refusalLayer, isLimited: drive.isLimited };
+    driveabilityInfo = { method: drijfmethode, zMax: drive.zMax, refusalLayer: drive.refusalLayer, isLimited: drive.isLimited, requiresParallel: drive.requiresParallel };
 
-    if (drive.isLimited) {
-      // Cap depth at z_max.typical and solve for minimum n rods
+    if (drive.requiresParallel) {
+      // Only cap and go parallel when even zMax.high is insufficient.
+      // When isLimited but !requiresParallel, pushing deeper (typical→high) suffices.
       const zCapped  = drive.zMax.typical;
       const rhoEff   = calcRhoEffective(rhoDry, rhoWet, gwGemiddeld, zCapped);
-      const solved   = solveNRods(rhoEff, zCapped, targetResistance, ROD_DIAMETER);
+      const solved   = solveNRods(rhoEff, zCapped, targetResistance, ROD_DIAMETER, rhoDry, rhoWet, gwGemiddeld);
       const pa       = calcParallelRa(rhoEff, zCapped, ROD_DIAMETER, solved.n);
 
       parallelAdvice = {
