@@ -24,6 +24,12 @@ export interface BroResult {
   gwSource?: 'peilbuis' | null;
   /** Distance in km from query point to the boring/sondering that provided soil data. */
   boringAfstand?: number;
+  /**
+   * BRO identifier of the specific boring or sondering that was selected.
+   * Included for traceability: the same address can yield different borings on
+   * different API calls if BRO's search result ordering changes.
+   */
+  boringId?: string;
   straatnaam?: string;
   huisnummer?: string;
   woonplaats?: string;
@@ -43,7 +49,18 @@ function qcToLithoClass(qc: number): number {
   return 4;                 // dense sand / gravel
 }
 
-async function fetchBroCptSamples(lat: number, lon: number): Promise<BroDepthSample[] | null> {
+interface CptCandidate {
+  samples: BroDepthSample[];
+  boringId: string;
+  afstand: number; // km from query point
+}
+
+// BRO search API does not guarantee distance ordering, so we:
+//   1. Try up to 5 CPT borings from the search result.
+//   2. Extract each boring's RD position from its object XML.
+//   3. Collect all valid candidates and return the CLOSEST one.
+// This makes boring selection deterministic given the same set of nearby borings.
+async function fetchBroCptSamples(lat: number, lon: number, rdX: number, rdY: number): Promise<CptCandidate | null> {
   try {
     const searchRes = await fetch('https://publiek.broservices.nl/sr/cpt/v1/characteristics/searches', {
       method: 'POST',
@@ -61,7 +78,9 @@ async function fetchBroCptSamples(lat: number, lon: number): Promise<BroDepthSam
     const ids = idMatches.map((m) => m.replace(/<\/?brocom:broId>/g, ''));
     if (!ids.length) return null;
 
-    for (const id of ids.slice(0, 3)) {
+    const candidates: CptCandidate[] = [];
+
+    for (const id of ids.slice(0, 5)) {
       try {
         const cptRes = await fetch(`https://publiek.broservices.nl/sr/cpt/v1/objects/${id}`, {
           signal: AbortSignal.timeout(10000),
@@ -95,10 +114,9 @@ async function fetchBroCptSamples(lat: number, lon: number): Promise<BroDepthSam
         //   c) firstDepth ≤ 3 m   — normal: sample each target depth from matched rows.
         const depthsMissing = firstDepth < -999 || firstDepth > 3;
 
-        return BRO_DEPTHS.map((targetDepth) => {
+        const samples = BRO_DEPTHS.map((targetDepth) => {
           let qc: number;
           if (depthsMissing) {
-            // No depth info: use median qc for a bulk soil-type estimate
             const qcValues = rows
               .map((r) => parseFloat(r[3]))
               .filter((v) => isFinite(v) && v > -999)
@@ -115,10 +133,32 @@ async function fetchBroCptSamples(lat: number, lon: number): Promise<BroDepthSam
           const lithoClass = isNaN(qc) || qc <= -999 ? 3 : qcToLithoClass(qc);
           return { depth: -targetDepth, lithoClass, rho: lithoClassToRho(lithoClass) };
         });
+
+        // Extract RD position from object XML to compute actual distance.
+        // Falls back to search radius as conservative estimate if not found.
+        const posMatch = cptXml.match(/<gml:pos>([\d. -]+)<\/gml:pos>/);
+        let afstand = 0.5; // conservative fallback: at search radius edge
+        if (posMatch) {
+          const parts = posMatch[1].trim().split(/\s+/);
+          if (parts.length === 2) {
+            const cx = parseFloat(parts[0]);
+            const cy = parseFloat(parts[1]);
+            if (isFinite(cx) && isFinite(cy) && cx > 10000) {
+              afstand = Math.sqrt((cx - rdX) ** 2 + (cy - rdY) ** 2) / 1000;
+            }
+          }
+        }
+
+        candidates.push({ samples, boringId: id, afstand });
       } catch {
         continue;
       }
     }
+
+    if (!candidates.length) return null;
+    // Return the closest valid boring — deterministic regardless of BRO result ordering.
+    candidates.sort((a, b) => a.afstand - b.afstand);
+    return candidates[0];
   } catch {
     // timeout or network error
   }
@@ -344,9 +384,9 @@ export async function fetchBroSoilData(
   lat: number,
   lon: number,
 ): Promise<BroResult> {
-  const [cptSamples, bhrgtResult, geotopSamples, bodemkaartSamples, gwResult] =
+  const [cptResult, bhrgtResult, geotopSamples, bodemkaartSamples, gwResult] =
     await Promise.all([
-      fetchBroCptSamples(lat, lon),
+      fetchBroCptSamples(lat, lon, rdX, rdY),
       fetchBhrGtSamples(lat, lon, rdX, rdY),
       fetchGeoTopSamples(rdX, rdY),
       fetchBodemkaartSoilType(rdX, rdY),
@@ -359,12 +399,15 @@ export async function fetchBroSoilData(
   let samples: BroDepthSample[] | null = null;
   let dataSource: BroResult['dataSource'];
   let boringAfstand: number | undefined;
+  let boringId: string | undefined;
 
   const bhrgtIsLocal = bhrgtResult != null && bhrgtResult.afstand <= BHRGT_LOCAL_KM;
 
-  if (cptSamples) {
-    samples = cptSamples;
+  if (cptResult) {
+    samples = cptResult.samples;
     dataSource = 'cpt';
+    boringAfstand = Math.round(cptResult.afstand * 100) / 100;
+    boringId = cptResult.boringId;
   } else if (bhrgtIsLocal) {
     // Local boring (≤ 2 km): more reliable than regional model or distant boring
     samples = bhrgtResult!.samples;
@@ -398,5 +441,5 @@ export async function fetchBroSoilData(
   samples.forEach((s) => { rhoCounts[s.rho] = (rhoCounts[s.rho] ?? 0) + 1; });
   const dominantRho = parseInt(Object.entries(rhoCounts).sort((a, b) => b[1] - a[1])[0][0]);
 
-  return { samples, dominantRho, groundwaterDepth, gwSource, boringAfstand, source: 'bro', dataSource };
+  return { samples, dominantRho, groundwaterDepth, gwSource, boringAfstand, boringId, source: 'bro', dataSource };
 }

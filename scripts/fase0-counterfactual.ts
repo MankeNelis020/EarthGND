@@ -106,7 +106,9 @@ async function processLocation(loc: typeof FIELD_LOCATIONS[0]): Promise<Location
     log(`  ·  Fetching BRO...`);
     broResult = await fetchBroSoilData(rdX, rdY, geo.lat, geo.lon);
     cacheSet(loc.id, broResult);
-    log(`  ✓  BRO: source=${broResult.source}${broResult.dataSource ? '/' + broResult.dataSource : ''}, dominantRho=${broResult.dominantRho} Ω·m, gwDepth=${broResult.groundwaterDepth ?? 'n/a'} m`);
+    const broId = broResult.boringId ?? '(geen ID)';
+  const broAfstand = broResult.boringAfstand != null ? `${broResult.boringAfstand} km` : 'n/a';
+  log(`  ✓  BRO: source=${broResult.source}${broResult.dataSource ? '/' + broResult.dataSource : ''}, id=${broId}, afstand=${broAfstand}, dominantRho=${broResult.dominantRho} Ω·m, gwDepth=${broResult.groundwaterDepth ?? 'n/a'} m`);
   }
 
   // ── Step 4: Derive lithoClass and two-layer ρ ─────────────────────────────
@@ -180,6 +182,7 @@ async function processLocation(loc: typeof FIELD_LOCATIONS[0]): Promise<Location
       dominantRho: broResult.dominantRho,
       groundwaterDepth: broResult.groundwaterDepth ?? null,
       boringAfstand: broResult.boringAfstand,
+      boringId: broResult.boringId,
       dominantLithoClass,
       rhoDryBro,
       rhoWetBro,
