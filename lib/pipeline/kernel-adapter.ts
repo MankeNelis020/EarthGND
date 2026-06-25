@@ -104,12 +104,13 @@ function solveNRods(
 export function runKernel(input: ValidatedDiepteInput): KernelResult {
   const { rho, targetResistance, groundwaterDepth, ph, electrodeType,
           lintBurialDepth, lintConductorDiameter,
-          lithoClass, rhoDryOverride, hasBroProfile,
+          lithoClass, rhoDryOverride,
           drijfmethode, soilSamples } = input;
 
-  // ─── Two-layer ρ ──────────────────────────────────────────────────────────
+  // ─── Layered/two-layer ρ ──────────────────────────────────────────────────
   const rhoDry = rhoDryOverride ?? (lithoClass ? lithoClassToRhoDry(lithoClass) : Math.round(rho * 2.2));
-  const rhoWet = hasBroProfile  ? rho : (lithoClass ? lithoClassToRhoWet(lithoClass) : Math.round(rho * 0.45));
+  const rhoWet = lithoClass ? lithoClassToRhoWet(lithoClass) : Math.round(rho * 0.45);
+  const layeredSamples = soilSamples && soilSamples.length > 0 ? soilSamples : undefined;
 
   // ─── Seasonal GWT offsets ─────────────────────────────────────────────────
   const gwGunstig   = groundwaterDepth;
@@ -128,9 +129,9 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
     };
   } else {
     scenarios = {
-      gunstig:   calcDiepte({ rho, targetResistance, gwDepth: gwGunstig,   rhoDry, rhoWet }),
-      gemiddeld: calcDiepte({ rho, targetResistance, gwDepth: gwGemiddeld, rhoDry, rhoWet }),
-      ongunstig: calcDiepte({ rho, targetResistance, gwDepth: gwOngunstig, rhoDry, rhoWet }),
+      gunstig:   calcDiepte({ rho, targetResistance, gwDepth: gwGunstig,   rhoDry, rhoWet, soilSamples: layeredSamples }),
+      gemiddeld: calcDiepte({ rho, targetResistance, gwDepth: gwGemiddeld, rhoDry, rhoWet, soilSamples: layeredSamples }),
+      ongunstig: calcDiepte({ rho, targetResistance, gwDepth: gwOngunstig, rhoDry, rhoWet, soilSamples: layeredSamples }),
     };
   }
 

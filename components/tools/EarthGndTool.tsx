@@ -1,7 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { calcDiepte, calcOhmWizard, type BreakerType, type GridSystem, type InstallationType } from '@/lib/calculations';
+import {
+  calcDiepte,
+  calcOhmWizard,
+  lithoClassToRhoDry,
+  lithoClassToRhoWet,
+  type BreakerType,
+  type GridSystem,
+  type InstallationType,
+} from '@/lib/calculations';
 
 type ToolMode = 'ohm' | 'diepte';
 type AccessLevel = 'free' | 'pro';
@@ -113,10 +121,15 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
   }, [shared, rcdPresent, rcdCurrent, breakerType, breakerAmps, voltageLimit]);
 
   const diepteResult = useMemo(() => {
+    const rhoDry = soil.lithoClass ? lithoClassToRhoDry(soil.lithoClass) : undefined;
+    const rhoWet = soil.lithoClass ? lithoClassToRhoWet(soil.lithoClass) : undefined;
     return calcDiepte({
       rho: soil.rho,
       targetResistance,
       rodDiameter: 0.014,
+      gwDepth: soil.groundwaterDepth,
+      rhoDry,
+      rhoWet,
     });
   }, [soil, targetResistance]);
 
@@ -137,21 +150,17 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
 
     try {
       const pdokRes = await fetch(
-        `/api/pdok?postcode=${encodeURIComponent(normalizedPostcode)}${accessLevel === 'pro' ? `&houseNumber=${encodeURIComponent(houseNumber)}` : ''}`
+        `/api/pdok?postcode=${encodeURIComponent(normalizedPostcode)}${accessLevel === 'pro' ? `&huisnummer=${encodeURIComponent(houseNumber)}` : ''}`
       );
       const pdok = await pdokRes.json();
       if (!pdokRes.ok || pdok.error) throw new Error(pdok.error ?? 'PDOK lookup mislukt.');
 
       const broRes = await fetch(
-        `/api/bro?rdX=${pdok.rdX}&rdY=${pdok.rdY}&mode=${accessLevel}`
+        `/api/bro?rdX=${pdok.rdX}&rdY=${pdok.rdY}&lat=${pdok.lat}&lon=${pdok.lon}`
       );
       const bro = await broRes.json();
 
-      const gwRes = await fetch(`/api/groundwater?rdX=${pdok.rdX}&rdY=${pdok.rdY}`);
-      const gw = await gwRes.json();
-
       if (!broRes.ok || bro.error) throw new Error(bro.error ?? 'BRO lookup mislukt.');
-      if (!gwRes.ok || gw.error) throw new Error(gw.error ?? 'Grondwater lookup mislukt.');
 
       if (!bro.hasData) {
         const fallback = MANUAL_SOIL_MAP[soilFallback];
@@ -159,7 +168,7 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
           ...prev,
           lithoClass: fallback.lithoClass,
           rho: fallback.rho,
-          groundwaterDepth: typeof gw.ghgDepthMeters === 'number' ? gw.ghgDepthMeters : prev.groundwaterDepth,
+          groundwaterDepth: typeof bro.groundwaterDepth === 'number' ? bro.groundwaterDepth : prev.groundwaterDepth,
           message: 'BRO bevat geen data op deze locatie. Selecteer handmatig de grondsoort.',
           fallbackRequired: true,
         }));
@@ -168,7 +177,7 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
           ...prev,
           lithoClass: bro.dominantLithoClass,
           rho: bro.dominantRho,
-          groundwaterDepth: typeof gw.ghgDepthMeters === 'number' ? gw.ghgDepthMeters : prev.groundwaterDepth,
+          groundwaterDepth: typeof bro.groundwaterDepth === 'number' ? bro.groundwaterDepth : prev.groundwaterDepth,
           ph: bro.estimatedPh ?? prev.ph,
           message: accessLevel === 'free'
             ? 'Upgrade naar Pro voor exacte bodemdata per adres.'

@@ -224,6 +224,8 @@ export interface DiepteInput {
   gwDepth?: number;       // groundwater table depth (m below surface) — enables two-layer model
   rhoDry?: number;        // dry-zone ρ (above water table)
   rhoWet?: number;        // saturated-zone ρ (below water table)
+  soilSamples?: LayeredSoilSample[]; // depth-varying lithology samples, when available
+  rhoScale?: number;      // uncertainty multiplier for layer-based runs
 }
 
 export interface DiepteResult {
@@ -235,13 +237,16 @@ export interface DiepteResult {
 
 export function calcDiepte(input: DiepteInput): DiepteResult {
   const d = input.rodDiameter ?? 0.014;
-  const { gwDepth, rhoDry, rhoWet, rho } = input;
+  const { gwDepth, rhoDry, rhoWet, rho, soilSamples, rhoScale } = input;
+  const useLayered = gwDepth != null && soilSamples != null && soilSamples.length > 0;
   const useTwoLayer = gwDepth != null && rhoDry != null && rhoWet != null;
 
   let L = 1.0;
   let R = Infinity;
   for (let i = 0; i < 400; i++) {
-    const rhoEff = useTwoLayer
+    const rhoEff = useLayered
+      ? calcLayeredRhoEffective(soilSamples!, gwDepth!, L, rhoScale)
+      : useTwoLayer
       ? calcRhoEffective(rhoDry!, rhoWet!, gwDepth!, L)
       : rho;
     R = (rhoEff / (2 * Math.PI * L)) * Math.log((4 * L) / d);
@@ -387,7 +392,7 @@ export const LITHO_CLASS_TO_RHO_WET: Record<number, number> = {
   2: 40,   // leem, verzadigd
   3: 60,   // zand, verzadigd
   4: 150,  // grind, verzadigd
-  5: 400,  // veen, verzadigd
+  5: 20,   // veen, verzadigd — NL laagveen/polderveen prior; veldmetingen 2026: 5–50 Ω·m
   6: 4000, // rots (nauwelijks verschil)
 };
 
@@ -416,6 +421,68 @@ export function calcRhoEffective(
   // Each rod segment discharges current in parallel — the low-ρ wet zone dominates
   // correctly instead of being overridden by a thin high-ρ dry cap.
   return rodLength / (gwDepth / rhoDry + (rodLength - gwDepth) / rhoWet);
+}
+
+export interface LayeredSoilSample {
+  /** Depth in metres below surface. Negative BRO depths are accepted and normalized. */
+  depth: number;
+  lithoClass: number;
+}
+
+function conductanceLength(
+  length: number,
+  lithoClass: number,
+  saturated: boolean,
+  rhoScale = 1,
+): number {
+  const rho = saturated ? lithoClassToRhoWet(lithoClass) : lithoClassToRhoDry(lithoClass);
+  return length / (rho * rhoScale);
+}
+
+/**
+ * Effective ρ for a depth-varying vertical rod profile.
+ *
+ * BRO/CPT/GeoTOP samples are point observations at depths such as 1, 3, 5, 10 m.
+ * We convert them to representative intervals using midpoints between samples,
+ * split intervals at the groundwater depth, and add conductance per penetrated
+ * segment. This keeps a wet peat/clay layer from being hidden by a single
+ * dominant soil label or an arithmetic average.
+ */
+export function calcLayeredRhoEffective(
+  samples: LayeredSoilSample[],
+  gwDepth: number,
+  rodLength: number,
+  rhoScale = 1,
+): number {
+  const sorted = samples
+    .map((s) => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass }))
+    .filter((s) => Number.isFinite(s.depth) && Number.isFinite(s.lithoClass) && s.depth >= 0)
+    .sort((a, b) => a.depth - b.depth);
+
+  if (!sorted.length) return lithoClassToRhoWet(3);
+
+  let conductance = 0;
+
+  for (let i = 0; i < sorted.length; i++) {
+    const prev = sorted[i - 1];
+    const cur = sorted[i];
+    const next = sorted[i + 1];
+
+    const intervalStart = i === 0 ? 0 : (prev.depth + cur.depth) / 2;
+    const intervalEnd = next ? (cur.depth + next.depth) / 2 : rodLength;
+    const start = Math.max(0, Math.min(rodLength, intervalStart));
+    const end = Math.max(0, Math.min(rodLength, intervalEnd));
+    if (end <= start) continue;
+
+    if (gwDepth > start && gwDepth < end) {
+      conductance += conductanceLength(gwDepth - start, cur.lithoClass, false, rhoScale);
+      conductance += conductanceLength(end - gwDepth, cur.lithoClass, true, rhoScale);
+    } else {
+      conductance += conductanceLength(end - start, cur.lithoClass, end > gwDepth, rhoScale);
+    }
+  }
+
+  return conductance > 0 ? rodLength / conductance : lithoClassToRhoWet(3);
 }
 
 // ─── Risk class (NEN 62305 / EN 50522) ───────────────────────────────────────

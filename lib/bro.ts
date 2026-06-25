@@ -11,8 +11,10 @@ export interface BroDepthSample {
 export interface BroResult {
   samples: BroDepthSample[];
   dominantRho: number;
+  dominantLithoClass: number;
   groundwaterDepth: number | null;
   source: 'bro' | 'fallback';
+  hasData: boolean;
   /** Which data source produced the result, for UI and provenance. */
   dataSource?: 'cpt' | 'bhrgt' | 'geotop' | 'bodemkaart';
   /**
@@ -391,12 +393,23 @@ export async function fetchBroSoilData(
       lithoClass: 3,
       rho: lithoClassToRho(3),
     }));
-    return { samples: fallbackSamples, dominantRho: 125, groundwaterDepth, gwSource, source: 'fallback' };
+    return {
+      samples: fallbackSamples,
+      dominantRho: 125,
+      dominantLithoClass: 3,
+      groundwaterDepth,
+      gwSource,
+      source: 'fallback',
+      hasData: false,
+    };
   }
 
   const rhoCounts: Record<number, number> = {};
   samples.forEach((s) => { rhoCounts[s.rho] = (rhoCounts[s.rho] ?? 0) + 1; });
   const dominantRho = parseInt(Object.entries(rhoCounts).sort((a, b) => b[1] - a[1])[0][0]);
+  const lithoCounts: Record<number, number> = {};
+  samples.forEach((s) => { lithoCounts[s.lithoClass] = (lithoCounts[s.lithoClass] ?? 0) + 1; });
+  const dominantLithoClass = parseInt(Object.entries(lithoCounts).sort((a, b) => b[1] - a[1])[0][0]);
 
-  return { samples, dominantRho, groundwaterDepth, gwSource, boringAfstand, source: 'bro', dataSource };
+  return { samples, dominantRho, dominantLithoClass, groundwaterDepth, gwSource, boringAfstand, source: 'bro', hasData: true, dataSource };
 }
