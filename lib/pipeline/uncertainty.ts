@@ -14,6 +14,7 @@ import { calcDiepte, calcLint } from '@/lib/calculations';
 import type { ValidatedDiepteInput } from './parse';
 import type { UncertaintyBand, ConfidenceLevel } from './types';
 import { UNCERTAINTY_FACTORS } from './config';
+import { resolveRhoWet } from './rho-priors';
 
 function primaryDim(s: { depth?: number; length?: number }): number {
   return s.depth ?? s.length ?? 0;
@@ -31,13 +32,16 @@ export function computeUncertaintyBand(
 
   const gwMid = groundwaterDepth + 1.5; // gemiddeld scenario GWT
 
+  // Resolve base rhoWet once (same NL priors as kernel-adapter) then scale proportionally.
+  const rhoWetBase = resolveRhoWet(input.lithoClass, rho);
+
   function runWithRho(rhoFactor: number): number {
-    const rhoScaled = rho * rhoFactor;
+    const rhoScaled    = rho * rhoFactor;
+    const rhoWetScaled = rhoWetBase * rhoFactor;
 
     if (electrodeType === 'lint') {
-      const burial = lintBurialDepth;
-      const rhoWetScaled  = input.hasBroProfile ? rhoScaled : Math.round(rhoScaled * 0.45);
-      const rhoDryScaled  = input.rhoDryOverride != null
+      const burial      = lintBurialDepth;
+      const rhoDryScaled = input.rhoDryOverride != null
         ? input.rhoDryOverride * rhoFactor
         : Math.round(rhoScaled * 2.2);
       const rhoEff = burial < gwMid ? rhoWetScaled : rhoDryScaled;
@@ -45,13 +49,10 @@ export function computeUncertaintyBand(
       return primaryDim(result);
     }
 
-    // Pen: scale both dry and wet layers proportionally
+    // Pen: scale both dry and wet layers proportionally from their correct base values.
     const rhoDryScaled = input.rhoDryOverride != null
       ? input.rhoDryOverride * rhoFactor
-      : (input.lithoClass ? Math.round(rhoScaled * 2.2) : Math.round(rhoScaled * 2.2));
-    const rhoWetScaled = input.hasBroProfile
-      ? rhoScaled
-      : Math.round(rhoScaled * 0.45);
+      : Math.round(rhoScaled * 2.2);
 
     const result = calcDiepte({ rho: rhoScaled, targetResistance, gwDepth: gwMid, rhoDry: rhoDryScaled, rhoWet: rhoWetScaled });
     return primaryDim(result);

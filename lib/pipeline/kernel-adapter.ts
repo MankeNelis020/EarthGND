@@ -16,7 +16,6 @@ import {
   calcCorrosionClass,
   calcDiepteRiskClass,
   lithoClassToRhoDry,
-  lithoClassToRhoWet,
   calcRhoEffective,
   type DiepteResult,
   type LintResult,
@@ -24,6 +23,7 @@ import {
   type CorrosionClass,
 } from '@/lib/calculations';
 import type { ValidatedDiepteInput } from './parse';
+import { resolveRhoWet } from './rho-priors';
 
 const ROD_DIAMETER = 0.014;
 
@@ -54,11 +54,11 @@ export interface KernelResult {
 export function runKernel(input: ValidatedDiepteInput): KernelResult {
   const { rho, targetResistance, groundwaterDepth, ph, electrodeType,
           lintBurialDepth, lintConductorDiameter,
-          lithoClass, rhoDryOverride, hasBroProfile } = input;
+          lithoClass, rhoDryOverride } = input;
 
   // ─── Two-layer ρ ──────────────────────────────────────────────────────────
   const rhoDry = rhoDryOverride ?? (lithoClass ? lithoClassToRhoDry(lithoClass) : Math.round(rho * 2.2));
-  const rhoWet = hasBroProfile  ? rho : (lithoClass ? lithoClassToRhoWet(lithoClass) : Math.round(rho * 0.45));
+  const rhoWet = resolveRhoWet(lithoClass, rho);
 
   // ─── Seasonal GWT offsets ─────────────────────────────────────────────────
   const gwGunstig   = groundwaterDepth;
