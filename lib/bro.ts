@@ -69,7 +69,11 @@ async function fetchBroCptSamples(lat: number, lon: number, rdX: number, rdY: nu
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         requestReference: 'earthgnd',
-        area: { enclosingCircle: { center: { lat, lon }, radius: 0.5 } },
+        // 0.25 km radius: borings at 0.25–0.5 km often represent a different
+        // geological context (e.g. sand fill vs. native clay/peat nearby).
+        // Tighter radius improves representativeness; fallback to BHR-GT/GeoTOP
+        // covers locations where no CPT exists within this distance.
+        area: { enclosingCircle: { center: { lat, lon }, radius: 0.25 } },
       }),
       signal: AbortSignal.timeout(8000),
     });
@@ -139,7 +143,7 @@ async function fetchBroCptSamples(lat: number, lon: number, rdX: number, rdY: nu
         // Extract RD position from object XML to compute actual distance.
         // Falls back to search radius as conservative estimate if not found.
         const posMatch = cptXml.match(/<gml:pos>([\d. -]+)<\/gml:pos>/);
-        let afstand = 0.5; // conservative fallback: at search radius edge
+        let afstand = 0.25; // conservative fallback: at search radius edge (matches CPT search radius)
         if (posMatch) {
           const parts = posMatch[1].trim().split(/\s+/);
           if (parts.length === 2) {
