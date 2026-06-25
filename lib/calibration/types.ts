@@ -53,6 +53,8 @@ export interface LocationReport {
     dominantRho: number;
     groundwaterDepth: number | null;
     boringAfstand?: number;
+    /** BRO identifier of the selected boring — include to catch non-determinism between runs. */
+    boringId?: string;
     dominantLithoClass: number;
     rhoDryBro: number;
     rhoWetBro: number;
