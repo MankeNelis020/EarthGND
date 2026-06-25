@@ -10,7 +10,7 @@
  * Higher ρ → higher resistance → deeper required depth (conservative).
  */
 
-import { calcDiepte, calcLint } from '@/lib/calculations';
+import { calcDiepte, calcLint, lithoClassToRhoDry, lithoClassToRhoWet } from '@/lib/calculations';
 import type { ValidatedDiepteInput } from './parse';
 import type { UncertaintyBand, ConfidenceLevel } from './types';
 import { UNCERTAINTY_FACTORS } from './config';
@@ -36,24 +36,38 @@ export function computeUncertaintyBand(
 
     if (electrodeType === 'lint') {
       const burial = lintBurialDepth;
-      const rhoWetScaled  = input.hasBroProfile ? rhoScaled : Math.round(rhoScaled * 0.45);
+      const rhoWetScaled  = input.lithoClass
+        ? lithoClassToRhoWet(input.lithoClass) * rhoFactor
+        : Math.round(rhoScaled * 0.45);
       const rhoDryScaled  = input.rhoDryOverride != null
         ? input.rhoDryOverride * rhoFactor
-        : Math.round(rhoScaled * 2.2);
+        : input.lithoClass
+          ? lithoClassToRhoDry(input.lithoClass) * rhoFactor
+          : Math.round(rhoScaled * 2.2);
       const rhoEff = burial < gwMid ? rhoWetScaled : rhoDryScaled;
       const result = calcLint({ rho: rhoEff, targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter });
       return primaryDim(result);
     }
 
-    // Pen: scale both dry and wet layers proportionally
+    // Pen: scale both dry and wet layers proportionally.
     const rhoDryScaled = input.rhoDryOverride != null
       ? input.rhoDryOverride * rhoFactor
-      : (input.lithoClass ? Math.round(rhoScaled * 2.2) : Math.round(rhoScaled * 2.2));
-    const rhoWetScaled = input.hasBroProfile
-      ? rhoScaled
+      : input.lithoClass
+        ? lithoClassToRhoDry(input.lithoClass) * rhoFactor
+        : Math.round(rhoScaled * 2.2);
+    const rhoWetScaled = input.lithoClass
+      ? lithoClassToRhoWet(input.lithoClass) * rhoFactor
       : Math.round(rhoScaled * 0.45);
 
-    const result = calcDiepte({ rho: rhoScaled, targetResistance, gwDepth: gwMid, rhoDry: rhoDryScaled, rhoWet: rhoWetScaled });
+    const result = calcDiepte({
+      rho: rhoScaled,
+      targetResistance,
+      gwDepth: gwMid,
+      rhoDry: rhoDryScaled,
+      rhoWet: rhoWetScaled,
+      soilSamples: input.soilSamples,
+      rhoScale: rhoFactor,
+    });
     return primaryDim(result);
   }
 
