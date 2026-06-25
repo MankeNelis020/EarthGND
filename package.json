@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "verify:geotop": "npx tsx --tsconfig tsconfig.json scripts/verify-geotop.ts"
+    "verify:geotop": "npx tsx --tsconfig tsconfig.json scripts/verify-geotop.ts",
+    "calibrate:fase0": "npx tsx --tsconfig tsconfig.json scripts/fase0-counterfactual.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
