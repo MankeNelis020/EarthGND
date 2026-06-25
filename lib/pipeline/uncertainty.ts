@@ -14,6 +14,7 @@ import { calcDiepte, calcLint, lithoClassToRhoDry, lithoClassToRhoWet } from '@/
 import type { ValidatedDiepteInput } from './parse';
 import type { UncertaintyBand, ConfidenceLevel } from './types';
 import { UNCERTAINTY_FACTORS } from './config';
+import { resolveRhoWet } from './rho-priors';
 
 function primaryDim(s: { depth?: number; length?: number }): number {
   return s.depth ?? s.length ?? 0;
@@ -31,15 +32,16 @@ export function computeUncertaintyBand(
 
   const gwMid = groundwaterDepth + 1.5; // gemiddeld scenario GWT
 
+  // Resolve base rhoWet once (same NL priors as kernel-adapter) then scale proportionally.
+  const rhoWetBase = resolveRhoWet(input.lithoClass, rho);
+
   function runWithRho(rhoFactor: number): number {
-    const rhoScaled = rho * rhoFactor;
+    const rhoScaled    = rho * rhoFactor;
+    const rhoWetScaled = rhoWetBase * rhoFactor;
 
     if (electrodeType === 'lint') {
-      const burial = lintBurialDepth;
-      const rhoWetScaled  = input.lithoClass
-        ? lithoClassToRhoWet(input.lithoClass) * rhoFactor
-        : Math.round(rhoScaled * 0.45);
-      const rhoDryScaled  = input.rhoDryOverride != null
+      const burial      = lintBurialDepth;
+      const rhoDryScaled = input.rhoDryOverride != null
         ? input.rhoDryOverride * rhoFactor
         : input.lithoClass
           ? lithoClassToRhoDry(input.lithoClass) * rhoFactor
@@ -55,9 +57,7 @@ export function computeUncertaintyBand(
       : input.lithoClass
         ? lithoClassToRhoDry(input.lithoClass) * rhoFactor
         : Math.round(rhoScaled * 2.2);
-    const rhoWetScaled = input.lithoClass
-      ? lithoClassToRhoWet(input.lithoClass) * rhoFactor
-      : Math.round(rhoScaled * 0.45);
+    // rhoWetScaled computed in outer scope via resolveRhoWet (NL empirische priors)
 
     const result = calcDiepte({
       rho: rhoScaled,

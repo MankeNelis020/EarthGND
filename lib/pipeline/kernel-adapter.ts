@@ -22,7 +22,6 @@ import {
   calcCorrosionClass,
   calcDiepteRiskClass,
   lithoClassToRhoDry,
-  lithoClassToRhoWet,
   calcRhoEffective,
   type DiepteResult,
   type LintResult,
@@ -31,6 +30,7 @@ import {
 } from '@/lib/calculations';
 import type { ValidatedDiepteInput } from './parse';
 import { calcZMax, type DriveMethod, type ZMaxBand, type RefusalLayer } from './driveability';
+import { resolveRhoWet } from './rho-priors';
 
 const ROD_DIAMETER = 0.014;
 
@@ -109,7 +109,7 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
 
   // ─── Layered/two-layer ρ ──────────────────────────────────────────────────
   const rhoDry = rhoDryOverride ?? (lithoClass ? lithoClassToRhoDry(lithoClass) : Math.round(rho * 2.2));
-  const rhoWet = lithoClass ? lithoClassToRhoWet(lithoClass) : Math.round(rho * 0.45);
+  const rhoWet = resolveRhoWet(lithoClass, rho);
   const layeredSamples = soilSamples && soilSamples.length > 0 ? soilSamples : undefined;
 
   // ─── Seasonal GWT offsets ─────────────────────────────────────────────────

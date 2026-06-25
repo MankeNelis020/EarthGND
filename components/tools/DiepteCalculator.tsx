@@ -8,7 +8,7 @@ import type { DiepteRapportProps } from '@/components/pdf/DiepteRapportTemplate'
 import type { User } from '@supabase/supabase-js';
 import { PostcodeInput } from './PostcodeInput';
 import { useCalculator } from '@/lib/context/CalculatorContext';
-import { calcRhoEffective } from '@/lib/calculations';
+import { calcRhoEffective, lithoClassToRhoDry } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
 import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
 
@@ -615,13 +615,20 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   const isZonderAardlek = ZONDER_AARDLEK_VALUES.has(targetResistance);
 
   // ─── Step 1: ρ-koppeling fix ──────────────────────────────────────────────
-  // lithoClass for the legacy legend trigger (kept as-is to avoid UI regressions).
-  const lithoClass = soilData?.samples?.[0]?.lithoClass ?? null;
-  // Dry-zone ρ: average actual rho of BRO samples shallower than GHG.
+  // Dominant lithoClass: mode across all BRO samples, not just the surface layer.
+  // This is more representative for deeper grounding calculations.
+  const lithoClass = (() => {
+    if (!soilData?.samples?.length) return null;
+    const counts: Record<number, number> = {};
+    for (const s of soilData.samples) counts[s.lithoClass] = (counts[s.lithoClass] ?? 0) + 1;
+    return parseInt(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);
+  })();
+  // Dry-zone ρ: average lithoClassToRhoDry of BRO samples shallower than GHG.
+  // Uses the DRY table (not the GENERAL table) for physically correct dry-zone ρ.
   // When no samples are above GHG, fall back to null (API uses ratio fallback).
   const samplesAboveGhg = (soilData?.samples ?? []).filter(s => Math.abs(s.depth) < groundwaterDepth);
   const rhoDryProfile = samplesAboveGhg.length > 0
-    ? Math.round(samplesAboveGhg.reduce((sum, s) => sum + s.rho, 0) / samplesAboveGhg.length)
+    ? Math.round(samplesAboveGhg.reduce((sum, s) => sum + lithoClassToRhoDry(s.lithoClass), 0) / samplesAboveGhg.length)
     : null;
   const hasBroProfile = soilData != null;
 
