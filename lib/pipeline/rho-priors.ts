@@ -11,15 +11,17 @@
  *
  * NL saturated peat (veen, lithoClass=5):
  *   Kernel table value: 400 Ω·m — based on mineral/semi-dry peat references.
- *   NL shallow peat (laagveen, gedraineerd poldergebied): 10–40 Ω·m.
- *   Geometric mean prior: 20 Ω·m (used until field calibration provides n ≥ 5).
+ *   NL shallow peat (laagveen, gedraineerd poldergebied): 5–20 Ω·m.
+ *   Field measurement Boskoop (veen/klei, GWT 0.3 m): ρ_apparent 10–11 Ω·m at all depths.
+ *   Literature geometric mean for NL laagveen: ~10 Ω·m (CROW Handboek Aarding, TNO 2004).
+ *   Prior: 10 Ω·m. Field calibration (Fase 1, n ≥ 5) may refine further.
  */
 
 import { lithoClassToRhoWet } from '@/lib/calculations';
 
 /** Corrected rhoWet priors for NL conditions, keyed by lithoClass. */
 export const NL_RHO_WET_PRIOR: Partial<Record<number, number>> = {
-  5: 20, // veen verzadigd: NL geo.mean 10–40 Ω·m; kernel tabel 400 Ω·m is voor mineraal/droog veen
+  5: 10, // veen verzadigd: NL laagveen 5–20 Ω·m, geo.mean ~10 Ω·m (CROW/TNO); kernel tabel 400 is mineraal/droog
 };
 
 /**
