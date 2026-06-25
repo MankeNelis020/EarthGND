@@ -24,9 +24,9 @@ import { wgs84ToRd } from '../lib/rd';
 import { fetchBroSoilData } from '../lib/bro';
 import {
   lithoClassToRhoDry,
-  lithoClassToRhoWet,
   calcRhoEffective,
 } from '../lib/calculations';
+import { resolveRhoWet } from '../lib/pipeline/rho-priors';
 import { FIELD_LOCATIONS } from '../lib/calibration/field-data';
 import type { LocationReport, PointReport, BiasStats, Fase0Report } from '../lib/calibration/types';
 
@@ -122,23 +122,15 @@ async function processLocation(loc: typeof FIELD_LOCATIONS[0]): Promise<Location
   const dominantLithoClass =
     parseInt(Object.entries(classCount).sort((a, b) => Number(b[1]) - Number(a[1]))[0]?.[0] ?? '3');
 
-  // These mirror exactly what kernel-adapter.ts computes for hasBroProfile=true:
-  //   rhoDry = lithoClassToRhoDry(lithoClass) [kernel uses lithoClass path when hasBroProfile=false]
-  //   rhoWet = rho (= dominantRho when hasBroProfile=true)
-  //
-  // But when hasBroProfile=true, kernel sets rhoWet = rho = dominantRho.
-  // dominantRho = lithoClassToRho(lithoClass), not lithoClassToRhoWet(lithoClass).
-  // This is the key source of error for veen (2000 vs ~10 Ω·m).
+  // Mirrors kernel-adapter.ts (fixed): resolveRhoWet applies WET table + NL priors.
+  // rhoDry uses DRY table directly (same as DiepteCalculator after rhoDryProfile fix).
   const rhoDryBro = lithoClassToRhoDry(dominantLithoClass);
-  const rhoWetBro = broResult.dominantRho; // what kernel uses when hasBroProfile=true
+  const rhoWetBro = resolveRhoWet(dominantLithoClass, broResult.dominantRho);
 
   // GWT: prefer BRO measurement well result; fall back to on-site observation.
   const gwDepthM = broResult.groundwaterDepth ?? loc.groundwaterDepthM;
 
   log(`  ·  lithoClass=${dominantLithoClass}, rhoDry_bro=${rhoDryBro}, rhoWet_bro=${rhoWetBro}, gw=${gwDepthM} m`);
-  if (LITHO_FROM_RHO[broResult.dominantRho] === 5) {
-    log(`  ⚠  veen detected: rhoWet_bro=${rhoWetBro} Ω·m vs expected ~10–20 Ω·m for saturated NL peat`);
-  }
 
   // ── Step 5: Compute PointReport for each measurement depth ───────────────
   const points: PointReport[] = [];
