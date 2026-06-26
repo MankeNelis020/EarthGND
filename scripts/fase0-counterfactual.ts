@@ -83,7 +83,8 @@ async function processLocation(loc: typeof FIELD_LOCATIONS[0]): Promise<Location
   log(`\n  ${loc.label} (${loc.address})`);
 
   // ── Step 1: Geocode ──────────────────────────────────────────────────────
-  const geo = await forwardGeocode(loc.address);
+  // Use coords directly if provided (GPS location without street address)
+  const geo = loc.coords ?? await forwardGeocode(loc.address);
   if (!geo) {
     log(`  ✗  Geocoding failed`);
     return {
