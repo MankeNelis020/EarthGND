@@ -18,6 +18,8 @@ export interface FieldLocation {
   id: string;
   label: string;
   address: string;             // NL address for PDOK geocoding
+  /** Optionele directe coördinaten (bypast PDOK geocoding). */
+  coords?: { lat: number; lon: number };
   groundwaterDepthM: number;   // observed on-site GWT, m below surface
   soilDescription: string;     // e.g. "veen/klei" — from PDF/monteur notes
   depthCurve: DepthMeasurement[];
