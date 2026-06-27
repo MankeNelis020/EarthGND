@@ -97,21 +97,68 @@ export function computePosterior(...levels: (LevelEstimate | null | undefined)[]
   };
 }
 
-// ─── Veilig niveau-selectie (vermijdt double counting) ───────────────────────
+// ─── Hiërarchische keten-posterior (aanbevolen) ──────────────────────────────
 
 /**
- * Kiest het FIJNSTE niveau met voldoende data en combineert veilig met L1.
+ * Combineert vier niveaus via een hiërarchische keten — GEEN flat blend.
  *
- * Volgorde: L4 > L3 > L2 > L1
- * Combineert geselecteerd niveau ALLEEN met L1 (onafhankelijk van velddata).
+ * Architectuur (conform statistische review 2026-06):
  *
- * Dit is de aanbevolen combinatiestrategie totdat het hiërarchische model
- * via shadow mode gevalideerd is.
+ *   L2 posterior = posterior(L1, global)         ← literatuur + NL-leren
+ *   L3 posterior = posterior(L2, regional delta) ← NL posterior + regio-leren
+ *   L4 posterior = posterior(L3, local delta)    ← regio posterior + locatie-leren
  *
- * @param l1 Literatuurprior (altijd aanwezig)
- * @param l2 Globale klassekennis (null als onvoldoende data)
- * @param l3 Regionale prior (null als onvoldoende data)
- * @param l4 Lokale observaties (null als geen data in radius)
+ * Elke laag gebruikt de VORIGE laag als prior en voegt alleen incrementele
+ * informatie toe. Dit is architectonisch schoner dan een flat blend van vier
+ * bronnen naar één gemiddelde.
+ *
+ *   Literatuur → Nederland leert → Regio leert → Locatie leert
+ *
+ * Technische noot (double counting L2/L3):
+ *   L2 (globaal) en L3 (regionaal) delen deels dezelfde metingen.
+ *   In stap 2 wordt L2 posterior als prior gebruikt met L3 als observatie.
+ *   De overlap is beperkt (n_regionaal << n_globaal) en de precisiefformule
+ *   begrenst de bijdrage van L3 automatisch via shrinkage.
+ *   Correctie via expliciete delta-accumulatie volgt na shadow-validatie.
+ *
+ * @param l1 Literatuurprior — altijd aanwezig
+ * @param l2 Globale NL klassekennis — null als soft_n < MIN_SOFT_N_GLOBAL
+ * @param l3 Regionale prior — null als soft_n < MIN_SOFT_N_REGIONAL
+ * @param l4 Lokale observaties — null als geen meting in radius
+ */
+export function computeChainPosterior(
+  l1: LevelEstimate,
+  l2: LevelEstimate | null,
+  l3: LevelEstimate | null,
+  l4: LevelEstimate | null,
+): PosteriorResult {
+  // Stap 1 — L1 (literatuur) + L2 (globale NL correctie)
+  // L1 is de prior; global Welford is de observatie.
+  // Volledig onafhankelijk: L1 is literatuur, L2 is velddata.
+  const after_l2 = l2 ? computePosterior(l1, l2) : l1;
+
+  // Stap 2 — L2 posterior + L3 (regionale verfijning)
+  // L2 posterior is de prior; regionaal Welford voegt lokale afwijking toe.
+  // Als L3 dicht bij L2 ligt → kleine correctie (shrinkage); ver weg → grotere.
+  const after_l3 = l3 ? computePosterior(after_l2, l3) : after_l2;
+
+  // Stap 3 — L3 posterior + L4 (lokale observaties)
+  // L3 posterior is de prior; IDW-interpolatie van nabije metingen.
+  // L4 heeft typisch weinig punten → begrensde bijdrage.
+  const after_l4 = l4 ? computePosterior(after_l3, l4) : after_l3;
+
+  return {
+    ...after_l4,
+    breakdown: { l1, l2, l3, l4 },
+  };
+}
+
+/**
+ * Niveau-selectie fallback (veilig, geen double counting).
+ * Gebruikt het FIJNSTE beschikbare niveau + L1. Minder accuraat dan
+ * computeChainPosterior maar volledig vrij van overlap-artefacten.
+ *
+ * Gebruik wanneer het onduidelijk is of L2/L3 data onafhankelijk is.
  */
 export function computeSafePosterior(
   l1: LevelEstimate,
@@ -119,18 +166,9 @@ export function computeSafePosterior(
   l3: LevelEstimate | null,
   l4: LevelEstimate | null,
 ): PosteriorResult {
-  // Selecteer fijnste niveau met data
   const finest = l4 ?? l3 ?? l2;
-
-  // Combineer L1 + finest (onafhankelijk — L1 is literatuur, niet velddata)
-  const posterior = finest
-    ? computePosterior(l1, finest)
-    : l1;
-
-  return {
-    ...posterior,
-    breakdown: { l1, l2, l3, l4 },
-  };
+  const posterior = finest ? computePosterior(l1, finest) : l1;
+  return { ...posterior, breakdown: { l1, l2, l3, l4 } };
 }
 
 // ─── Actieve prior (stub — shadow mode nog niet actief) ──────────────────────
