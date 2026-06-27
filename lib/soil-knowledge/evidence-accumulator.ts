@@ -176,15 +176,17 @@ export async function processMeting(
       const currentGlobal = await fetchWelford(supabase, 'global_prior', { litho_class: k });
       const updatedGlobal = welfordUpdate(currentGlobal, weight, rho);
 
-      await supabase.from('global_prior').upsert({
-        litho_class: k,
-        total_weight: updatedGlobal.total_weight,
-        welford_mean: updatedGlobal.welford_mean,
-        welford_m2:   updatedGlobal.welford_m2,
+      const { error: globalError } = await supabase.from('global_prior').upsert({
+        litho_class:     k,
+        total_weight:    updatedGlobal.total_weight,
+        welford_mean:    updatedGlobal.welford_mean,
+        welford_m2:      updatedGlobal.welford_m2,
         posterior_mu:    updatedGlobal.welford_mean,
         posterior_sigma: computePosteriorSigma(updatedGlobal),
-        last_updated: new Date().toISOString(),
+        last_updated:    new Date().toISOString(),
       }, { onConflict: 'litho_class' });
+
+      if (globalError) throw new Error(`global_prior upsert fout (litho_class=${k}): ${globalError.message}`);
 
       // L3: regional_prior (alleen als GPS beschikbaar)
       if (meting.lat != null && meting.lon != null) {
@@ -198,17 +200,19 @@ export async function processMeting(
         );
         const updatedRegional = welfordUpdate(currentRegional, weight, rho);
 
-        await supabase.from('regional_prior').upsert({
-          rd_grid_x: gridX,
-          rd_grid_y: gridY,
-          litho_class: k,
-          total_weight: updatedRegional.total_weight,
-          welford_mean: updatedRegional.welford_mean,
-          welford_m2:   updatedRegional.welford_m2,
+        const { error: regionalError } = await supabase.from('regional_prior').upsert({
+          rd_grid_x:       gridX,
+          rd_grid_y:       gridY,
+          litho_class:     k,
+          total_weight:    updatedRegional.total_weight,
+          welford_mean:    updatedRegional.welford_mean,
+          welford_m2:      updatedRegional.welford_m2,
           posterior_mu:    updatedRegional.welford_mean,
           posterior_sigma: computePosteriorSigma(updatedRegional),
-          last_updated: new Date().toISOString(),
+          last_updated:    new Date().toISOString(),
         }, { onConflict: 'rd_grid_x,rd_grid_y,litho_class' });
+
+        if (regionalError) throw new Error(`regional_prior upsert fout (grid=${gridX},${gridY} litho=${k}): ${regionalError.message}`);
       }
     }
   }

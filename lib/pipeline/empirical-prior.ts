@@ -76,8 +76,8 @@ export async function resolveEmpiricalRhoWet(
       .from('regional_prior')
       .select('total_weight, welford_mean, welford_m2')
       .eq('litho_class', lithoClass)
-      .eq('grid_x', gx)
-      .eq('grid_y', gy)
+      .eq('rd_grid_x', gx)
+      .eq('rd_grid_y', gy)
       .maybeSingle();
 
     if (regional) {
