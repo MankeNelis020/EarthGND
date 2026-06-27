@@ -71,7 +71,6 @@ export async function POST(request: NextRequest) {
   const { data, error } = await admin
     .from('pendiepte_metingen')
     .insert({
-      source_type:         'manual_import',
       status:              'confirmed',
       lat,
       lon,
@@ -87,13 +86,13 @@ export async function POST(request: NextRequest) {
       achieved_ra:         lastPoint?.ra            ?? null,
       installed_depth:     lastPoint?.depth         ?? null,
       electrode_type:      'pen',
+      aantal_pennen:       1,
+      rods:                [],
       measurement_quality: body.measurement_quality ?? 'goed',
-      electrode_count:     1,
       bro_litho_class:     body.bro_litho_class     ?? null,
       bro_gw_depth:        body.bro_gw_depth        ?? null,
       field_gw_depth:      body.field_gw_depth      ?? null,
       notes:               body.notes               ?? null,
-      version_tag:         '2026-06',
       submitted_at:        new Date().toISOString(),
       confirmed_at:        new Date().toISOString(),
     })
