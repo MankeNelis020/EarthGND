@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { processMeting } from '@/lib/soil-knowledge/evidence-accumulator';
 
 export const runtime = 'nodejs';
 
@@ -26,7 +28,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
   // Check meting is in submitted state
   const { data: meting } = await supabase
     .from('pendiepte_metingen')
-    .select('status')
+    .select('id, status')
     .eq('calculation_id', uuid)
     .single();
 
@@ -44,6 +46,17 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     .eq('calculation_id', uuid);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Kennisbank verwerking — fire-and-forget, blokkeert de response niet.
+  // processMeting vereist service role (bypasses RLS voor soil_evidence/global_prior/regional_prior).
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
+  );
+  processMeting(meting.id, admin).catch(e =>
+    console.error('[confirm/processMeting]', e),
+  );
 
   return NextResponse.json({ ok: true });
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { runGroundingAssessment } from '@/lib/pipeline';
+import { logShadowPrediction } from '@/lib/soil-knowledge/shadow-logger';
 import type { RawDiepteInput } from '@/lib/pipeline/types';
 
 export const runtime = 'nodejs';
@@ -57,6 +58,13 @@ export async function POST(request: NextRequest) {
   }).select('id').single();
 
   if (calcDbError) console.error('[diepte/calculate] DB insert failed:', calcDbError.message, calcDbError.details, calcDbError.hint);
+
+  // Shadow mode logging — fire-and-forget, blokkeert de response niet.
+  if (calcRow?.id) {
+    logShadowPrediction(calcRow.id, typeof body.lithoClass === 'number' ? body.lithoClass : null).catch(e =>
+      console.error('[diepte/calculate] shadow log mislukt:', e),
+    );
+  }
 
   return NextResponse.json({
     ...kernelResult,  // scenarios, electrodeType, rhoDry, rhoWet, gwGunstig/Gemiddeld/Ongunstig, riskClass, corrosionClass, parallelAdvice
