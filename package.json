@@ -9,6 +9,10 @@
     "lint": "next lint",
     "test:pendiepte": "npx tsx --tsconfig tsconfig.json scripts/pendiepte-model-check.ts",
     "verify:geotop": "npx tsx --tsconfig tsconfig.json scripts/verify-geotop.ts",
+    "calibrate:fase0": "npx tsx --tsconfig tsconfig.json scripts/fase0-counterfactual.ts",
+    "calibrate:depth": "npx tsx --tsconfig tsconfig.json scripts/fase0-depth-verify.ts",
+    "import:metingen": "npx tsx --tsconfig tsconfig.json scripts/import-measurements.ts",
+    "golden-set": "npx tsx --tsconfig tsconfig.json scripts/golden-set-verify.ts",
     "i18n:check": "npx tsx scripts/check-i18n-keys.ts"
   },
   "dependencies": {

@@ -24,6 +24,18 @@ async function getUserIdByCustomer(customerId: string): Promise<string | null> {
   return data?.id ?? null;
 }
 
+/** Returns true if this Stripe event was already processed (idempotency guard). */
+async function eventAlreadyProcessed(db: ReturnType<typeof adminSupabase>, eventId: string, userId: string): Promise<boolean> {
+  const { data } = await db
+    .from('credit_transactions')
+    .select('id')
+    .eq('user_id', userId)
+    .ilike('description', `%[stripe:${eventId}]%`)
+    .limit(1)
+    .single();
+  return data != null;
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const sig = request.headers.get('stripe-signature') ?? '';
@@ -59,7 +71,7 @@ export async function POST(request: NextRequest) {
         const sessionMode = session.mode as string;
 
         if (sessionMode === 'subscription') {
-          // Retrieve line items to get price ID
+          // Subscription activation — SET credits_left (idempotent: same value on replay)
           const fullSession = await getStripe().checkout.sessions.retrieve(sessionId, {
             expand: ['line_items'],
           });
@@ -79,10 +91,12 @@ export async function POST(request: NextRequest) {
             user_id: userId,
             type: 'purchase',
             credits: planCredits,
-            description: `Abonnement activatie — ${found?.plan.label ?? planKey} plan`,
+            description: `Abonnement activatie — ${found?.plan.label ?? planKey} plan [stripe:${event.id}]`,
           });
         } else {
-          // One-time credit purchase
+          // One-time credit purchase — addCredits is additive, so guard against replay
+          if (await eventAlreadyProcessed(db, event.id, userId)) break;
+
           const fullSession = await getStripe().checkout.sessions.retrieve(sessionId, {
             expand: ['line_items'],
           });
@@ -90,7 +104,7 @@ export async function POST(request: NextRequest) {
           const creditEntry = Object.entries(LOSSE_CREDITS).find(([, c]) => c.stripe_price_id === priceId);
           if (creditEntry) {
             const [, credit] = creditEntry;
-            await addCredits(userId, credit.credits, `Credits aankoop — ${credit.credits} credits`);
+            await addCredits(userId, credit.credits, `Credits aankoop — ${credit.credits} credits [stripe:${event.id}]`);
           }
         }
         break;
@@ -103,9 +117,9 @@ export async function POST(request: NextRequest) {
         const userId = await getUserIdByCustomer(customerId);
         if (!userId) break;
 
+        // Downgrade to gratis — preserve credits_left (may include loose-purchase bundles)
         await db.from('profiles').update({
           plan: 'gratis',
-          credits_left: 0,
           stripe_subscription_id: null,
         }).eq('id', userId);
         break;
@@ -135,9 +149,8 @@ export async function POST(request: NextRequest) {
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Record<string, unknown>;
         const customerEmail = invoice.customer_email as string | undefined;
-        if (!customerEmail) break;
+        if (!customerEmail || !process.env.RESEND_API_KEY) break;
 
-        if (!process.env.RESEND_API_KEY) break;
         const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL ?? 'EarthGND <noreply@earthgnd.com>',
@@ -156,7 +169,8 @@ export async function POST(request: NextRequest) {
       }
     }
   } catch {
-    // Webhook errors are non-fatal; always acknowledge receipt to Stripe
+    // Webhook handler errors are swallowed to always return 200 to Stripe.
+    // Stripe will retry on non-200 responses, which could cause duplicate processing.
   }
 
   return NextResponse.json({ received: true });

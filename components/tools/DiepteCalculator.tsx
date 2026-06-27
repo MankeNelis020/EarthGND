@@ -8,7 +8,7 @@ import type { DiepteRapportProps } from '@/components/pdf/DiepteRapportTemplate'
 import type { User } from '@supabase/supabase-js';
 import { PostcodeInput } from './PostcodeInput';
 import { useCalculator } from '@/lib/context/CalculatorContext';
-import { calcRhoEffective } from '@/lib/calculations';
+import { calcRhoEffective, lithoClassToRhoDry } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
 import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
 
@@ -613,16 +613,16 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   const isPro = profile !== null && profile.plan !== 'gratis';
 
   const isZonderAardlek = ZONDER_AARDLEK_VALUES.has(targetResistance);
-  const activeRho = soilData?.dominantRho ?? rho;
 
   // ─── Step 1: ρ-koppeling fix ──────────────────────────────────────────────
   // lithoClass for the legacy legend trigger (kept as-is to avoid UI regressions).
   const lithoClass = soilData?.samples?.[0]?.lithoClass ?? null;
-  // Dry-zone ρ: average actual rho of BRO samples shallower than GHG.
+  // Dry-zone ρ: average lithoClassToRhoDry of BRO samples shallower than GHG.
+  // Uses the DRY table (not the GENERAL table) for physically correct dry-zone ρ.
   // When no samples are above GHG, fall back to null (API uses ratio fallback).
   const samplesAboveGhg = (soilData?.samples ?? []).filter(s => Math.abs(s.depth) < groundwaterDepth);
   const rhoDryProfile = samplesAboveGhg.length > 0
-    ? Math.round(samplesAboveGhg.reduce((sum, s) => sum + s.rho, 0) / samplesAboveGhg.length)
+    ? Math.round(samplesAboveGhg.reduce((sum, s) => sum + lithoClassToRhoDry(s.lithoClass), 0) / samplesAboveGhg.length)
     : null;
   const hasBroProfile = soilData != null;
 
@@ -635,7 +635,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rho: activeRho,
+          rho: rho,
           targetResistance,
           groundwaterDepth,
           ph,
@@ -859,11 +859,11 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             {soilData && <span className="ml-2 text-green-400">← BRO: {soilData.dominantRho} Ω·m</span>}
           </p>
           <div className="flex items-center gap-3">
-            <input type="range" min="10" max="5000" step="10" value={activeRho}
+            <input type="range" min="10" max="5000" step="10" value={rho}
               onChange={e => { setRho(Number(e.target.value)); setCalcResult(null); }}
               className="flex-1 accent-[#E8761A]" />
             <div className="flex items-center gap-1">
-              <input type="number" min="1" value={activeRho}
+              <input type="number" min="1" value={rho}
                 onChange={e => { setRho(Number(e.target.value)); setCalcResult(null); }}
                 className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none" />
               <span className="text-xs text-white/60">Ω·m</span>
@@ -1206,7 +1206,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   inputValues={{
                     ...(postcode ? { 'Postcode': postcode } : {}),
                     'Elektrodetype': calcResult.electrodeType === 'pen' ? 'Verticale pen / staaf' : 'Horizontaal lint',
-                    'Bodemweerstand ρ': `${activeRho} Ω·m`,
+                    'Bodemweerstand ρ': `${rho} Ω·m`,
                     'Grondwaterstand (GHG)': `${groundwaterDepth} m`,
                     'pH bodem': ph,
                   }}
@@ -1230,7 +1230,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   diepteCalcResult={{
                     postcode: postcode || undefined,
                     electrodeType: calcResult.electrodeType,
-                    rho: activeRho,
+                    rho: rho,
                     groundwaterDepth,
                     ph,
                     targetResistance,
