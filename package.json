@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "verify:geotop": "npx tsx --tsconfig tsconfig.json scripts/verify-geotop.ts",
-    "calibrate:fase0": "npx tsx --tsconfig tsconfig.json scripts/fase0-counterfactual.ts"
+    "calibrate:fase0": "npx tsx --tsconfig tsconfig.json scripts/fase0-counterfactual.ts",
+    "calibrate:depth": "npx tsx --tsconfig tsconfig.json scripts/fase0-depth-verify.ts",
+    "import:metingen": "npx tsx --tsconfig tsconfig.json scripts/import-measurements.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
