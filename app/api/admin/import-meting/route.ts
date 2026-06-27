@@ -64,7 +64,16 @@ export async function POST(request: NextRequest) {
     if (geo) { lat = geo.lat; lon = geo.lon; }
   }
 
-  const rd = lat != null && lon != null ? wgs84ToRd(lat, lon) : null;
+  // Valideer dat lat/lon binnen Nederland liggen voordat we RD berekenen.
+  const nlLat = lat != null && lat >= 50.5 && lat <= 53.7;
+  const nlLon = lon != null && lon >= 3.2  && lon <= 7.3;
+  const rd = (nlLat && nlLon) ? wgs84ToRd(lat!, lon!) : null;
+
+  // Extra guard: RD-coördinaten moeten binnen PostgreSQL integer-bereik én NL-grenzen vallen.
+  const PG_INT_MAX = 2_147_483_647;
+  const rdX = rd && Number.isFinite(rd.rdX) && Math.abs(rd.rdX) <= PG_INT_MAX ? Math.round(rd.rdX) : null;
+  const rdY = rd && Number.isFinite(rd.rdY) && Math.abs(rd.rdY) <= PG_INT_MAX ? Math.round(rd.rdY) : null;
+
   const lastPoint = body.depthCurve.at(-1);
 
   // ── Insert ─────────────────────────────────────────────────────────────────
@@ -76,8 +85,8 @@ export async function POST(request: NextRequest) {
       lon,
       gps_accuracy_m:      null,
       location_source:     lat != null ? 'manual_import' : 'address',
-      rd_x:                rd ? Math.round(rd.rdX) : null,
-      rd_y:                rd ? Math.round(rd.rdY) : null,
+      rd_x:                rdX,
+      rd_y:                rdY,
       postcode:            body.postcode            ?? null,
       straatnaam:          body.straatnaam          ?? null,
       huisnummer:          body.huisnummer ? String(body.huisnummer) : null,
