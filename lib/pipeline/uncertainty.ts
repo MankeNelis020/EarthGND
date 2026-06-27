@@ -10,7 +10,7 @@
  * Higher ρ → higher resistance → deeper required depth (conservative).
  */
 
-import { calcDiepte, calcLint, lithoClassToRhoDry, lithoClassToRhoWet } from '@/lib/calculations';
+import { calcDiepte, calcLint, lithoClassToRhoDry } from '@/lib/calculations';
 import type { ValidatedDiepteInput } from './parse';
 import type { UncertaintyBand, ConfidenceLevel } from './types';
 import { UNCERTAINTY_FACTORS } from './config';
