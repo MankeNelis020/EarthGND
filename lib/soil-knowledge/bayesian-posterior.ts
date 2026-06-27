@@ -21,7 +21,7 @@
  *   Zie: statistische-review.md voor volledige analyse en aanbeveling.
  */
 
-import { LITERATURE_PRIOR, MIN_SOFT_N_GLOBAL, MIN_SOFT_N_REGIONAL, GRIND_CLASS } from './priors';
+import { LITERATURE_PRIOR, MIN_SOFT_N_GLOBAL, GRIND_CLASS } from './priors';
 import type { LevelEstimate, PosteriorResult, WelfordState } from './types';
 
 // ─── Utility: LevelEstimate uit literatuurprior ──────────────────────────────

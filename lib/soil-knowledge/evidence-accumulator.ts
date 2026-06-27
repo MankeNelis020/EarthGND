@@ -14,6 +14,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { wgs84ToRd } from '@/lib/rd';
 import { analyzeDepthCurve } from './reverse-engine';
 import { isLearningBlocked } from './bayesian-posterior';
@@ -22,7 +23,7 @@ import type { SoilEvidenceRow, WelfordState } from './types';
 
 // ─── Supabase client (service role — bypasses RLS) ───────────────────────────
 
-function getServiceClient() {
+function getServiceClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('SUPABASE env vars niet geconfigureerd');
@@ -51,9 +52,9 @@ function welfordUpdate(state: WelfordState, weight: number, value: number): Welf
 // ─── Database helpers ─────────────────────────────────────────────────────────
 
 async function fetchWelford(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   table: string,
-  filter: Record<string, unknown>,
+  filter: Record<string, string | number | boolean>,
 ): Promise<WelfordState> {
   const query = supabase
     .from(table)
@@ -61,7 +62,7 @@ async function fetchWelford(
 
   let q = query;
   for (const [col, val] of Object.entries(filter)) {
-    q = (q as any).eq(col, val);
+    q = q.eq(col, val);
   }
 
   const { data } = await q.maybeSingle();
@@ -89,13 +90,11 @@ function computePosteriorSigma(state: WelfordState): number | null {
  * @param metingId UUID van pendiepte_metingen
  * @param supabaseClient optioneel — anders wordt service-role client aangemaakt
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function processMeting(
   metingId: string,
-  supabaseClient?: any,
+  supabaseClient?: SupabaseClient,
 ): Promise<{ pointsProcessed: number; evidenceInserted: number }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase: any = supabaseClient ?? getServiceClient();
+  const supabase = supabaseClient ?? getServiceClient();
 
   // ── 1. Laad meting ──────────────────────────────────────────────────────
   const { data: meting, error } = await supabase
