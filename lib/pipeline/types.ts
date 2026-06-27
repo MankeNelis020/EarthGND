@@ -53,6 +53,7 @@ export interface ValidatedDiepteInput {
   lintConductorDiameter: number; // default 0.01 m
   lithoClass?:           number;
   rhoDryOverride?:       number; // > 0 when present
+  rhoWetOverride?:       number; // > 0 when present — set by empirical-prior stage
   hasBroProfile:         boolean;
   drijfmethode?:         import('./driveability').DriveMethod;
   soilSamples?:          SoilSample[];
@@ -139,6 +140,7 @@ export interface PipelineEnrichment {
   warnings:          string[];          // UI-explanation layer — one source of truth
   uncertaintyBand:   UncertaintyBand;
   resultValidation:  ResultValidation;
+  rhoWetSource:      'l3_regional' | 'l2_global' | 'l1_literature';
 }
 
 // PipelineResult wraps existing data + enrichment
