@@ -33,6 +33,7 @@ import { readFileSync, existsSync } from 'fs';
 import { forwardGeocode } from '../lib/geocoding';
 import { processMeting } from '../lib/soil-knowledge/evidence-accumulator';
 import { FIELD_LOCATIONS } from '../lib/calibration/field-data';
+import { wgs84ToRd } from '../lib/rd';
 import type { ImportRecord } from '../lib/soil-knowledge/types';
 
 // Env vars worden verwacht via shell of CI-omgeving.
@@ -88,12 +89,17 @@ async function importRecord(rec: ImportRecord): Promise<string | null> {
     return null;
   }
 
+  const rd = lat != null && lon != null ? wgs84ToRd(lat, lon) : null;
+
   const row = {
     source_type:        'manual_import',
     status:             'confirmed',
     lat,
     lon,
     gps_accuracy_m:     null,
+    location_source:    'manual_import',
+    rd_x:               rd ? Math.round(rd.rdX) : null,
+    rd_y:               rd ? Math.round(rd.rdY) : null,
     postcode:           null,
     straatnaam:         rec.address ?? null,
     huisnummer:         null,
