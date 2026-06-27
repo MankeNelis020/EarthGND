@@ -270,7 +270,9 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                       onClick={handleSoilDataApply}
                       className="rounded-lg bg-orange-500 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-400"
                     >
-                      Toepassen (ρ = {soilData.dominantRho} Ω·m)
+                      {new Set(soilData.samples.map(s => s.lithoClass)).size > 1
+                        ? 'Gebruik gelaagd profiel'
+                        : `Toepassen (ρ = ${soilData.dominantRho} Ω·m)`}
                     </button>
                     <a href="/pricing" className="text-xs text-zinc-300 underline hover:text-orange-400">
                       Pendiepteberekening → Pro
@@ -316,7 +318,9 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                     onClick={handleSoilDataApply}
                     className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-500"
                   >
-                    Toepassen (ρ = {soilData.dominantRho} Ω·m)
+                    {new Set(soilData.samples.map(s => s.lithoClass)).size > 1
+                      ? 'Gebruik gelaagd profiel'
+                      : `Toepassen (ρ = ${soilData.dominantRho} Ω·m)`}
                   </button>
                 </div>
               )}
