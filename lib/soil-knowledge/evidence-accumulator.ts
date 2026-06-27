@@ -13,7 +13,7 @@
  *   (toekomstige uitbreiding: rhoDry kennisbank).
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { wgs84ToRd } from '@/lib/rd';
 import { analyzeDepthCurve } from './reverse-engine';
 import { isLearningBlocked } from './bayesian-posterior';
@@ -51,21 +51,20 @@ function welfordUpdate(state: WelfordState, weight: number, value: number): Welf
 // ─── Database helpers ─────────────────────────────────────────────────────────
 
 async function fetchWelford(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   table: string,
-  filter: Record<string, unknown>,
+  filter: Record<string, number>,
 ): Promise<WelfordState> {
-  const query = supabase
+  let q = supabase
     .from(table)
     .select('total_weight, welford_mean, welford_m2');
 
-  let q = query;
   for (const [col, val] of Object.entries(filter)) {
-    q = (q as any).eq(col, val);
+    q = q.eq(col, val);
   }
 
   const { data } = await q.maybeSingle();
-  return data ?? { total_weight: 0, welford_mean: 0, welford_m2: 0 };
+  return (data as WelfordState | null) ?? { total_weight: 0, welford_mean: 0, welford_m2: 0 };
 }
 
 function computePosteriorSigma(state: WelfordState): number | null {
@@ -89,13 +88,11 @@ function computePosteriorSigma(state: WelfordState): number | null {
  * @param metingId UUID van pendiepte_metingen
  * @param supabaseClient optioneel — anders wordt service-role client aangemaakt
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function processMeting(
   metingId: string,
-  supabaseClient?: any,
+  supabaseClient?: SupabaseClient,
 ): Promise<{ pointsProcessed: number; evidenceInserted: number }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase: any = supabaseClient ?? getServiceClient();
+  const supabase: SupabaseClient = supabaseClient ?? getServiceClient();
 
   // ── 1. Laad meting ──────────────────────────────────────────────────────
   const { data: meting, error } = await supabase
