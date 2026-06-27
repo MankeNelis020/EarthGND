@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { wgs84ToRd } from '@/lib/rd';
 
 export const runtime = 'nodejs';
 
@@ -84,13 +85,25 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
   const body = await request.json() as Partial<MetingBody>;
 
+  const lat = body.lat ?? null;
+  const lon = body.lon ?? null;
+  const rd = lat != null && lon != null ? wgs84ToRd(lat, lon) : null;
+
+  const locationSource =
+    body.gps_accuracy_m != null ? 'gps' :
+    lat != null              ? 'coordinates' :
+    'address';
+
   await admin
     .from('pendiepte_metingen')
     .update({
       monteur_user_id: user.id,
-      lat:             body.lat ?? null,
-      lon:             body.lon ?? null,
+      lat,
+      lon,
       gps_accuracy_m:  body.gps_accuracy_m ?? null,
+      location_source: locationSource,
+      rd_x:            rd ? Math.round(rd.rdX) : null,
+      rd_y:            rd ? Math.round(rd.rdY) : null,
       postcode:        body.postcode ?? null,
       straatnaam:      body.straatnaam ?? null,
       huisnummer:      body.huisnummer ?? null,
@@ -162,13 +175,25 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: 'Eindmeting (Ra en diepte) verplicht' }, { status: 400 });
   }
 
+  const lat = body.lat ?? null;
+  const lon = body.lon ?? null;
+  const rd = lat != null && lon != null ? wgs84ToRd(lat, lon) : null;
+
+  const locationSource =
+    body.gps_accuracy_m != null ? 'gps' :
+    lat != null              ? 'coordinates' :
+    'address';
+
   const { error: updateError } = await admin
     .from('pendiepte_metingen')
     .update({
       monteur_user_id: user.id,
-      lat:             body.lat,
-      lon:             body.lon,
+      lat,
+      lon,
       gps_accuracy_m:  body.gps_accuracy_m,
+      location_source: locationSource,
+      rd_x:            rd ? Math.round(rd.rdX) : null,
+      rd_y:            rd ? Math.round(rd.rdY) : null,
       postcode:        body.postcode,
       straatnaam:      body.straatnaam,
       huisnummer:      body.huisnummer,
