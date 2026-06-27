@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { processMeting } from '@/lib/soil-knowledge/evidence-accumulator';
 
 export const runtime = 'nodejs';
 
@@ -32,7 +33,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
 
   const { data: meting } = await admin
     .from('pendiepte_metingen')
-    .select('status')
+    .select('id, status')
     .eq('calculation_id', uuid)
     .single();
 
@@ -50,6 +51,11 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     .eq('calculation_id', uuid);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Kennisbank verwerking — fire-and-forget, blokkeert de response niet.
+  processMeting(meting.id, admin).catch(e =>
+    console.error('[confirm/processMeting]', e),
+  );
 
   return NextResponse.json({ ok: true });
 }
