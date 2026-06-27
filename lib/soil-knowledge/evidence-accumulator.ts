@@ -179,15 +179,16 @@ export async function processMeting(
 
       const litPrior = LITERATURE_PRIOR[k] ?? LITERATURE_PRIOR[3];
       const { error: globalError } = await supabase.from('global_prior').upsert({
-        litho_class:          k,
-        literature_mu:        litPrior.mu,
-        literature_sigma:     litPrior.sigma,
-        total_weight:         updatedGlobal.total_weight,
-        welford_mean:         updatedGlobal.welford_mean,
-        welford_m2:           updatedGlobal.welford_m2,
-        posterior_mu:         updatedGlobal.welford_mean,
-        posterior_sigma:      computePosteriorSigma(updatedGlobal),
-        last_updated:         new Date().toISOString(),
+        litho_class:             k,
+        literature_mu:           litPrior.mu,
+        literature_sigma:        litPrior.sigma,
+        literature_n_virtual:    litPrior.nVirtual,
+        total_weight:            updatedGlobal.total_weight,
+        welford_mean:            updatedGlobal.welford_mean,
+        welford_m2:              updatedGlobal.welford_m2,
+        posterior_mu:            updatedGlobal.welford_mean,
+        posterior_sigma:         computePosteriorSigma(updatedGlobal),
+        last_updated:            new Date().toISOString(),
       }, { onConflict: 'litho_class' });
 
       if (globalError) throw new Error(`global_prior upsert fout (litho_class=${k}): ${globalError.message}`);
