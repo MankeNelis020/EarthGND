@@ -18,12 +18,15 @@ CREATE INDEX IF NOT EXISTS pendiepte_metingen_rd
   WHERE rd_x IS NOT NULL AND rd_y IS NOT NULL;
 
 -- 3. Backfill location_source op bestaande rijen
+-- Noot: source_type bestaat pas na soil_knowledge_schema.sql; deze migratie
+-- loopt eerder, dus we leiden 'manual_import' niet af uit source_type.
+-- Bestaande manual-import rijen zijn er nog niet — die komen via het script
+-- nadat soil_knowledge_schema.sql is uitgerold.
 UPDATE pendiepte_metingen
 SET location_source = CASE
-  WHEN gps_accuracy_m IS NOT NULL              THEN 'gps'
-  WHEN source_type    = 'manual_import'        THEN 'manual_import'
-  WHEN lat IS NOT NULL AND lon IS NOT NULL     THEN 'coordinates'
-  ELSE                                              'address'
+  WHEN gps_accuracy_m IS NOT NULL          THEN 'gps'
+  WHEN lat IS NOT NULL AND lon IS NOT NULL THEN 'coordinates'
+  ELSE                                          'address'
 END
 WHERE location_source IS NULL;
 
