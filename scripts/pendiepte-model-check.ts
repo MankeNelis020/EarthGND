@@ -117,4 +117,34 @@ assert.ok(
   'NL layered adapter should require less depth than kernel calcDiepte with same soilSamples',
 );
 
+// Parallel policy — no auto-advice on depth alone (Orkaden-class: deep single pen, SDS, full BRO)
+const orkadenSamples = Array.from({ length: 20 }, (_, i) => ({ depth: i + 1, lithoClass: 3 }));
+const orkadenInput = {
+  rho: 74,
+  targetResistance: 2,
+  groundwaterDepth: 1.86,
+  ph: 6.5,
+  electrodeType: 'pen' as const,
+  lintBurialDepth: 0.8,
+  lintConductorDiameter: 0.01,
+  lithoClass: 3,
+  hasBroProfile: true,
+  drijfmethode: 'sds' as const,
+  soilSamples: orkadenSamples,
+  dataSource: 'cpt' as const,
+};
+const orkaden = runKernel(orkadenInput);
+assert.equal(orkaden.parallelAdvice, null, 'Full BRO + achievable SDS depth → no mandatory parallel');
+assert.ok(
+  (orkaden.scenarios.gemiddeld as { depth: number }).depth >= 30,
+  'Deep target R should still yield Dwight depth without parallel',
+);
+const orkadenOpt = runKernel({ ...orkadenInput, parallelRequested: true });
+assert.ok(orkadenOpt.parallelOption != null, 'parallelRequested → parallelOption populated');
+assert.equal(
+  orkadenOpt.parallelOption?.reason,
+  'requested',
+  'Optional parallel uses requested reason, not driveability',
+);
+
 console.log('Pendiepte model checks passed');

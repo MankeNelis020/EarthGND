@@ -87,6 +87,25 @@ uit vóór gebruik van `getScanContext()`.
 
 ---
 
+## D. Parallelschakeling-beleid
+
+**Canonieke bron:** `lib/pipeline/parallel-policy.ts` + `runKernel()` in `kernel-adapter.ts`.
+
+**Standaard aanbeveling:** één pen op Dwight-diepte (`scenarios.gemiddeld.depth`).
+
+| Output | Wanneer |
+|--------|---------|
+| `parallelAdvice` | Alleen bij `driveability.requiresParallel` **én** `aantalPennen > 1` na cap op `z_max.typical` |
+| `parallelOption` | Alleen wanneer client `parallelRequested: true` stuurt (UI-checkbox) |
+| `result.aantalPennen` | Alleen `> 1` bij verplicht `parallelAdvice` (monteur/DB) |
+
+**Niet doen:** parallelschakeling auto-adviseren op basis van diepte alleen (verwijderde `primaryDim > 12` heuristiek).
+
+**Onbevestigde aannames:**
+- Optionele parallel-berekening gebruikt Dwight-diepte, niet de indrijf-cap — monteur beslist of die diepte haalbaar is.
+
+---
+
 ## C. ρ-waarheidshiërarchie
 
 **Vier ρ-veen waarden** (geen bug — elk is de correcte waarde voor zijn context):

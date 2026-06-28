@@ -74,6 +74,7 @@ export interface ParsedDiepteInput {
   boringAfstand:         number | null; // km
   boringJaar:            number | null;
   confirmed:             boolean;
+  parallelRequested:     boolean;
 }
 
 // ─── Main parse function ──────────────────────────────────────────────────────
@@ -97,6 +98,7 @@ export function parseDiepteInput(raw: RawDiepteInput): ParsedDiepteInput {
     boringAfstand:         parseNumber(raw.boringAfstand),
     boringJaar:            parseNumber(raw.boringJaar),
     confirmed:             parseBoolean(raw.confirmed),
+    parallelRequested:     parseBoolean(raw.parallelRequested),
   };
 }
 
@@ -119,5 +121,6 @@ export function buildValidated(p: ParsedDiepteInput): ValidatedDiepteInput {
     dataSource:            p.dataSource,
     boringAfstand:         p.boringAfstand ?? undefined,
     boringJaar:            p.boringJaar ?? undefined,
+    parallelRequested:     p.parallelRequested,
   };
 }

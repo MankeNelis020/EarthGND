@@ -33,6 +33,8 @@ export interface RawDiepteInput {
   boringJaar?:    unknown; // year of measurement
   // Client sends true after user confirmed a heavy-plausibility warning
   confirmed?: boolean;
+  /** Optioneel: parallelschakeling op Dwight-diepte uitrekenen (niet auto-adviseren). */
+  parallelRequested?: unknown;
 }
 
 // ─── Validated/canonicalized input — guaranteed safe for the kernel ───────────
@@ -61,6 +63,7 @@ export interface ValidatedDiepteInput {
   dataSource:    DataSource;
   boringAfstand?: number;  // km
   boringJaar?:    number;
+  parallelRequested?: boolean;
 }
 
 // ─── Data source & confidence ─────────────────────────────────────────────────

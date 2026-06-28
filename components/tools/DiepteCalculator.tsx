@@ -20,12 +20,12 @@ type ElectrodeType = 'pen' | 'lint';
 interface PenScenarios  { gunstig: DiepteResult; gemiddeld: DiepteResult; ongunstig: DiepteResult }
 interface LintScenarios { gunstig: LintResult;   gemiddeld: LintResult;   ongunstig: LintResult   }
 
-interface ParallelAdvice {
+interface ParallelLayout {
   aantalPennen: number;
   minAfstand:   number;
   rParallel:    number;
   rSingle:      number;
-  reason?:      'resistance' | 'driveability';
+  reason?:      'driveability' | 'requested';
   zMax?:        ZMaxBand;
   refusalLayer?: RefusalLayer | null;
   targetUnreachable?: boolean;
@@ -36,7 +36,8 @@ interface CalcResult {
   electrodeType: ElectrodeType;
   riskClass: RiskClassResult;
   corrosionClass: CorrosionClass;
-  parallelAdvice: ParallelAdvice | null;
+  parallelAdvice: ParallelLayout | null;
+  parallelOption?: ParallelLayout | null;
   creditsRemaining: number;
   calculationId?: string | null;
   rhoDry?: number;
@@ -50,6 +51,7 @@ interface CalcResult {
     zMax:         ZMaxBand;
     refusalLayer: RefusalLayer | null;
     isLimited:    boolean;
+    requiresParallel?: boolean;
   };
   // Pipeline enrichment (present when pipeline is active)
   confidence?:        { level: 'hoog' | 'midden' | 'laag'; label: string; icon: string; showBROBadge: boolean };
@@ -574,6 +576,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
   const [electrodeType, setElectrodeType] = useState<ElectrodeType>('pen');
   const [drijfmethode, setDrijfmethode]   = useState<DriveMethod>('sds');
+  const [parallelRequested, setParallelRequested] = useState(false);
 
   const [rho, setRho]                   = useState(125);
   const [targetResistance, setTarget]   = useState(initialTarget ?? 10);
@@ -674,6 +677,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           lintConductorDiameter: electrodeType === 'lint' ? lintDiameter : undefined,
           // Driveability
           drijfmethode: electrodeType === 'pen' ? drijfmethode : undefined,
+          parallelRequested: electrodeType === 'pen' && parallelRequested ? true : undefined,
           soilSamples:  soilData?.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })) ?? [],
           // Source metadata for pipeline confidence scoring
           dataSource:   soilData?.dataSource,
@@ -739,13 +743,16 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   // Determine visualization params for result
   const gemiddeldResult = calcResult?.scenarios?.gemiddeld as DiepteResult | undefined;
   const dwightDepth = gemiddeldResult?.depth ?? 0;
-  // When driveability limits, cap visual rod length at z_max.typical
-  const isDriveabilityLimited = calcResult?.parallelAdvice?.reason === 'driveability';
-  const rodLength  = isDriveabilityLimited
-    ? (calcResult?.parallelAdvice?.zMax?.typical ?? dwightDepth)
+  const drive = calcResult?.driveability;
+  const parallelForced = calcResult?.parallelAdvice?.reason === 'driveability'
+    && (calcResult.parallelAdvice.aantalPennen ?? 1) > 1;
+  const driveDepthCapped = drive?.requiresParallel === true && dwightDepth > 0;
+  const rodLength = driveDepthCapped
+    ? (calcResult?.parallelAdvice?.zMax?.typical ?? drive?.zMax.typical ?? dwightDepth)
     : dwightDepth;
-  const numRods    = calcResult?.parallelAdvice?.aantalPennen ?? 1;
-  const rodSpacing = calcResult?.parallelAdvice?.minAfstand ?? 0;
+  const numRods = parallelForced ? calcResult!.parallelAdvice!.aantalPennen : 1;
+  const rodSpacing = parallelForced ? (calcResult?.parallelAdvice?.minAfstand ?? 0) : 0;
+  const parallelOption = calcResult?.parallelOption ?? null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -802,6 +809,18 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   </button>
                 ))}
               </div>
+              <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-white/8 bg-white/3 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={parallelRequested}
+                  onChange={(e) => { setParallelRequested(e.target.checked); setCalcResult(null); }}
+                  className="mt-0.5 accent-[#E8761A]"
+                />
+                <span className="text-xs text-white/70">
+                  <span className="font-medium text-white/90">Parallelschakeling uitrekenen</span>
+                  {' '}— optioneel; standaard adviseren we één pen tenzij indrijfbaarheid het onmogelijk maakt.
+                </span>
+              </label>
             </div>
           )}
 
@@ -1000,14 +1019,14 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   Aanbevolen configuratie
                 </p>
                 <p className="text-xs font-bold text-white">
-                  {numRods > 1 && isDriveabilityLimited
+                  {parallelForced
                     ? `${numRods} pennen × ${rodLength.toFixed(1)} m — ${calcResult.parallelAdvice?.refusalLayer?.soil ?? 'bodem'} begrenst diepte`
-                    : numRods > 1
-                    ? `${numRods} pennen — elk ${rodLength.toFixed(2)} m, ${rodSpacing} m uit elkaar`
+                    : driveDepthCapped && rodLength < dwightDepth - 0.05
+                    ? `1 pen — ${rodLength.toFixed(1)} m (indrijfbaarheid; Dwight ${dwightDepth.toFixed(1)} m)`
                     : `1 pen — ${rodLength.toFixed(2)} m diep`}
                 </p>
               </div>
-              {isDriveabilityLimited && calcResult.parallelAdvice?.targetUnreachable && (
+              {parallelForced && calcResult.parallelAdvice?.targetUnreachable && (
                 <div className="border-b border-red-500/20 bg-red-500/5 px-5 py-2.5 text-xs text-red-300">
                   Doelweerstand niet haalbaar met verticale pennen in deze grond. Overweeg horizontaal lint of aardmat.
                 </div>
@@ -1127,17 +1146,11 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               </div>
             )}
 
-            {/* Parallel rod advice */}
-            {calcResult.parallelAdvice && (
-              <div className={`mt-4 rounded-xl border p-4 ${
-                isDriveabilityLimited
-                  ? 'border-red-500/25 bg-red-500/5'
-                  : 'border-orange-500/25 bg-orange-500/5'
-              }`}>
-                <p className={`mb-2 text-sm font-semibold ${isDriveabilityLimited ? 'text-red-400' : 'text-orange-400'}`}>
-                  {isDriveabilityLimited
-                    ? `${calcResult.parallelAdvice.aantalPennen} pennen nodig — indrijfweerstand begrenst diepte`
-                    : `Parallelschakeling aanbevolen — ${calcResult.parallelAdvice.aantalPennen} pennen`}
+            {/* Verplicht parallel (indrijfbaarheid) */}
+            {parallelForced && calcResult.parallelAdvice && (
+              <div className="mt-4 rounded-xl border border-red-500/25 bg-red-500/5 p-4">
+                <p className="mb-2 text-sm font-semibold text-red-400">
+                  {calcResult.parallelAdvice.aantalPennen} pennen nodig — indrijfweerstand begrenst diepte
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-xs text-white/60">
                   <div>
@@ -1155,6 +1168,35 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   <div>
                     <span className="text-white/70">Ra parallel (incl. koppeling)</span>
                     <p className="font-semibold text-[#E8761A]">{calcResult.parallelAdvice.rParallel} Ω</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Optioneel parallel (gebruiker vroeg expliciet) */}
+            {parallelRequested && parallelOption && !parallelForced && (
+              <div className="mt-4 rounded-xl border border-orange-500/25 bg-orange-500/5 p-4">
+                <p className="mb-2 text-sm font-semibold text-orange-400">
+                  {parallelOption.aantalPennen === 1
+                    ? 'Parallelschakeling niet nodig — één pen haalt het doel op Dwight-diepte'
+                    : `Parallelschakeling op Dwight-diepte — ${parallelOption.aantalPennen} pennen`}
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-xs text-white/60">
+                  <div>
+                    <span className="text-white/70">Diepte per pen</span>
+                    <p className="font-semibold text-white">{dwightDepth.toFixed(1)} m</p>
+                  </div>
+                  <div>
+                    <span className="text-white/70">Min. onderlinge afstand</span>
+                    <p className="font-semibold text-white">{parallelOption.minAfstand} m</p>
+                  </div>
+                  <div>
+                    <span className="text-white/70">Ra enkelvoudig @ {dwightDepth.toFixed(0)} m</span>
+                    <p className="font-semibold text-white">{parallelOption.rSingle} Ω</p>
+                  </div>
+                  <div>
+                    <span className="text-white/70">Ra parallel (incl. koppeling)</span>
+                    <p className="font-semibold text-[#E8761A]">{parallelOption.rParallel} Ω</p>
                   </div>
                 </div>
               </div>
@@ -1191,12 +1233,12 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           {/* Ra-haalbaarheidscheck — uses combined Ra when driveability forces multiple rods */}
           <RaHaalbaarheidsCheck
             raGemiddeld={
-              isDriveabilityLimited && calcResult.parallelAdvice?.rParallel != null
+              parallelForced && calcResult.parallelAdvice?.rParallel != null
                 ? calcResult.parallelAdvice.rParallel
                 : (calcResult.scenarios.gemiddeld as DiepteResult | LintResult).achievedResistance
             }
             raOngunstig={
-              isDriveabilityLimited && calcResult.parallelAdvice?.rParallel != null
+              parallelForced && calcResult.parallelAdvice?.rParallel != null
                 ? calcResult.parallelAdvice.rParallel
                 : (calcResult.scenarios.ongunstig as DiepteResult | LintResult).achievedResistance
             }

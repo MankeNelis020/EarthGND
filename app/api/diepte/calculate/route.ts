@@ -41,7 +41,9 @@ export async function POST(request: NextRequest) {
   const gemiddeld = kernelResult.scenarios.gemiddeld as { depth?: number; length?: number; achievedResistance: number };
   const primaryDimension = gemiddeld.depth ?? gemiddeld.length ?? 0;
 
-  const aantalPennen = kernelResult.parallelAdvice?.aantalPennen ?? 1;
+  const aantalPennen = (kernelResult.parallelAdvice?.reason === 'driveability' && (kernelResult.parallelAdvice?.aantalPennen ?? 1) > 1)
+    ? kernelResult.parallelAdvice!.aantalPennen
+    : 1;
 
   // Log to DB — await to capture the UUID for the monteur flow
   const { data: calcRow } = await supabase.from('calculations').insert({
