@@ -76,8 +76,8 @@ export function checkPlausibility(
     flags.push({
       field: 'targetResistance', value: input.targetResistance,
       message:
-        `Doelweerstand ${input.targetResistance} Ω overschrijdt alle gangbare normen ` +
-        `(NEN 1010 max 166 Ω voor RCD). Controleer of dit de juiste waarde is.`,
+        `Doelweerstand ${input.targetResistance} Ω overschrijdt gangbare normen ` +
+        `(NEN 1010 max 167 Ω bij 300 mA, 1667 Ω bij 30 mA). Controleer of dit de juiste waarde is.`,
       severity: 'light',
     });
   }

@@ -3,7 +3,7 @@
  * Review periodically; changing these never touches the kernel math.
  *
  * Norm references:
- *   NEN 1010:2020  — Elektrotechnische installaties laagspanning (aarding ≤ 166 Ω voor RCD)
+ *   NEN 1010:2020  — Elektrotechnische installaties laagspanning (aarding ≤ UL/IΔn, bv. 1667 Ω @30 mA, 167 Ω @300 mA)
  *   NEN-EN 62305   — Bliksembeveiliging (Ra ≤ 10 Ω)
  *   NEN-EN 50522   — Aarding krachtstations (typisch ≤ 1 Ω)
  *   NEN 3140:2023  — Bedrijfsvoering laagspanning (veldmeting verplich na installatie)
@@ -21,7 +21,7 @@ export const PLAUSIBILITY_THRESHOLDS = {
 
   // Target resistance Ra (Ω)
   targetMinLight: 0.5,   // < 0.5 Ω — very challenging, only specialist systems; NEN-EN 50522
-  targetMaxLight: 500,   // > 500 Ω — above all practical norms (NEN 1010 max is 166 Ω)
+  targetMaxLight: 500,   // > 500 Ω — above practical norms (NEN 1010 max = UL/IΔn; highest: 1667 Ω @30 mA)
 
   // boring distance (km)
   boringAfstandMedium: 0.250,  // 250 m — confidence drops

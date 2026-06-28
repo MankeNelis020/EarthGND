@@ -153,11 +153,12 @@ section('calcOhmAls — aardlek (TT-stelsel)');
 
 {
   const r = calcOhmAls({ voltage: 230, leakageCurrent: 0.03 });
-  // r_theoretical = 230/0.03 = 7666.67 (onbegrensd)
-  // r_practical   = min(7666.67, 166) = 166
-  // r_recommended = min(166, 30) = 30
+  // 166-fix (2026-06): UL/IΔn — geen universele 166-cap (zie docs/contracts.md §A).
+  // 30 mA RCD @230 V: r_theoretical = 230/0.03 = 7666.67 Ω.
+  // r_practical = r_theoretical (geen cap) — bij 50 V zou het 50/0.03 = 1667 Ω zijn.
+  // r_recommended blijft ≤ 30 Ω (good-practice drempel, geen normatieve bovengrens).
   check('r_theoretical ≈ 7666.7', r.r_theoretical, 7666.67, 0.1);
-  check('r_practical = 166',      r.r_practical, 166);
+  check('r_practical = r_theoretical', r.r_practical, r.r_theoretical, 0.1);
   check('r_recommended = 30',     r.r_recommended, 30);
 }
 
@@ -203,11 +204,15 @@ section('calcParallelRa — parallelle pennen (Schwarz)');
 
 section('LITHO_CLASS_TO_RHO_WET — kernel internationale tabel (bevroren)');
 
+// Drie veen-waarden — elk correct voor zijn context (zie docs/contracts.md §C):
+//   LITHO_CLASS_TO_RHO_WET[5] = 20  → kernel-WET (BRO CPT/boring), NL laagveen/polderveen prior
+//   NL_RHO_WET_PRIOR[5]       = 10  → NL veldkalibratie 2026-06
+//   LITHO_CLASS_TO_RHO_DRY[5] = 3000 → enkelvoudig/droog model (legacy fallback)
 check('k=1 klei  = 15 Ω·m',  LITHO_CLASS_TO_RHO_WET[1] ?? 0, 15);
 check('k=2 leem  = 40 Ω·m',  LITHO_CLASS_TO_RHO_WET[2] ?? 0, 40);
 check('k=3 zand  = 60 Ω·m',  LITHO_CLASS_TO_RHO_WET[3] ?? 0, 60);
 check('k=4 grind = 150 Ω·m', LITHO_CLASS_TO_RHO_WET[4] ?? 0, 150);
-check('k=5 veen  = 400 Ω·m', LITHO_CLASS_TO_RHO_WET[5] ?? 0, 400);
+check('k=5 veen  = 20 Ω·m',  LITHO_CLASS_TO_RHO_WET[5] ?? 0, 20); // kernel-WET (NL CPT-statistiek) — bevroren
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 7. NL rho-priors: NL_RHO_WET_PRIOR — empirische NL-correctie (Fase 0, 2026-06)

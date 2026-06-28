@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
       const { ReportTemplate } = await import('@/components/pdf/ReportTemplate');
       const explanationText = isNl
         ? tool === 'ohm'
-          ? 'De aardingsweerstand is berekend conform NEN 1010. De theoretische weerstand is gebaseerd op de spanning gedeeld door de maximale lekstroom. De praktische weerstand is beperkt tot 166 Ω en de aanbevolen weerstand tot 30 Ω.'
+          ? 'De aardingsweerstand is berekend conform NEN 1010. De maximale aardingsweerstand volgt uit Ra ≤ UL/IΔn (bv. 1667 Ω bij 30 mA, 167 Ω bij 300 mA). De aanbevolen weerstand is ≤ 30 Ω.'
           : 'De benodigde indraaidiepte is berekend met de formule van Dwight, rekening houdend met de soortelijke weerstand van de bodem, de grondwaterstand en de pH-waarde. Meet altijd ter plaatse na installatie conform NEN 3140.'
         : tool === 'ohm'
-          ? 'The grounding resistance was calculated in accordance with NEN 1010. The practical resistance is limited to 166 Ω and the recommended resistance to 30 Ω.'
+          ? 'The grounding resistance was calculated in accordance with NEN 1010. The maximum resistance follows from Ra ≤ UL/IΔn (e.g. 1667 Ω for 30 mA, 167 Ω for 300 mA). The recommended resistance is ≤ 30 Ω.'
           : "The required installation depth is calculated using Dwight's formula, taking into account the soil resistivity, groundwater level and pH. Always measure on-site after installation (NEN 3140).";
       const element = React.createElement(ReportTemplate, {
         tool,

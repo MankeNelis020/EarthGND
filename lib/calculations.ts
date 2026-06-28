@@ -11,9 +11,13 @@ export interface OhmAlsResult {
   r_recommended: number;
 }
 
+/**
+ * @deprecated Niet gebruikt in productie. Gebruik calcOhmWizard() of calcOhmLayers().
+ * De universele 166-cap is verwijderd (2026-06): correct is UL/IΔn per contract §A.
+ */
 export function calcOhmAls(input: OhmAlsInput): OhmAlsResult {
   const r_theoretical = input.voltage / input.leakageCurrent;
-  const r_practical = Math.min(r_theoretical, 166);
+  const r_practical = r_theoretical;          // UL/IΔn — geen universele bovengrens
   const r_recommended = Math.min(r_practical, 30);
   return { r_theoretical, r_practical, r_recommended };
 }

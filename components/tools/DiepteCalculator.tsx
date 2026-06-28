@@ -65,10 +65,10 @@ const PRESET_GROUPS = [
   {
     label: 'Met aardlek (TT)',
     items: [
-      { label: '30 mA',  sublabel: '≤ 166 Ω', value: 166,    norm: 'NEN 1010' },
-      { label: '100 mA', sublabel: '≤ 166 Ω', value: 166,    norm: 'NEN 1010' },
-      { label: '300 mA', sublabel: '≤ 166 Ω', value: 166,    norm: 'NEN 1010' },
-      { label: '500 mA', sublabel: '≤ 100 Ω', value: 100,    norm: 'NEN 1010' },
+      { label: '30 mA',  sublabel: '≤ 1667 Ω', value: 1667,   norm: 'NEN 1010' },
+      { label: '100 mA', sublabel: '≤ 500 Ω',  value: 500,    norm: 'NEN 1010' },
+      { label: '300 mA', sublabel: '≤ 167 Ω',  value: 167,    norm: 'NEN 1010' },
+      { label: '500 mA', sublabel: '≤ 100 Ω',  value: 100,    norm: 'NEN 1010' },
     ],
   },
   {
@@ -95,8 +95,10 @@ const ZONDER_AARDLEK_VALUES = new Set([1.00, 0.625, 0.40, 0.3125, 0.25]);
 // ─── Ra haalbaarheidscheck limits ─────────────────────────────────────────────
 
 const RA_CHECK = [
-  { label: 'Aardlek 30–300 mA (TT)',         max: 166,    group: 'rcd'     as const },
-  { label: 'Aardlek 500 mA (TT)',             max: 100,    group: 'rcd'     as const },
+  { label: 'Aardlek 30 mA (TT)',             max: 1667,   group: 'rcd'     as const },
+  { label: 'Aardlek 100 mA (TT)',            max: 500,    group: 'rcd'     as const },
+  { label: 'Aardlek 300 mA (TT)',            max: 167,    group: 'rcd'     as const },
+  { label: 'Aardlek 500 mA (TT)',            max: 100,    group: 'rcd'     as const },
   { label: 'Bliksem NEN 62305',               max: 10,     group: 'special' as const },
   { label: 'B10 — TT, geen aardlek',          max: 1.00,   group: 'breaker' as const },
   { label: 'B16 — TT, geen aardlek',          max: 0.625,  group: 'breaker' as const },
@@ -459,7 +461,7 @@ function RaHaalbaarheidsCheck({ raGemiddeld, raOngunstig }: { raGemiddeld: numbe
       {raOngunstig > 0.625 && (
         <div className="border-t border-white/6 px-5 py-3 text-[10px] text-white/70">
           TT zonder aardlek vereist Ra &lt; 1 Ω — in de meeste Nederlandse grond niet haalbaar met één verticale pen.
-          Overweeg een aardlekschakelaar (30 mA → max 166 Ω).
+          Overweeg een aardlekschakelaar (30 mA → max 1667 Ω, 300 mA → 167 Ω).
         </div>
       )}
     </div>
@@ -1031,7 +1033,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               <div className="rounded-xl border border-red-500/30 bg-red-500/8 px-4 py-3 text-xs text-red-300 leading-relaxed">
                 <strong className="font-semibold">Doelweerstand niet haalbaar</strong> — zelfs bij 100 m diepte wordt
                 Ra ≤ {targetResistance} Ω niet bereikt in het ongunstige scenario.
-                Overweeg een aardlekschakelaar (30 mA → max 166 Ω), aardmat, of meerdere pennen in een betere grondzone.
+                Overweeg een aardlekschakelaar (30 mA → max 1667 Ω, 300 mA → 167 Ω), aardmat, of meerdere pennen in een betere grondzone.
               </div>
             )
           )}
@@ -1191,8 +1193,8 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
           {/* Disclaimer */}
           <p className="text-[11px] leading-relaxed text-white/60">
-            Berekening met 2-laags bodemmodel (Dwight-formule): droge zone boven GHG (ρ ≈ {calcResult.rhoDry} Ω·m),
-            verzadigde zone onder GHG (ρ ≈ {calcResult.rhoWet} Ω·m).
+            Berekening met Dwight-formule{calcResult.confidence?.showBROBadge ? ' + BRO bodemdata' : ''}: droge zone
+            boven GHG (ρ_droog ≈ {calcResult.rhoDry} Ω·m), verzadigde zone onder GHG (ρ_nat ≈ {calcResult.rhoWet} Ω·m).
             De drie scenario&apos;s modelleren het grondwaterpeil in natte (GHG), gemiddelde (+1,5 m)
             en droge (+3,0 m) periode. Meet altijd ter plaatse na installatie conform NEN 3140.
           </p>

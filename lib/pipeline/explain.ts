@@ -70,7 +70,7 @@ export function buildExplanation(
   if ('converged' in ongunstig && ongunstig.converged === false) {
     warnings.push(
       `Doelweerstand ≤ ${targetResistance} Ω is niet haalbaar binnen 100 m in het ongunstige scenario. ` +
-      'Overweeg een aardlekschakelaar (30 mA → max 166 Ω), een aardmat, of meerdere pennen in een betere grondzone.',
+      'Overweeg een aardlekschakelaar (30 mA → max 1667 Ω, 300 mA → 167 Ω), een aardmat, of meerdere pennen in een betere grondzone.',
     );
   }
 

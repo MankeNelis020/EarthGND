@@ -249,8 +249,10 @@ const S = StyleSheet.create({
 // ─── Ra check data ────────────────────────────────────────────────────────────
 
 const RA_CHECK = [
-  { label: 'Aardlek 30–300 mA (TT)',  max: 166,    norm: 'NEN 1010'  },
-  { label: 'Aardlek 500 mA (TT)',      max: 100,    norm: 'NEN 1010'  },
+  { label: 'Aardlek 30 mA (TT)',   max: 1667,   norm: 'NEN 1010'  },
+  { label: 'Aardlek 100 mA (TT)',  max: 500,    norm: 'NEN 1010'  },
+  { label: 'Aardlek 300 mA (TT)',  max: 167,    norm: 'NEN 1010'  },
+  { label: 'Aardlek 500 mA (TT)',  max: 100,    norm: 'NEN 1010'  },
   { label: 'Bliksem',                  max: 10,     norm: 'NEN 62305' },
   { label: 'B10 — TT, geen aardlek',   max: 1.00,   norm: 'NEN 1010'  },
   { label: 'B16 — TT, geen aardlek',   max: 0.625,  norm: 'NEN 1010'  },
@@ -527,7 +529,7 @@ export function DiepteRapportTemplate({
             <KvRow label="Doelweerstand Ra"        value={`≤ ${targetResistance} Ω`} alt />
           </View>
           <View style={S.col}>
-            <SectionHeader>2-laags bodemmodel</SectionHeader>
+            <SectionHeader>Bodemmodel (Dwight-formule)</SectionHeader>
             {rhoDry != null && <KvRow label="Droge zone (boven GHG)"   value={`ρ ≈ ${rhoDry} Ω·m`} />}
             {rhoWet != null && <KvRow label="Verzadigde zone (onder GHG)" value={`ρ ≈ ${rhoWet} Ω·m`} alt />}
             {gwGunstig   != null && <KvRow label="GWT — gunstig (GHG)"   value={`${gwGunstig.toFixed(2)} m`} />}
@@ -662,9 +664,9 @@ export function DiepteRapportTemplate({
         <View style={S.disclaimerBox}>
           <Text style={S.dTitle}>Methodiek &amp; Disclaimers</Text>
           <Text style={S.dText}>
-            Berekening met 2-laags bodemmodel (Dwight-formule). Droge zone boven GHG met ρ ≈ {rhoDry ?? '—'} Ω·m,
-            verzadigde zone onder GHG met ρ ≈ {rhoWet ?? '—'} Ω·m. Laagweerstand gecombineerd met
-            harmonisch gemiddelde (parallelle segment-conductanties): ρ_eff = Σ(ΔL) / Σ(ΔL/ρ).{'\n'}
+            Berekening met Dwight-formule (verticale staafaarding). Droge zone boven GHG met ρ ≈ {rhoDry ?? '—'} Ω·m,
+            verzadigde zone onder GHG met ρ ≈ {rhoWet ?? '—'} Ω·m. Bij aanwezige BRO-bodemprofielen wordt het
+            gelaagde model gebruikt (ρ_eff per laag). Zonder profiel: harmonisch gemiddelde (ρ_eff = Σ(ΔL) / Σ(ΔL/ρ)).{'\n'}
             Seizoensscenario&apos;s: natte periode = GHG, gemiddeld = GHG + 1,5 m, ongunstig = GHG + 3,0 m.{'\n'}
             {'\n'}
             Normerend kader: NEN 1010 (elektrotechnische installaties), NEN 62305 (bliksembeveiliging),

@@ -199,10 +199,10 @@ function ResistanceOverview() {
   const [voltageLimit, setVoltageLimit] = useState<25 | 50>(50);
   const UL = voltageLimit;
 
-  // Practical cap: NEN/industry limits Ra to 166 Ω regardless of theoretical formula
+  // Ra_max = UL/IΔn — geen universele 166-cap (zie docs/contracts.md §A)
   const rcdCols = RCD_OPTIONS.map(rcd => ({
     ...rcd,
-    r: Math.min(UL / (rcd.mA / 1000), 166),
+    r: UL / (rcd.mA / 1000),
   }));
 
   return (
