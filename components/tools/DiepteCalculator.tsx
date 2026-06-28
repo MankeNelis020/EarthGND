@@ -12,6 +12,8 @@ import { calcRhoEffective, lithoClassToRhoDry } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
 import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
 import { buildSoilRhoPreview } from '@/lib/pipeline/effective-rho';
+import { FieldLabel } from '@/components/ui/FieldLabel';
+import { IconAlert, IconCheck, IconMail, IconX } from '@/components/ui/icons';
 import type { ParallelLayout } from '@/lib/pipeline/parallel-policy';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -155,12 +157,6 @@ function fmt(v: number) {
   if (v < 10) return v.toFixed(2);
   return v.toFixed(1);
 }
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/70">{children}</p>;
-}
-
-// ─── Soil Cross-Section Visualization ────────────────────────────────────────
 
 function SoilCrossSection({
   rodLength,
@@ -461,9 +457,9 @@ function ScenarioCard({ label, sublabel, dimension, dimensionUnit, resistance, d
 
 function RaHaalbaarheidsCheck({ raGemiddeld, raOngunstig }: { raGemiddeld: number; raOngunstig: number }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
+    <div className="panel overflow-hidden">
       <div className="border-b border-white/6 px-5 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Ra-haalbaarheidscheck</p>
+        <p className="text-xs font-medium text-white/50">Ra-haalbaarheidscheck</p>
         <p className="mt-0.5 text-xs text-white/70">
           Welke beveiligingen zijn haalbaar met Ra ≈ {fmt(raOngunstig)} Ω (ongunstig scenario)?
         </p>
@@ -479,10 +475,8 @@ function RaHaalbaarheidsCheck({ raGemiddeld, raOngunstig }: { raGemiddeld: numbe
               status === 'conditional' ? 'bg-yellow-500/3' :
                                          'bg-red-500/3'
             }`}>
-              <span className={`shrink-0 text-sm font-bold ${
-                status === 'pass' ? 'text-green-400' : status === 'conditional' ? 'text-yellow-400' : 'text-red-400'
-              }`}>
-                {status === 'pass' ? '✓' : status === 'conditional' ? '⚠' : '✗'}
+              <span className={`shrink-0 ${status === 'pass' ? 'text-emerald-400' : status === 'conditional' ? 'text-amber-400' : 'text-red-400'}`}>
+                {status === 'pass' ? <IconCheck /> : status === 'conditional' ? <IconAlert /> : <IconX />}
               </span>
               <div className="min-w-0 flex-1">
                 <span className="text-xs text-white/70">{label}</span>
@@ -525,9 +519,9 @@ function DriveabilityBlock({
   const allMethods = calcAllMethods(soilSamples, zReq);
   const methods = Object.keys(DRIVE_METHOD_LABELS) as DriveMethod[];
   return (
-    <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
+    <div className="panel overflow-hidden">
       <div className="border-b border-white/6 px-5 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Drijfbaarheid &amp; weigering</p>
+        <p className="text-xs font-medium text-white/50">Drijfbaarheid &amp; weigering</p>
         <p className="mt-0.5 text-xs text-white/70">
           {isLimited
             ? refusalLayer
@@ -822,11 +816,11 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       )}
 
       {/* Parameters */}
-      <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+      <div className="panel p-5">
 
         {/* Electrode type toggle */}
         <div className="mb-5">
-          <SectionLabel>Elektrode type</SectionLabel>
+          <FieldLabel>Elektrode type</FieldLabel>
           <div className="grid grid-cols-2 gap-2">
             {(['pen', 'lint'] as const).map(t => (
               <button
@@ -901,7 +895,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
         {/* Target resistance — tabbed presets (one choice) */}
         <div className="mb-5">
-          <SectionLabel>Doelweerstand</SectionLabel>
+          <FieldLabel>Doelweerstand</FieldLabel>
           <p className="mb-3 text-xs text-white/50">
             Selecteer één doelweerstand — niet per categorie.
           </p>
@@ -1104,7 +1098,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       <button
         onClick={() => handleCalculate()}
         disabled={loading}
-        className="rounded-2xl bg-[#E8761A] py-4 text-sm font-bold text-white transition-opacity hover:bg-[#d06510] disabled:opacity-50"
+        className="rounded-md bg-brand py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
       >
         {loading ? 'Berekening...' : `Bereken ${electrodeType === 'pen' ? 'pendiepte' : 'lintlengte'} — 1 credit`}
       </button>
@@ -1119,9 +1113,9 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
           {/* Soil cross-section + aanbevolen config */}
           {calcResult.electrodeType === 'pen' && rodLength > 0 && (
-            <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
+            <div className="panel overflow-hidden">
               <div className="border-b border-white/6 px-5 py-3 flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">
+                <p className="text-xs font-medium text-white/50">
                   Aanbevolen configuratie
                 </p>
                 <p className="text-xs font-bold text-white">
@@ -1197,7 +1191,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           {/* Three scenarios */}
           <div className="rounded-2xl border border-white/10 p-5">
             <div className="mb-4 flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">
+              <span className="text-xs font-medium text-brand">
                 Drie scenario&apos;s
               </span>
               <div className="flex flex-col items-end gap-0.5">
@@ -1311,8 +1305,8 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
           {/* Resistance vs depth graph (pen only, with two-layer data) */}
           {calcResult.electrodeType === 'pen' && calcResult.rhoDry && calcResult.rhoWet && (
-            <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
+            <div className="panel p-5">
+              <p className="mb-3 text-xs font-medium text-white/50">
                 Weerstand vs. diepte (gemiddeld scenario)
               </p>
               <RvsDiepteGraph
@@ -1444,9 +1438,10 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 ) : (
                   <button
                     onClick={() => { setShowMonteurModal(true); setMonteurError(''); setMonteurSent(false); }}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-[#E8761A]/30 bg-[#E8761A]/10 px-4 py-3 text-sm font-semibold text-[#E8761A] hover:bg-[#E8761A]/20 transition-colors"
+                    className="flex items-center justify-center gap-2 rounded-md border border-brand/30 bg-brand-muted px-4 py-3 text-sm font-semibold text-brand hover:bg-brand/20 transition-colors"
                   >
-                    ✉ Mail monteur
+                    <IconMail className="h-4 w-4" />
+                    Mail monteur
                   </button>
                 )
               ) : (
@@ -1462,7 +1457,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             {calcResult.calculationId && (
               <div className="flex items-center justify-between rounded-xl border border-white/8 bg-white/3 px-3 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-widest text-white/30">Berekening ID</p>
+                  <p className="text-[10px] font-medium text-white/35">Berekening ID</p>
                   <p className="truncate font-mono text-xs text-white/40">{calcResult.calculationId}</p>
                 </div>
                 <button

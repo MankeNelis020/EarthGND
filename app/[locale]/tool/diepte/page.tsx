@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { DiepteCalculator } from '@/components/tools/DiepteCalculator';
+import { PageMeta } from '@/components/ui/FieldLabel';
 import { Link } from '@/i18n/navigation';
 
 export const runtime = 'nodejs';
@@ -27,12 +28,10 @@ export default async function DieptePage({
   // Not logged in
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#0d0d0d]">
+      <div className="min-h-screen bg-canvas">
         <div className="mx-auto max-w-2xl px-4 py-10">
           <div className="mb-8">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#E8761A]/25 bg-[#E8761A]/8 px-3 py-1 text-xs font-semibold tracking-wider text-[#E8761A]">
-              Dwight-formule · BRO bodemdata · NEN 1010 / NEN 62305
-            </div>
+            <PageMeta>Dwight-formule · BRO bodemdata · NEN 1010 / NEN 62305</PageMeta>
             <h1 className="font-condensed text-3xl font-black text-white sm:text-4xl">
               Pendiepte Calculator
             </h1>
@@ -84,12 +83,10 @@ export default async function DieptePage({
   // Free user
   if (!isPaid) {
     return (
-      <div className="min-h-screen bg-[#0d0d0d]">
+      <div className="min-h-screen bg-canvas">
         <div className="mx-auto max-w-2xl px-4 py-10">
           <div className="mb-8">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#E8761A]/25 bg-[#E8761A]/8 px-3 py-1 text-xs font-semibold tracking-wider text-[#E8761A]">
-              Dwight-formule · BRO bodemdata · NEN 1010 / NEN 62305
-            </div>
+            <PageMeta>Dwight-formule · BRO bodemdata · NEN 1010 / NEN 62305</PageMeta>
             <h1 className="font-condensed text-3xl font-black text-white sm:text-4xl">
               Pendiepte Calculator
             </h1>
@@ -134,12 +131,10 @@ export default async function DieptePage({
   const initialLabel = params.label;
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
+    <div className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-2xl px-4 py-10">
         <div className="mb-8">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#E8761A]/25 bg-[#E8761A]/8 px-3 py-1 text-xs font-semibold tracking-wider text-[#E8761A]">
-            Dwight-formule · BRO bodemdata · NEN 1010 / NEN 62305
-          </div>
+          <PageMeta>Dwight-formule · BRO bodemdata · NEN 1010 / NEN 62305</PageMeta>
           <h1 className="font-condensed text-3xl font-black text-white sm:text-4xl">
             Pendiepte Calculator
           </h1>

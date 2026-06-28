@@ -166,7 +166,7 @@ export default async function DashboardPage({
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
+    <div className="min-h-screen bg-canvas">
       <PostAuthRedirect />
       <div className="mx-auto max-w-3xl px-4 py-10">
 

@@ -19,7 +19,7 @@ export default async function HomePage({ params }: Props) {
   const featuresPaid = [t('featuresPaid.f1'), t('featuresPaid.f2'), t('featuresPaid.f3'), t('featuresPaid.f4'), t('featuresPaid.f5')];
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
+    <div className="min-h-screen bg-canvas">
       <section className="relative overflow-hidden px-4 pb-24 pt-20">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(232,118,26,0.12),transparent)]" />
         <div className="relative mx-auto max-w-4xl text-center">

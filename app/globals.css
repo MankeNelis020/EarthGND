@@ -25,4 +25,9 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Shared panel surface — tighter radius than legacy rounded-2xl stacks */
+  .panel {
+    @apply rounded-lg border border-white/10 bg-surface;
+  }
 }

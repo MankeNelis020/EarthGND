@@ -58,7 +58,7 @@ export default async function NieuwRapportPage({ searchParams }: { searchParams:
   if (error || !report) {
     // Fallback: show an error rather than a blank crash
     return (
-      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
         <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-8 text-center max-w-sm">
           <p className="text-sm font-semibold text-red-400 mb-2">Aanmaken mislukt</p>
           <p className="text-xs text-white/40">{error?.message ?? 'Onbekende fout'}</p>

@@ -41,7 +41,7 @@ export default async function RapportPage({ params }: Ctx) {
   if (!report) notFound();
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
+    <div className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-2xl px-4 py-8">
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">

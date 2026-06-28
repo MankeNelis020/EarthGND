@@ -131,9 +131,15 @@ function ActionBtn({
   );
 }
 
-function Badge({ label, cls }: { label: string; cls: string }) {
+function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'brand' | 'success' | 'warning' | 'danger' }) {
+  const cls =
+    tone === 'brand'   ? 'border-brand/45 text-brand' :
+    tone === 'success' ? 'border-emerald-500/40 text-emerald-400' :
+    tone === 'warning' ? 'border-amber-500/40 text-amber-400' :
+    tone === 'danger'  ? 'border-red-500/40 text-red-400' :
+                         'border-white/25 text-white/50';
   return (
-    <span className={`inline-block rounded-full border px-1.5 py-px text-[10px] font-bold leading-tight ${cls}`}>
+    <span className={`inline-block border-l-2 pl-1.5 text-[10px] font-medium leading-tight ${cls}`}>
       {label}
     </span>
   );
@@ -174,7 +180,7 @@ function SectionHeader({
     <div className="flex items-center gap-3 border-b border-white/6 px-4 py-3">
       <span className="font-mono text-[10px] font-bold text-[#E8761A]/50 shrink-0 w-5">{step}</span>
       <div className="flex-1 min-w-0">
-        <h2 className="font-condensed text-sm font-bold uppercase tracking-wide text-white leading-tight">{title}</h2>
+        <h2 className="font-condensed text-sm font-bold text-white leading-tight">{title}</h2>
         <p className="text-[10px] text-white/30 mt-px">{subtitle}</p>
       </div>
       {action}
@@ -350,12 +356,10 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
           <div className="flex flex-wrap gap-1 mb-0.5">
             <Badge
               label={isSubmitted ? t('status.submitted') : t('status.invited')}
-              cls={isSubmitted
-                ? 'border-yellow-500/30 bg-yellow-500/5 text-yellow-400'
-                : 'border-blue-500/30 bg-blue-500/5 text-blue-400'}
+              tone={isSubmitted ? 'warning' : 'neutral'}
             />
             {isSubmitted && (
-              <Badge label={t('status.actionRequired')} cls="border-yellow-500/40 bg-yellow-500/10 text-yellow-300" />
+              <Badge label={t('status.actionRequired')} tone="warning" />
             )}
           </div>
           <p className="text-sm font-semibold text-white truncate leading-tight">{naam}</p>
@@ -384,7 +388,7 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
       <li className="flex items-center gap-1.5 px-4 py-2 border-b border-white/5 last:border-0">
         <Link href={href} className="flex-1 min-w-0">
           <div className="mb-0.5">
-            <Badge label={t('status.yourMeasurement')} cls="border-[#E8761A]/30 bg-[#E8761A]/8 text-[#E8761A]" />
+            <Badge label={t('status.yourMeasurement')} tone="brand" />
           </div>
           <p className="text-sm font-semibold text-white truncate leading-tight">{location}</p>
           <DashboardMeta>{fmtDate(job.created_at, l)}</DashboardMeta>
@@ -413,16 +417,14 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
           <div className="flex flex-wrap gap-1 mb-0.5">
             <Badge
               label={statusLabel}
-              cls={isFinished
-                ? 'border-green-500/30 bg-green-500/10 text-green-400'
-                : 'border-yellow-500/20 bg-yellow-500/8 text-yellow-400'}
+              tone={isFinished ? 'success' : 'warning'}
             />
             <Badge
               label={r.type === 'pendiepte' ? 'Pendiepte' : 'NEN 1010'}
-              cls="border-white/10 bg-white/3 text-white/35"
+              tone="neutral"
             />
             {r.label && (
-              <Badge label={r.label} cls="border-white/10 bg-white/3 text-white/35" />
+              <Badge label={r.label} tone="neutral" />
             )}
           </div>
           <p className="text-sm font-semibold text-white truncate leading-tight">{r.naam}</p>

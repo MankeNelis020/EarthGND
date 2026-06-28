@@ -79,7 +79,7 @@ export default async function MetingPage({ params }: Ctx) {
   const isSubmitted = meting.status === 'submitted';
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
+    <div className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-6">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">EarthGND</p>

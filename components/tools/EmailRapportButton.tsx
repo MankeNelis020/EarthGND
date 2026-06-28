@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import type { DiepteRapportProps } from '@/components/pdf/DiepteRapportTemplate';
+import { IconCheck, IconMail } from '@/components/ui/icons';
 
 interface Props {
   tool: 'ohm' | 'diepte';
@@ -42,7 +43,6 @@ export function EmailRapportButton({ tool, inputValues, results, warning, diepte
       });
       if (!res.ok) throw new Error('Verzenden mislukt');
 
-      // Ensure opleverrapport draft record exists (creates if not already there)
       if (calculationId) {
         fetch(`/api/calculations/${calculationId}/draft`, { method: 'POST' }).catch(() => {/* non-blocking */});
       }
@@ -57,21 +57,21 @@ export function EmailRapportButton({ tool, inputValues, results, warning, diepte
 
   if (status === 'login') {
     return (
-      <div className="mt-4 rounded-xl border border-white/15 bg-white/4 p-5 text-center">
+      <div className="mt-4 rounded-lg border border-white/10 bg-white/3 p-5 text-center">
         <p className="mb-1 text-sm font-semibold text-white">Inloggen vereist</p>
-        <p className="mb-4 text-xs text-white/60">
+        <p className="mb-4 text-xs text-white/55">
           Maak een account aan of log in om dit rapport per e-mail te ontvangen.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Link
             href={`/login?redirect=${encodeURIComponent(returnPath)}`}
-            className="rounded-lg bg-[#E8761A] px-5 py-2 text-sm font-semibold text-white hover:bg-[#d06510] transition-colors"
+            className="rounded-md bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-brand-hover transition-colors"
           >
             Inloggen of registreren
           </Link>
           <button
             onClick={() => setStatus('idle')}
-            className="text-xs text-white/50 hover:text-white/80 transition-colors"
+            className="text-xs text-white/50 hover:text-white/75 transition-colors"
           >
             Annuleren
           </button>
@@ -88,20 +88,29 @@ export function EmailRapportButton({ tool, inputValues, results, warning, diepte
       <button
         onClick={handleClick}
         disabled={isBusy || isSent}
-        className={`flex h-full w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors
+        className={`flex h-full w-full items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-semibold transition-colors
           ${isSent
-            ? 'border-green-500/30 bg-green-500/10 text-green-400 cursor-default'
+            ? 'border-emerald-500/30 bg-emerald-500/8 text-emerald-400 cursor-default'
             : isBusy
             ? 'border-white/10 bg-white/5 text-white/40 cursor-wait'
-            : 'border-white/15 bg-white/5 text-white/80 hover:border-white/25 hover:bg-white/8 hover:text-white'
+            : 'border-white/12 bg-white/4 text-white/85 hover:border-white/20 hover:bg-white/6'
           }`}
       >
         {isSent ? (
-          <>✓ Mail verzonden</>
+          <>
+            <IconCheck className="h-4 w-4" />
+            Mail verzonden
+          </>
         ) : isBusy ? (
-          <><span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />Verzenden…</>
+          <>
+            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
+            Verzenden…
+          </>
         ) : (
-          <>✉ Mail mij dit rapport</>
+          <>
+            <IconMail className="h-4 w-4" />
+            Mail mij dit rapport
+          </>
         )}
       </button>
       {status === 'error' && (

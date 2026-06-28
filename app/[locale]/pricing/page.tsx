@@ -81,7 +81,7 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
+    <div className="min-h-screen bg-canvas">
       {checkoutError && (
         <div className="border-b border-red-500/20 bg-red-500/8 px-4 py-3 text-center">
           <p className="text-sm text-red-400">{checkoutError}</p>

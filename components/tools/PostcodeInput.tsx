@@ -6,6 +6,8 @@ import { calcRiskClass } from '@/lib/calculations';
 import { wgs84ToRd } from '@/lib/rd';
 import { reverseGeocode } from '@/lib/geocoding';
 import { buildSoilRhoPreview } from '@/lib/pipeline/effective-rho';
+import { StatusChip } from '@/components/ui/StatusChip';
+import { IconAlert, IconChevronDown, IconMapPin } from '@/components/ui/icons';
 
 const MANUAL_RHO_OPTIONS = [
   { label: 'Klei / nat', rho: 30, lithoClass: 1 },
@@ -179,31 +181,31 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
   };
 
   return (
-    <div className="rounded-2xl border border-zinc-700 bg-zinc-900 overflow-hidden">
+    <div className="panel overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left"
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
       >
-        <span className="text-base">📍</span>
-        <span className="text-sm font-semibold text-zinc-200">Locatie & grondgegevens</span>
+        <IconMapPin className="h-4 w-4 shrink-0 text-brand/80" />
+        <span className="text-sm font-semibold text-white/90">Locatie & grondgegevens</span>
         {soilLoading && (
-          <span className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-orange-500/30 border-t-orange-500" />
+          <span className="ml-1 h-4 w-4 animate-spin rounded-full border-2 border-brand/25 border-t-brand" />
         )}
         {soilData && !soilLoading && (
-          <span className="ml-2 rounded-full border border-green-500/40 bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-400">
-            BRO ✓
-          </span>
+          <StatusChip label="BRO geladen" tone="success" />
         )}
-        <span className="ml-auto text-zinc-600">{expanded ? '▲' : '▼'}</span>
+        <IconChevronDown
+          className={`ml-auto h-4 w-4 text-white/30 transition-transform ${expanded ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {expanded && (
-        <div className="border-t border-zinc-800 px-5 pb-5 pt-4">
+        <div className="border-t border-white/8 px-4 pb-4 pt-3">
           {/* Postcode row */}
           <div className="mb-3 flex gap-2">
             <div className="flex flex-col gap-1 flex-1">
-              <label className="text-xs font-medium text-zinc-300">Postcode</label>
+              <label className="text-xs font-medium text-white/55">Postcode</label>
               <input
                 type="text"
                 value={postcode}
@@ -211,25 +213,25 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                 onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
                 placeholder="1234 AB"
                 maxLength={7}
-                className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:border-orange-500 focus:outline-none"
+                className="rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:border-brand/50 focus:outline-none"
               />
             </div>
             <div className="flex flex-col gap-1 w-24">
-              <label className="text-xs font-medium text-zinc-300">Huisnr.</label>
+              <label className="text-xs font-medium text-white/55">Huisnr.</label>
               <input
                 type="text"
                 value={huisnummer}
                 onChange={(e) => setHuisnummer(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
                 placeholder="10"
-                className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:border-orange-500 focus:outline-none"
+                className="rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:border-brand/50 focus:outline-none"
               />
             </div>
             <div className="flex flex-col justify-end">
               <button
                 onClick={handleFetch}
                 disabled={soilLoading || !postcode.trim()}
-                className="rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:bg-orange-400 disabled:opacity-40"
+                className="rounded-md bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-40"
               >
                 {soilLoading ? '...' : 'Ophalen'}
               </button>
@@ -240,23 +242,26 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
           <button
             onClick={handleGps}
             disabled={soilLoading || gpsStatus === 'loading'}
-            className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/40 px-3 py-2 text-xs text-zinc-400 transition-colors hover:border-zinc-600 hover:text-zinc-300 disabled:opacity-40"
+            className="mb-3 flex w-full items-center justify-center gap-2 rounded-md border border-white/10 bg-white/3 px-3 py-2 text-xs text-white/55 transition-colors hover:border-white/15 hover:text-white/75 disabled:opacity-40"
           >
             {gpsStatus === 'loading' ? (
               <>
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/15 border-t-white/60" />
                 Locatie bepalen…
               </>
             ) : (
-              <>📍 Gebruik mijn locatie</>
+              <>
+                <IconMapPin className="h-3.5 w-3.5" />
+                Gebruik mijn locatie
+              </>
             )}
           </button>
 
           {/* Loading skeleton — replaces old data while new fetch is in progress */}
           {soilLoading && (
             <div className="mb-3 space-y-2 animate-pulse">
-              <div className="h-3 w-40 rounded bg-zinc-800" />
-              <div className="h-20 rounded-xl bg-zinc-800/70" />
+              <div className="h-3 w-40 rounded bg-white/8" />
+              <div className="h-20 rounded-lg bg-white/6" />
             </div>
           )}
 
@@ -264,12 +269,12 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
             <>
               {/* Address confirmation */}
               {soilData && (
-                <p className="mb-2 text-[11px] text-zinc-300 tracking-wide">
+                <p className="mb-2 text-xs text-white/55">
                   {soilData.straatnaam
                     ? [soilData.straatnaam, soilData.huisnummer].filter(Boolean).join(' ') +
                       (soilData.woonplaats ? `, ${soilData.woonplaats}` : '')
                     : gpsCoords
-                    ? `📍 ${gpsCoords.lat.toFixed(5)}°N, ${gpsCoords.lon.toFixed(5)}°E`
+                    ? `${gpsCoords.lat.toFixed(5)}°N, ${gpsCoords.lon.toFixed(5)}°E`
                     : [postcode.toUpperCase(), huisnummer].filter(Boolean).join(' ')}
                 </p>
               )}
@@ -282,27 +287,30 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
 
               {/* BRO result — free tier */}
               {soilData && !isPro && soilData.source === 'bro' && (
-                <div className="mb-3 rounded-xl border border-orange-500/30 bg-orange-500/5 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-orange-400">
-                      BRO gronddata
-                    </span>
-                    <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-xs text-orange-400">
-                      {soilData.dataSource === 'cpt' ? 'CPT sondering' :
-                       soilData.dataSource === 'bhrgt' ? 'BRO boring' :
-                       soilData.dataSource === 'geotop' ? 'GeoTOP model' :
-                       soilData.dataSource === 'bodemkaart' ? 'Bodemkaart' :
-                       'Regionaal'}
-                    </span>
+                <div className="mb-3 rounded-lg border border-brand/25 bg-brand-muted p-4">
+                  <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="text-xs font-semibold text-brand">BRO gronddata</span>
+                    <StatusChip
+                      label={
+                        soilData.dataSource === 'cpt' ? 'CPT sondering' :
+                        soilData.dataSource === 'bhrgt' ? 'BRO boring' :
+                        soilData.dataSource === 'geotop' ? 'GeoTOP model' :
+                        soilData.dataSource === 'bodemkaart' ? 'Bodemkaart' :
+                        'Regionaal'
+                      }
+                      tone="brand"
+                    />
                     {soilData.boringAfstand != null && (
-                      <span className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                        {soilData.boringAfstand < 1
-                          ? `${Math.round(soilData.boringAfstand * 1000)} m`
-                          : `${soilData.boringAfstand.toFixed(1)} km`}
-                      </span>
+                      <StatusChip
+                        label={
+                          soilData.boringAfstand < 1
+                            ? `${Math.round(soilData.boringAfstand * 1000)} m`
+                            : `${soilData.boringAfstand.toFixed(1)} km`
+                        }
+                      />
                     )}
                   </div>
-                  <p className="mb-3 text-xs text-zinc-300">
+                  <p className="mb-3 text-xs text-white/60 leading-relaxed">
                     {soilData.dataSource === 'cpt'
                       ? 'Grondsoort op basis van een nabijgelegen conuspenetratietest (BRO).'
                       : soilData.dataSource === 'bhrgt'
@@ -316,14 +324,14 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                   <div className="mt-3 flex items-center gap-3">
                     <button
                       onClick={handleSoilDataApply}
-                      className="rounded-lg bg-orange-500 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-400"
+                      className="rounded-md bg-brand px-4 py-2 text-xs font-semibold text-white hover:bg-brand-hover"
                     >
                       {new Set(soilData.samples.map(s => s.lithoClass)).size > 1
                         ? `Gebruik gelaagd profiel (effectief ${soilPreview?.effectiveRho ?? soilData.dominantRho} Ω·m)`
                         : `Toepassen (effectief ${soilPreview?.effectiveRho ?? soilData.dominantRho} Ω·m)`}
                     </button>
-                    <a href="/pricing" className="text-xs text-zinc-300 underline hover:text-orange-400">
-                      Pendiepteberekening → Pro
+                    <a href="/pricing" className="text-xs text-white/50 underline hover:text-brand">
+                      Pendiepteberekening — Pro
                     </a>
                   </div>
                 </div>
@@ -331,9 +339,9 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
 
               {/* BRO result — pro tier */}
               {soilData && isPro && soilData.source === 'bro' && (
-                <div className="mb-3 rounded-xl border border-green-500/30 bg-green-500/5 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-green-400">
+                <div className="mb-3 rounded-lg border border-white/10 bg-white/3 p-4">
+                  <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="text-xs font-semibold text-white/80">
                       {soilData.dataSource === 'cpt' ? 'CPT sondering' :
                        soilData.dataSource === 'bhrgt' ? 'BRO boring' :
                        soilData.dataSource === 'geotop' ? 'GeoTOP model' :
@@ -341,30 +349,26 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                        'BRO gronddata'}
                     </span>
                     {soilData.boringAfstand != null && (
-                      <span
-                        className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400"
-                        title="Afstand van het adres tot de gebruikte boring"
-                      >
-                        {soilData.boringAfstand < 1
-                          ? `${Math.round(soilData.boringAfstand * 1000)} m`
-                          : `${soilData.boringAfstand.toFixed(1)} km`}
-                      </span>
+                      <StatusChip
+                        label={
+                          soilData.boringAfstand < 1
+                            ? `${Math.round(soilData.boringAfstand * 1000)} m`
+                            : `${soilData.boringAfstand.toFixed(1)} km`
+                        }
+                      />
                     )}
                     {soilData.groundwaterDepth != null && (
-                      <span
-                        className="rounded-full border border-zinc-600 bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300"
-                        title={soilData.gwSource === 'peilbuis' ? 'GHG afgeleid uit BRO-peilbuizen via NAP-correctie' : 'Grondwaterstand — verifieer lokaal'}
-                      >
-                        GW: {soilData.groundwaterDepth.toFixed(1)} m
-                        {soilData.gwSource === 'peilbuis' ? ' ✓' : ' ⚠'}
-                      </span>
+                      <StatusChip
+                        label={`GW ${soilData.groundwaterDepth.toFixed(1)} m${soilData.gwSource === 'peilbuis' ? '' : ' (verifieer)'}`}
+                        tone={soilData.gwSource === 'peilbuis' ? 'success' : 'warning'}
+                      />
                     )}
                   </div>
                   <SoilTable samples={soilData.samples} />
                   <ProfileAnomalyBanner samples={soilData.samples} boringAfstand={soilData.boringAfstand} />
                   <button
                     onClick={handleSoilDataApply}
-                    className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-500"
+                    className="mt-3 rounded-md bg-brand px-4 py-2 text-xs font-semibold text-white hover:bg-brand-hover"
                   >
                     {new Set(soilData.samples.map(s => s.lithoClass)).size > 1
                       ? `Gebruik gelaagd profiel (effectief ${soilPreview?.effectiveRho ?? soilData.dominantRho} Ω·m)`
@@ -377,26 +381,26 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
               {(!soilData || soilData.source === 'fallback') && (
                 <div>
                   {soilData?.source === 'fallback' && (
-                    <p className="mb-2 text-xs text-zinc-300">
+                    <p className="mb-2 text-xs text-white/55">
                       Geen BRO-data beschikbaar voor dit adres. Kies grondsoort handmatig:
                     </p>
                   )}
                   {!soilData && !soilError && (
-                    <p className="mb-2 text-xs text-zinc-300">Of kies grondsoort handmatig:</p>
+                    <p className="mb-2 text-xs text-white/55">Of kies grondsoort handmatig:</p>
                   )}
                   <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
                     {MANUAL_RHO_OPTIONS.map((opt) => (
                       <button
                         key={opt.rho}
                         onClick={() => handleManualSelect(opt.rho)}
-                        className={`rounded-lg border px-2.5 py-2 text-center text-xs font-medium transition-all ${
+                        className={`rounded-md border px-2.5 py-2 text-center text-xs font-medium transition-colors ${
                           effectiveManualRho === opt.rho
-                            ? 'border-orange-500 bg-orange-500/15 text-orange-400'
-                            : 'border-zinc-700 bg-zinc-800/60 text-zinc-300 hover:border-zinc-500'
+                            ? 'border-brand/50 bg-brand-muted text-brand'
+                            : 'border-white/10 bg-white/3 text-white/60 hover:border-white/20 hover:text-white/80'
                         }`}
                       >
                         <span className="block font-semibold">{opt.label}</span>
-                        <span className="block text-zinc-300 mt-0.5">{opt.rho} Ω·m</span>
+                        <span className="mt-0.5 block font-mono text-[10px] text-white/45">{opt.rho} Ω·m</span>
                       </button>
                     ))}
                   </div>
@@ -458,7 +462,10 @@ function ProfileAnomalyBanner({ samples, boringAfstand }: {
   return (
     <div className="mt-2 space-y-1 rounded-lg border border-yellow-500/30 bg-yellow-500/8 px-3 py-2.5">
       {warnings.map((w, i) => (
-        <p key={i} className="text-xs leading-relaxed text-yellow-300">⚠ {w}</p>
+        <p key={i} className="flex gap-2 text-xs leading-relaxed text-amber-300/90">
+          <IconAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{w}</span>
+        </p>
       ))}
     </div>
   );
@@ -469,7 +476,7 @@ function SoilTable({ samples }: { samples: { depth: number; lithoClass: number; 
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
-          <tr className="text-zinc-300">
+          <tr className="text-white/45">
             <th className="pb-1 text-left font-medium">Diepte</th>
             <th className="pb-1 text-left font-medium">Klasse</th>
             <th className="pb-1 text-left font-medium">ρ (Ω·m)</th>
@@ -477,10 +484,10 @@ function SoilTable({ samples }: { samples: { depth: number; lithoClass: number; 
         </thead>
         <tbody>
           {samples.map((s) => (
-            <tr key={s.depth} className="border-t border-white/5">
-              <td className="py-1 text-zinc-300">{s.depth} m</td>
-              <td className="py-1 text-zinc-300">{s.lithoClass}</td>
-              <td className="py-1 font-mono font-semibold text-orange-400">{s.rho}</td>
+            <tr key={s.depth} className="border-t border-white/6">
+              <td className="py-1 text-white/55">{s.depth} m</td>
+              <td className="py-1 text-white/55">{s.lithoClass}</td>
+              <td className="py-1 font-mono font-semibold text-brand">{s.rho}</td>
             </tr>
           ))}
         </tbody>
