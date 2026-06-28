@@ -95,7 +95,7 @@ uit vóór gebruik van `getScanContext()`.
 
 | Naam | Waarde | Bron | Wanneer |
 |------|--------|------|---------|
-| `LITHO_CLASS_TO_RHO_WET[5]` | 400 Ω·m | kernel (bevroren) | internationale literatuur, enkelvoudig model |
+| `LITHO_CLASS_TO_RHO_WET[5]` | 20 Ω·m  | kernel (bevroren) | NL CPT-statistiek, gelaagd model |
 | kernel-WET (veen, nat) | 20 Ω·m | BRO CPT-statistiek | gelaagd model (soilSamples aanwezig) |
 | `NL_RHO_WET_PRIOR[5]` | 10 Ω·m | NL veldkalibratie 2026-06 | actieve prior (SOIL_KNOWLEDGE_ACTIVE=true) |
 
@@ -110,7 +110,7 @@ Geen soilSamples, wel gwDepth/rhoDry/rhoWet opgegeven
   → calcRhoEffective() gebruikt twee-laag harmonisch gemiddelde
   → rhoWet = resolveRhoWet(lithoClass, rhoFallback) via pipeline
      = NL_RHO_WET_PRIOR[klasse] indien bekend (10 voor veen)
-     = LITHO_CLASS_TO_RHO_WET[klasse] als fallback (400 voor veen)
+     = LITHO_CLASS_TO_RHO_WET[klasse] als fallback (20 voor veen)
      = rhoFallback × 0.45 als geen klasse bekend
 
 Geen gwDepth → enkelvoudig model
@@ -118,7 +118,7 @@ Geen gwDepth → enkelvoudig model
 ```
 
 **Veen-annotatie voor golden-set tests:**
-- golden-set §6 (LITHO_CLASS_TO_RHO_WET[5]) pinned = **400** — bevroren kerneltabel, nooit aanpassen
+- golden-set §6 (LITHO_CLASS_TO_RHO_WET[5]) pinned = **20** — bevroren kerneltabel, nooit aanpassen
 - golden-set §7 (NL_RHO_WET_PRIOR[5]) pinned = **10** — NL-gekalibreerd, Fase 0 2026-06
 - golden-set §8 (resolveRhoWet(5,...)) pinned = **10** — NL prior heeft prioriteit
 

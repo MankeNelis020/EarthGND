@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import type { Systeemtype } from '@/lib/types/rapport';
+import { getScanContext } from '@/lib/scan-context';
 
 type SearchParams = Promise<{
   scan?: string;
@@ -28,23 +29,13 @@ export default async function NieuwRapportPage({ searchParams }: { searchParams:
   if (calculationId) {
     const { data: calc } = await supabase
       .from('calculations')
-      .select('*')
+      .select('postcode, input_values, result, input, resultaat, risicoklasse, created_at')
       .eq('id', calculationId)
       .eq('user_id', user.id)
       .single();
 
     if (calc) {
-      scanContext = {
-        postcode:          calc.postcode ?? undefined,
-        rho:               calc.rho ?? undefined,
-        grondwaterstand_m: calc.grondwaterstand_m ?? undefined,
-        ph:                calc.ph ?? undefined,
-        voorspeld_diepte_m: calc.voorspeld_diepte_m ?? undefined,
-        voorspeld_ra_ohm:  calc.voorspeld_ra_ohm ?? undefined,
-        risicoklasse:      calc.risicoklasse ?? undefined,
-        databron:          calc.databron ?? undefined,
-        berekend_op:       calc.created_at ?? undefined,
-      };
+      scanContext = getScanContext(calc as Record<string, unknown>);
       if (!locatie && calc.postcode) locatie = calc.postcode;
     }
   }

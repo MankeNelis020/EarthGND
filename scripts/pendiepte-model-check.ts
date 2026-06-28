@@ -32,10 +32,11 @@ const broPeat = runKernel({
   dataSource: 'bhrgt',
 });
 
+// Without soilSamples, resolveRhoWet(5) uses NL_RHO_WET_PRIOR[5] = 10 (not kernel table 20)
 assert.equal(
   broPeat.rhoWet,
-  20,
-  'BRO profile must not reuse dominantRho as saturated rhoWet',
+  10,
+  'No soilSamples → resolveRhoWet path → NL_RHO_WET_PRIOR[5] = 10 (see contracts.md §C)',
 );
 assert.ok(
   (broPeat.scenarios.gunstig as { depth: number }).depth < 5,
