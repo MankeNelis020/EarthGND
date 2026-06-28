@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import type { CreateRapportPayload } from '@/lib/types/rapport';
+import { getScanContext } from '@/lib/scan-context';
 
 export const runtime = 'nodejs';
 
@@ -34,27 +35,17 @@ export async function POST(request: NextRequest) {
   // If a calculation_id was given, fetch scan context to pre-fill
   let scanContext = body.scan_context ?? {};
   if (body.calculation_id) {
+    // Selecteer zowel canonieke (input_values/result) als legacy (input/resultaat) kolomnamen;
+    // getScanContext() handelt beide varianten af (zie lib/scan-context.ts + docs/contracts.md §B).
     const { data: calc } = await supabase
       .from('calculations')
-      .select('postcode, input, resultaat, risicoklasse, created_at')
+      .select('postcode, input_values, result, input, resultaat, risicoklasse, created_at')
       .eq('id', body.calculation_id)
       .eq('user_id', user.id)
       .single();
 
     if (calc) {
-      const input = calc.input as Record<string, unknown>;
-      const resultaat = calc.resultaat as Record<string, unknown>;
-      scanContext = {
-        postcode:            calc.postcode ?? undefined,
-        rho:                 typeof input.rho === 'number' ? input.rho : undefined,
-        grondwaterstand_m:   typeof input.groundwaterDepth === 'number' ? input.groundwaterDepth : undefined,
-        ph:                  typeof input.ph === 'number' ? input.ph : undefined,
-        voorspeld_diepte_m:  typeof resultaat.depth === 'number' ? resultaat.depth : undefined,
-        voorspeld_ra_ohm:    typeof resultaat.achievedResistance === 'number' ? resultaat.achievedResistance : undefined,
-        risicoklasse:        calc.risicoklasse ?? undefined,
-        databron:            'BRO bodemdata, postcodeniveau, indicatief',
-        berekend_op:         calc.created_at,
-      };
+      scanContext = getScanContext(calc as Record<string, unknown>);
     }
   }
 
