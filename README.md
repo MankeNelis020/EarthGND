@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EarthGND
 
-## Getting Started
+Nederlandse SaaS voor aarding (TT-stelsel): weerstandscalculator, pendiepteberekening met BRO-bodemdata, opleverrapporten en veldmeting-validatie.
 
-First, run the development server:
+## Stack
+
+- **Next.js 14** (App Router) + **TypeScript**
+- **Supabase** (auth, Postgres, RLS)
+- **Stripe**, **Resend**, **Upstash Redis**
+- **next-intl** (nl / en / de)
+
+## Snel starten
 
 ```bash
+cp .env.example .env.local
+# Vul Supabase, Stripe, Resend en overige keys in
+
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000/nl](http://localhost:3000/nl).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Commando | Doel |
+|----------|------|
+| `npm run dev` | Development server |
+| `npm run build` | Productie-build (lint + typecheck) |
+| `npm test` | Regressie: golden-set + pendiepte-model-check |
+| `npm run golden-set` | 92 pinned asserts op kernel + priors |
+| `npm run test:pendiepte` | Adapter/policy regressies (ρ, parallel, Orkaden) |
+| `npm run gate:depth` | Veld-diepte gate (+30% conservatisme, vereist `.calibration-cache`) |
+| `npm run calibrate:fase0` | Counterfactual ρ-rapport (offline BRO-cache) |
+| `npm run i18n:check` | Ontbrekende vertaalsleutels |
 
-## Learn More
+## Architectuur (kern)
 
-To learn more about Next.js, take a look at the following resources:
+```
+lib/calculations.ts          ← bevroren kernel (Dwight, RCD, risicoklasse)
+lib/pipeline/                ← adapter, ρ-priors, parallel-policy, driveability
+lib/soil-knowledge/          ← L1–L4 priors (SOIL_KNOWLEDGE_ACTIVE=false in prod)
+docs/contracts.md            ← canonieke contracten §A–§D
+docs/phased-gates.md         ← Poort 1–4 acceptatiecriteria
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**ρ-waarheid:** zie `docs/contracts.md` §C — GENERAL (2000 veen) ≠ kernel-WET (20) ≠ NL prior (10).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Parallel-beleid:** zie §D — geen auto-advies op diepte alleen; alleen indrijfbaarheid of expliciete UI-keuze.
 
-## Deploy on Vercel
+## Supabase
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Migratievolgorde: `docs/supabase-migrations.md`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Canonieke kolommen `calculations`: `input_values`, `result`, `risicoklasse`.
+
+## Poorten (gefaseerd)
+
+| Poort | Status | Beschrijving |
+|-------|--------|--------------|
+| 1 | ✅ | Trust foundation (RCD, schema, scan-context) |
+| P1 | ✅ | NL layered adapter, effectieve ρ |
+| 2 | 🔄 | Shadow mode + veldmetingen (`shadow_predictions.actual_rho`) |
+| 3 | ⏸ | `SOIL_KNOWLEDGE_ACTIVE` — pas na OOS-validatie |
+| 4 | ⏸ | Empirisch gewicht in productie |
+
+Details: `docs/phased-gates.md`.
+
+## Stub-routes
+
+- `/certificaat` — redirect-stub; certificaten via dashboard/archief.
+
+## CI
+
+GitHub Actions draait `npm test`, `npm run lint` en `npm run build` op push/PR naar `main`.

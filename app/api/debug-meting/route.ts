@@ -8,6 +8,10 @@ export const runtime = 'nodejs';
 const ALLOWED_EMAILS = ['niel.baaijens@gmail.com'];
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production' && process.env.DEBUG_METING_ENABLED !== 'true') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 

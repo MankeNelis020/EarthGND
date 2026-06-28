@@ -12,6 +12,7 @@ import { calcRhoEffective, lithoClassToRhoDry } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
 import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
 import { buildSoilRhoPreview } from '@/lib/pipeline/effective-rho';
+import type { ParallelLayout } from '@/lib/pipeline/parallel-policy';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,23 +21,17 @@ type ElectrodeType = 'pen' | 'lint';
 interface PenScenarios  { gunstig: DiepteResult; gemiddeld: DiepteResult; ongunstig: DiepteResult }
 interface LintScenarios { gunstig: LintResult;   gemiddeld: LintResult;   ongunstig: LintResult   }
 
-interface ParallelLayout {
-  aantalPennen: number;
-  minAfstand:   number;
-  rParallel:    number;
-  rSingle:      number;
-  reason?:      'driveability' | 'requested';
+type ParallelAdvice = ParallelLayout & {
   zMax?:        ZMaxBand;
   refusalLayer?: RefusalLayer | null;
-  targetUnreachable?: boolean;
-}
+};
 
 interface CalcResult {
   scenarios: PenScenarios | LintScenarios;
   electrodeType: ElectrodeType;
   riskClass: RiskClassResult;
   corrosionClass: CorrosionClass;
-  parallelAdvice: ParallelLayout | null;
+  parallelAdvice: ParallelAdvice | null;
   parallelOption?: ParallelLayout | null;
   creditsRemaining: number;
   calculationId?: string | null;

@@ -17,6 +17,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { wgs84ToRd } from '@/lib/rd';
 import { analyzeDepthCurve } from './reverse-engine';
 import { isLearningBlocked } from './bayesian-posterior';
+import { backfillShadowFromMeting } from './shadow-logger';
 import { LITERATURE_PRIOR } from './priors';
 import { NL_RHO_WET_PRIOR } from '@/lib/pipeline/rho-priors';
 import type { SoilEvidenceRow, WelfordState } from './types';
@@ -219,6 +220,19 @@ export async function processMeting(
 
         if (regionalError) throw new Error(`regional_prior upsert fout (grid=${gridX},${gridY} litho=${k}): ${regionalError.message}`);
       }
+    }
+  }
+
+  // ── 6. Shadow ground truth (Poort 2) ─────────────────────────────────────
+  if (meting.calculation_id) {
+    const wetRhos = analyzed.filter(pt => pt.zone === 'wet').map(pt => pt.rhoApparent).filter(r => r > 0);
+    const actualRho = wetRhos.length
+      ? wetRhos.sort((a, b) => a - b)[Math.floor(wetRhos.length / 2)]
+      : analyzed[analyzed.length - 1]?.rhoApparent;
+    if (actualRho && actualRho > 0) {
+      await backfillShadowFromMeting(meting.calculation_id, metingId, actualRho, supabase).catch(e =>
+        console.error('[processMeting/backfillShadow]', e),
+      );
     }
   }
 

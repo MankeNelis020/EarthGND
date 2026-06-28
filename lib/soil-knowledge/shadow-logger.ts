@@ -9,7 +9,7 @@
  * Fire-and-forget: aanroepers awaiten niet — fouten worden gelogd maar blokkeren nooit.
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getLiteratureLevel, welfordToLevel, computeSafePosterior } from './index';
 import { MIN_SOFT_N_GLOBAL } from './priors';
 import type { WelfordState } from './types';
@@ -76,4 +76,43 @@ export async function logShadowPrediction(
     posterior_sigma: posterior.sigma,
     empirical_weight: 0,
   });
+}
+
+/**
+ * Vult ground truth op shadow_predictions na confirmed veldmeting (Poort 2).
+ * actual_rho = mediaan ρ_apparent van natte dieptepunten.
+ */
+export async function backfillShadowFromMeting(
+  calculationId: string,
+  metingId: string,
+  actualRho: number,
+  supabaseClient?: SupabaseClient,
+): Promise<void> {
+  if (!calculationId || !isFinite(actualRho) || actualRho <= 0) return;
+
+  const supabase = supabaseClient ?? getServiceClient();
+
+  const { data: row } = await supabase
+    .from('shadow_predictions')
+    .select('id, posterior_mu')
+    .eq('calculation_id', calculationId)
+    .is('actual_rho', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!row?.posterior_mu) return;
+
+  const absErr = Math.abs(row.posterior_mu - actualRho);
+  const relErr = absErr / actualRho;
+
+  await supabase
+    .from('shadow_predictions')
+    .update({
+      actual_rho:       actualRho,
+      actual_meting_id: metingId,
+      absolute_error:   Math.round(absErr * 100) / 100,
+      relative_error:   Math.round(relErr * 1000) / 1000,
+    })
+    .eq('id', row.id);
 }

@@ -55,7 +55,7 @@ export interface ValidatedDiepteInput {
   lintConductorDiameter: number; // default 0.01 m
   lithoClass?:           number;
   rhoDryOverride?:       number; // > 0 when present
-  rhoWetOverride?:       number; // > 0 when present — set by empirical-prior stage
+  rhoWetOverride?:       number; // > 0 when present — set by active-prior stage (Poort 3+)
   hasBroProfile:         boolean;
   drijfmethode?:         import('./driveability').DriveMethod;
   soilSamples?:          SoilSample[];

@@ -110,4 +110,27 @@ for (const r of results) {
   log(`  ${r.id.padEnd(22)}| ${sign}${pct}%`.padEnd(36) + `| ${oordeel}`);
 }
 log('');
-log('  Noot: licht conservatief = wenselijk (veiligheidsrichting). Doel Fase 1: alles < +30%.');
+log('  Noot: licht conservatief = wenselijk (veiligheidsrichting). Poort-2 gate: geoMean ≤ +30%.');
+
+const MAX_GEOMEAN = 1.30;
+if (results.length === 0) {
+  log('\n  GATE SKIP: geen BRO-cache — voer eerst npm run calibrate:fase0 uit.');
+  process.exit(0);
+}
+
+let gateFailed = false;
+for (const r of results) {
+  const logFactors = r.points.map(p => Math.log(p.depthToolAdvises / p.depthM));
+  const geoMean = Math.exp(logFactors.reduce((a, b) => a + b, 0) / logFactors.length);
+  if (geoMean > MAX_GEOMEAN) {
+    gateFailed = true;
+    log(`\n  GATE FAIL: ${r.id} geoMean=${((geoMean - 1) * 100).toFixed(0)}% > +${((MAX_GEOMEAN - 1) * 100).toFixed(0)}%`);
+  }
+}
+
+if (gateFailed) {
+  log('\n  gate:depth FAILED — zie docs/phased-gates.md Poort 2');
+  process.exit(1);
+}
+log('\n  gate:depth PASSED');
+process.exit(0);

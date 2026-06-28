@@ -149,4 +149,4 @@ Geen gwDepth → enkelvoudig model
   Als BRO geen CPT/boring vindt, valt de pipeline terug op het twee-laag model — dit kan een
   stap in de gelaagde ρ veroorzaken als de gebruiker handmatig een hogere ρ invoert dan de prior.
 - `SOIL_KNOWLEDGE_ACTIVE` is bewust uitgeschakeld totdat out-of-sample validatie is gedaan
-  (zie Poort 3 in het gefaseerde plan).
+  (zie Poort 3 in `docs/phased-gates.md`).

@@ -13,6 +13,9 @@
     "calibrate:depth": "npx tsx --tsconfig tsconfig.json scripts/fase0-depth-verify.ts",
     "import:metingen": "npx tsx --tsconfig tsconfig.json scripts/import-measurements.ts",
     "golden-set": "npx tsx --tsconfig tsconfig.json scripts/golden-set-verify.ts",
+    "test": "npm run golden-set && npm run test:pendiepte",
+    "gate:depth": "npx tsx --tsconfig tsconfig.json scripts/fase0-depth-verify.ts",
+    "gate:poort2": "npx tsx --tsconfig tsconfig.json scripts/gate-poort2-shadow.ts",
     "i18n:check": "npx tsx scripts/check-i18n-keys.ts",
     "test:import": "npx tsx --tsconfig tsconfig.json scripts/test-import-local.ts"
   },
