@@ -32,8 +32,9 @@ export function computeUncertaintyBand(
 
   const gwMid = groundwaterDepth + 1.5; // gemiddeld scenario GWT
 
-  // Resolve base rhoWet once (same NL priors as kernel-adapter) then scale proportionally.
-  const rhoWetBase = resolveRhoWet(input.lithoClass, rho);
+  // Resolve base rhoWet once — prefer empirical override from Stage 6.5 active prior,
+  // fall back to static NL literature prior. Scale proportionally for low/high scenarios.
+  const rhoWetBase = input.rhoWetOverride ?? resolveRhoWet(input.lithoClass, rho);
 
   function runWithRho(rhoFactor: number): number {
     const rhoScaled    = rho * rhoFactor;

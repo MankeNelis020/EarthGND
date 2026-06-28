@@ -171,34 +171,6 @@ export function computeSafePosterior(
   return { ...posterior, breakdown: { l1, l2, l3, l4 } };
 }
 
-// ─── Actieve prior (stub — shadow mode nog niet actief) ──────────────────────
-
-/**
- * Levert de actieve rhoWet prior voor lithoClass op een locatie.
- *
- * Huidige stand: empirical_weight = 0 (shadow mode).
- * Retourneert L1 literatuurprior — identiek aan huidige NL_RHO_WET_PRIOR.
- *
- * Toekomstige stand (na productiepoort):
- *   Leest L2/L3 uit database, voert computeSafePosterior uit.
- */
-export function getActivePrior(
-  lithoClass: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _lat?: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _lon?: number,
-): PosteriorResult {
-  const l1 = getLiteratureLevel(lithoClass);
-  // empirical_weight = 0 — geen database-aanroep
-  return {
-    mu: l1.mu,
-    sigma: l1.sigma,
-    n: l1.n,
-    breakdown: { l1, l2: null, l3: null, l4: null },
-  };
-}
-
 // ─── Grind-check helper ───────────────────────────────────────────────────────
 
 /** True als learning geblokkeerd is voor deze klasse (grind = altijd true). */

@@ -14,9 +14,9 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { wgs84ToRd } from '@/lib/rd';
 import { analyzeDepthCurve } from './reverse-engine';
 import { isLearningBlocked } from './bayesian-posterior';
+import { LITERATURE_PRIOR } from './priors';
 import { NL_RHO_WET_PRIOR } from '@/lib/pipeline/rho-priors';
 import type { SoilEvidenceRow, WelfordState } from './types';
 
@@ -151,6 +151,14 @@ export async function processMeting(
     };
   });
 
+  // Check BEFORE upsert — if rows already exist, Welford was already accumulated.
+  // Upsert is idempotent for soil_evidence, but Welford accumulation is NOT.
+  const { count: existingCount } = await supabase
+    .from('soil_evidence')
+    .select('*', { count: 'exact', head: true })
+    .eq('meting_id', metingId);
+  const alreadyAccumulated = (existingCount ?? 0) > 0;
+
   const { error: evidenceError } = await supabase
     .from('soil_evidence')
     .upsert(evidenceRows, { onConflict: 'meting_id,depth_m' });
@@ -159,6 +167,10 @@ export async function processMeting(
 
   // ── 5. Accumuleer natte punten naar L2/L3 ───────────────────────────────
   // Alleen natte punten (onder GWT) voor rhoWet kennisbank.
+  // Guard: als soil_evidence al bestond, is Welford al eerder verwerkt — sla over.
+  if (alreadyAccumulated) {
+    return { pointsProcessed: analyzed.length, evidenceInserted: evidenceRows.length };
+  }
   const wetPoints = analyzed.filter(pt => pt.zone === 'wet');
 
   for (const pt of wetPoints) {
@@ -176,21 +188,26 @@ export async function processMeting(
       const currentGlobal = await fetchWelford(supabase, 'global_prior', { litho_class: k });
       const updatedGlobal = welfordUpdate(currentGlobal, weight, rho);
 
-      await supabase.from('global_prior').upsert({
-        litho_class: k,
-        total_weight: updatedGlobal.total_weight,
-        welford_mean: updatedGlobal.welford_mean,
-        welford_m2:   updatedGlobal.welford_m2,
-        posterior_mu:    updatedGlobal.welford_mean,
-        posterior_sigma: computePosteriorSigma(updatedGlobal),
-        last_updated: new Date().toISOString(),
+      const litPrior = LITERATURE_PRIOR[k] ?? LITERATURE_PRIOR[3];
+      const { error: globalError } = await supabase.from('global_prior').upsert({
+        litho_class:          k,
+        literature_mu:        litPrior.mu,
+        literature_sigma:     litPrior.sigma,
+        literature_n_virtual: litPrior.nVirtual,
+        total_weight:         updatedGlobal.total_weight,
+        welford_mean:         updatedGlobal.welford_mean,
+        welford_m2:           updatedGlobal.welford_m2,
+        posterior_mu:         updatedGlobal.welford_mean,
+        posterior_sigma:      computePosteriorSigma(updatedGlobal),
+        last_updated:         new Date().toISOString(),
       }, { onConflict: 'litho_class' });
 
-      // L3: regional_prior (alleen als GPS beschikbaar)
-      if (meting.lat != null && meting.lon != null) {
-        const { rdX, rdY } = wgs84ToRd(meting.lat, meting.lon);
-        const gridX = Math.round(rdX / 5000) * 5000;
-        const gridY = Math.round(rdY / 5000) * 5000;
+      if (globalError) throw new Error(`global_prior upsert fout (litho_class=${k}): ${globalError.message}`);
+
+      // L3: regional_prior (alleen als RD-coördinaten beschikbaar)
+      if (meting.rd_x != null && meting.rd_y != null) {
+        const gridX = Math.round(meting.rd_x / 5000) * 5000;
+        const gridY = Math.round(meting.rd_y / 5000) * 5000;
 
         const currentRegional = await fetchWelford(
           supabase, 'regional_prior',

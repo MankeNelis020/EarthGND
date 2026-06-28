@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       rdY = parseFloat(rdYParam);
       lat = parseFloat(latParam);
       lon = parseFloat(lonParam);
-      cacheKey = `bro:v4:rd:${Math.round(rdX)}:${Math.round(rdY)}`;
+      cacheKey = `bro:v5:rd:${Math.round(rdX)}:${Math.round(rdY)}`;
     } else if (postcode) {
       // Always fetch address from PDOK (fast, Next.js-cached 24 h) so
       // the confirmation shows even when BRO soil data is Redis-cached.
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
         woonplaats: coords.woonplaats,
       };
       const cleaned = postcode.replace(/\s/g, '').toUpperCase();
-      // v4: cache key bumped for CPT radius change 0.5→0.25 km (2026-06-25)
-      cacheKey = huisnummer ? `bro:v4:${cleaned}:${huisnummer}` : `bro:v4:${cleaned}`;
+      // v5: cache key bumped — lat/lon now included in cached response (2026-06-28)
+      cacheKey = huisnummer ? `bro:v5:${cleaned}:${huisnummer}` : `bro:v5:${cleaned}`;
     } else {
       return NextResponse.json({ error: 'postcode or rdX/rdY/lat/lon required' }, { status: 400 });
     }

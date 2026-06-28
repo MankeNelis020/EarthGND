@@ -47,15 +47,57 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'depthCurve verplicht' }, { status: 400 });
   }
 
+  // Strikte validatie van optionele velden
+  if (body.bro_litho_class != null && (
+    !Number.isInteger(body.bro_litho_class) ||
+    body.bro_litho_class < 1 ||
+    body.bro_litho_class > 5
+  )) {
+    return NextResponse.json({ error: 'bro_litho_class moet 1–5 zijn' }, { status: 400 });
+  }
+  if (body.field_gw_depth != null && (
+    !Number.isFinite(body.field_gw_depth) ||
+    body.field_gw_depth < 0 ||
+    body.field_gw_depth > 20
+  )) {
+    return NextResponse.json({ error: 'field_gw_depth moet 0–20 m zijn' }, { status: 400 });
+  }
+  if (body.bro_gw_depth != null && (
+    !Number.isFinite(body.bro_gw_depth) ||
+    body.bro_gw_depth < 0 ||
+    body.bro_gw_depth > 20
+  )) {
+    return NextResponse.json({ error: 'bro_gw_depth moet 0–20 m zijn' }, { status: 400 });
+  }
+  const validQualities = ['goed', 'matig', 'onbruikbaar'];
+  if (body.measurement_quality != null && !validQualities.includes(body.measurement_quality)) {
+    return NextResponse.json({ error: `measurement_quality moet een van: ${validQualities.join(', ')} zijn` }, { status: 400 });
+  }
+
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } },
   );
 
+  // ── Coördinaten normaliseren ──────────────────────────────────────────────
+  // Google Sheets slaat coördinaten soms op als integer zonder decimaal punt:
+  //   52.46178 → 5246178. Detecteer dit en deel door 10 totdat in WGS84-NL-bereik.
+  function normalizeWGS84Coord(v: number | null | undefined, type: 'lat' | 'lon'): number | null {
+    if (v == null || !Number.isFinite(v)) return null;
+    const [min, max] = type === 'lat' ? [50.5, 53.7] : [3.2, 7.3];
+    if (v >= min && v <= max) return v;
+    let x = v;
+    for (let i = 0; i < 8; i++) {
+      x /= 10;
+      if (x >= min && x <= max) return Math.round(x * 1_000_000) / 1_000_000;
+    }
+    return null;
+  }
+
   // ── Geocoding ──────────────────────────────────────────────────────────────
-  let lat = body.lat ?? null;
-  let lon = body.lon ?? null;
+  let lat = normalizeWGS84Coord(body.lat, 'lat');
+  let lon = normalizeWGS84Coord(body.lon, 'lon');
 
   if ((lat == null || lon == null) && (body.straatnaam || body.postcode)) {
     const query = [body.straatnaam, body.huisnummer, body.postcode, body.woonplaats]
@@ -64,21 +106,24 @@ export async function POST(request: NextRequest) {
     if (geo) { lat = geo.lat; lon = geo.lon; }
   }
 
-  const rd = lat != null && lon != null ? wgs84ToRd(lat, lon) : null;
+  // Valideer dat lat/lon binnen Nederland liggen voordat we RD berekenen.
+  const nlLat = lat != null && lat >= 50.5 && lat <= 53.7;
+  const nlLon = lon != null && lon >= 3.2  && lon <= 7.3;
+  const rd = (nlLat && nlLon) ? wgs84ToRd(lat!, lon!) : null;
   const lastPoint = body.depthCurve.at(-1);
 
   // ── Insert ─────────────────────────────────────────────────────────────────
   const { data, error } = await admin
     .from('pendiepte_metingen')
     .insert({
-      source_type:         'manual_import',
       status:              'confirmed',
+      source_type:         'manual_import',
       lat,
       lon,
       gps_accuracy_m:      null,
       location_source:     lat != null ? 'manual_import' : 'address',
-      rd_x:                rd ? Math.round(rd.rdX) : null,
-      rd_y:                rd ? Math.round(rd.rdY) : null,
+      rd_x:                rd && Number.isFinite(rd.rdX) ? Math.round(rd.rdX) : null,
+      rd_y:                rd && Number.isFinite(rd.rdY) ? Math.round(rd.rdY) : null,
       postcode:            body.postcode            ?? null,
       straatnaam:          body.straatnaam          ?? null,
       huisnummer:          body.huisnummer ? String(body.huisnummer) : null,
