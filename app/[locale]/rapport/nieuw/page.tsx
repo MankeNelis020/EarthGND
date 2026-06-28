@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
-import type { Systeemtype } from '@/lib/types/rapport';
+import type { ScanContext, Systeemtype } from '@/lib/types/rapport';
 import { getScanContext } from '@/lib/scan-context';
 
 type SearchParams = Promise<{
@@ -21,7 +21,7 @@ export default async function NieuwRapportPage({ searchParams }: { searchParams:
   const params = await searchParams;
   const calculationId = params.scan ?? null;
 
-  let scanContext: Record<string, unknown> | null = null;
+  let scanContext: ScanContext | null = null;
   const systeemtype: Systeemtype | null = (params.systeemtype as Systeemtype) ?? null;
   let locatie: string | null = params.locatie ?? null;
 

@@ -9,7 +9,6 @@
  */
 
 import {
-  calcDiepte,
   calcRhoEffective,
   lithoClassToRhoDry,
   type DiepteInput,
