@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import {
   calcDiepte,
   calcLayeredRhoEffective,
+  LITHO_CLASS_TO_RHO,
   lithoClassToRhoWet,
 } from '../lib/calculations';
 import { runKernel } from '../lib/pipeline/kernel-adapter';
+import { resolveRhoWet } from '../lib/pipeline/rho-priors';
 
 function approx(actual: number, expected: number, tolerance: number, label: string) {
   assert.ok(
@@ -13,11 +15,10 @@ function approx(actual: number, expected: number, tolerance: number, label: stri
   );
 }
 
-assert.equal(
-  lithoClassToRhoWet(5),
-  20,
-  'Saturated Dutch lowland peat prior must stay at 20 Ω·m',
-);
+// Veen ρ-truth (docs/contracts.md §C): GENERAL legacy ≠ kernel-WET ≠ NL prior
+assert.equal(LITHO_CLASS_TO_RHO[5], 2000, 'GENERAL single-layer veen (legacy fallback, not production ρ)');
+assert.equal(lithoClassToRhoWet(5), 20, 'Kernel WET veen — used in calcLayeredRhoEffective');
+assert.equal(resolveRhoWet(5, 2000), 10, 'NL_RHO_WET_PRIOR[5] — current two-layer production path');
 
 const broPeat = runKernel({
   rho: 2000,

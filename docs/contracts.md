@@ -91,13 +91,14 @@ uit vóór gebruik van `getScanContext()`.
 
 ## C. ρ-waarheidshiërarchie
 
-**Drie ρ-veen waarden** (geen bug — elk is de correcte waarde voor zijn context):
+**Vier ρ-veen waarden** (geen bug — elk is de correcte waarde voor zijn context):
 
 | Naam | Waarde | Bron | Wanneer |
 |------|--------|------|---------|
-| `LITHO_CLASS_TO_RHO_WET[5]` | 20 Ω·m  | kernel (bevroren) | NL CPT-statistiek, gelaagd model |
-| kernel-WET (veen, nat) | 20 Ω·m | BRO CPT-statistiek | gelaagd model (soilSamples aanwezig) |
-| `NL_RHO_WET_PRIOR[5]` | 10 Ω·m | NL veldkalibratie 2026-06 | actieve prior (SOIL_KNOWLEDGE_ACTIVE=true) |
+| `LITHO_CLASS_TO_RHO[5]` (GENERAL) | 2000 Ω·m | kernel enkelvoudig (bevroren) | legacy enkelvoudig pad, BRO `dominantRho` display — **niet** actieve productie-ρ |
+| `LITHO_CLASS_TO_RHO_WET[5]` | 20 Ω·m | kernel WET-tabel (bevroren) | gelaagd model (`calcLayeredRhoEffective`, soilSamples aanwezig) |
+| `resolveRhoWet(5, …)` | 10 Ω·m | `NL_RHO_WET_PRIOR[5]` | twee-laag pipeline zonder soilSamples (huidige productiewaarheid) |
+| `NL_RHO_WET_PRIOR[5]` | 10 Ω·m | NL veldkalibratie 2026-06 | zelfde als resolveRhoWet; L2/L3 pas actief met `SOIL_KNOWLEDGE_ACTIVE=true` |
 
 **Geldende prioriteit** (fijnste niveau wint bij gelaagd model):
 

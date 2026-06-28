@@ -35,11 +35,10 @@ export async function POST(request: NextRequest) {
   // If a calculation_id was given, fetch scan context to pre-fill
   let scanContext = body.scan_context ?? {};
   if (body.calculation_id) {
-    // Selecteer zowel canonieke (input_values/result) als legacy (input/resultaat) kolomnamen;
-    // getScanContext() handelt beide varianten af (zie lib/scan-context.ts + docs/contracts.md §B).
+    // Canonical contract only — see docs/contracts.md §B. Legacy JSON keys handled inside getScanContext().
     const { data: calc } = await supabase
       .from('calculations')
-      .select('postcode, input_values, result, input, resultaat, risicoklasse, created_at')
+      .select('postcode, input_values, result, created_at')
       .eq('id', body.calculation_id)
       .eq('user_id', user.id)
       .single();

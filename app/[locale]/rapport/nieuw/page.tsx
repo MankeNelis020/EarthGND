@@ -29,7 +29,7 @@ export default async function NieuwRapportPage({ searchParams }: { searchParams:
   if (calculationId) {
     const { data: calc } = await supabase
       .from('calculations')
-      .select('postcode, input_values, result, input, resultaat, risicoklasse, created_at')
+      .select('postcode, input_values, result, created_at')
       .eq('id', calculationId)
       .eq('user_id', user.id)
       .single();
