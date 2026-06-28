@@ -53,9 +53,26 @@ export async function POST(request: NextRequest) {
     { auth: { persistSession: false } },
   );
 
+  // ── Coördinaten normaliseren ──────────────────────────────────────────────
+  // Google Sheets slaat coördinaten soms op als integer zonder decimaal punt:
+  //   52.46178 → 5246178 of 52189534 → 52.189534
+  // Detecteer dit door te kijken of de waarde buiten WGS84-NL-grenzen valt
+  // en deel dan herhaaldelijk door 10 totdat de waarde in bereik is.
+  function normalizeWGS84Coord(v: number | null | undefined, type: 'lat' | 'lon'): number | null {
+    if (v == null || !Number.isFinite(v)) return null;
+    const [min, max] = type === 'lat' ? [50.5, 53.7] : [3.2, 7.3];
+    if (v >= min && v <= max) return v;
+    let x = v;
+    for (let i = 0; i < 8; i++) {
+      x /= 10;
+      if (x >= min && x <= max) return Math.round(x * 1_000_000) / 1_000_000;
+    }
+    return null; // Kan niet normaliseren → gecoder adres als fallback
+  }
+
   // ── Geocoding ──────────────────────────────────────────────────────────────
-  let lat = body.lat ?? null;
-  let lon = body.lon ?? null;
+  let lat = normalizeWGS84Coord(body.lat, 'lat');
+  let lon = normalizeWGS84Coord(body.lon, 'lon');
 
   if ((lat == null || lon == null) && (body.straatnaam || body.postcode)) {
     const query = [body.straatnaam, body.huisnummer, body.postcode, body.woonplaats]

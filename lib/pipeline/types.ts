@@ -140,7 +140,7 @@ export interface PipelineEnrichment {
   warnings:          string[];          // UI-explanation layer — one source of truth
   uncertaintyBand:   UncertaintyBand;
   resultValidation:  ResultValidation;
-  rhoWetSource:      'l3_regional' | 'l2_global' | 'l1_literature';
+  rhoWetSource:      'l3_regional_agnostic' | 'l3_regional' | 'l2_global' | 'l1_literature';
 }
 
 // PipelineResult wraps existing data + enrichment

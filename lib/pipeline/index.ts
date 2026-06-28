@@ -25,12 +25,14 @@ import { runKernel, type KernelResult } from './kernel-adapter';
 import { validateResult }       from './result-validate';
 import { computeUncertaintyBand } from './uncertainty';
 import { buildExplanation }     from './explain';
-import { resolveEmpiricalRhoWet, type EmpiricalPriorSource } from './empirical-prior';
+import { resolveActivePrior, type ActivePriorSource } from '@/lib/soil-knowledge/active-prior';
+import { lookupPostcode } from '@/lib/pdok';
 
 export type { KernelResult };
 
-// Feature flag — zet op 'false' in .env om de adaptieve laag uit te schakelen.
-const ADAPTIVE_RHO_ENABLED = process.env.ADAPTIVE_RHO_ENABLED !== 'false';
+// Feature flag — SOIL_KNOWLEDGE_ACTIVE=true activeert L2/L3 empirische priors.
+// Staat standaard UIT zodat het systeem zonder env-var identiek is aan het oude gedrag.
+const SOIL_KNOWLEDGE_ACTIVE = process.env.SOIL_KNOWLEDGE_ACTIVE === 'true';
 
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
@@ -86,26 +88,40 @@ export async function runGroundingAssessment(
 
   const { reservation, remaining: reservedRemaining } = reserveResult;
 
-  // ── Stage 6.5: Adaptieve rhoWet (empirische prior lookup) ────────────────
-  let rhoWetSource: EmpiricalPriorSource = 'l1_literature';
-  if (ADAPTIVE_RHO_ENABLED) {
+  // ── Stage 6.5: Actieve rhoWet prior (L2 globaal + L3 regionaal) ─────────
+  //
+  // Volgorde:
+  //   1. Geocodeer postcode → RD-coördinaten (PDOK, gecached 24h, timeout 3s)
+  //   2. Probeer L3 class-agnostisch regionaal (werkt ook als BRO-klasse verkeerd is)
+  //   3. Probeer L3 per-klasse regionaal (als agnostisch onvoldoende data)
+  //   4. Probeer L2 globaal per-klasse
+  //   5. Val terug op L1 literatuurprior (identiek aan oud gedrag)
+  //
+  // Alle stappen zijn niet-kritiek: als ze mislukken, blijft de berekening intact.
+  let rhoWetSource: ActivePriorSource = 'l1_literature';
+
+  // Stap 1: RD-coördinaten via postcode-geocoding (server-side, gecached)
+  let rdX: number | null = null;
+  let rdY: number | null = null;
+  if (input.postcode) {
     try {
-      const empirical = await resolveEmpiricalRhoWet(
-        input.lithoClass,
-        input.rho,
-        // RD-coördinaten niet beschikbaar in huidige input — L3 regionaal wordt
-        // pas actief zodra geocoding aan de parse-stage wordt toegevoegd.
-        null,
-        null,
-      );
-      if (empirical.source !== 'l1_literature') {
-        (input as { rhoWetOverride?: number }).rhoWetOverride = empirical.rhoWet;
-      }
-      rhoWetSource = empirical.source;
-    } catch (e) {
-      // Niet-kritiek — val terug op statische prior, log voor diagnose
-      console.warn('[pipeline/empirical-prior] lookup mislukt, gebruik L1:', e);
+      const geo = await lookupPostcode(input.postcode);
+      rdX = Math.round(geo.rdX);
+      rdY = Math.round(geo.rdY);
+    } catch {
+      // Geocoding mislukt → door zonder coördinaten (L3 niet beschikbaar)
     }
+  }
+
+  // Stap 2-5: Active prior lookup
+  try {
+    const active = await resolveActivePrior(input.lithoClass, input.rho, rdX, rdY);
+    if (active.source !== 'l1_literature') {
+      (input as { rhoWetOverride?: number }).rhoWetOverride = active.rhoWet;
+    }
+    rhoWetSource = active.source;
+  } catch (e) {
+    console.warn('[pipeline/active-prior] lookup mislukt, gebruik L1:', e);
   }
 
   try {
