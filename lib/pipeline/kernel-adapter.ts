@@ -109,7 +109,7 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
 
   // ─── Layered/two-layer ρ ──────────────────────────────────────────────────
   const rhoDry = rhoDryOverride ?? (lithoClass ? lithoClassToRhoDry(lithoClass) : Math.round(rho * 2.2));
-  const rhoWet = resolveRhoWet(lithoClass, rho);
+  const rhoWet = input.rhoWetOverride ?? resolveRhoWet(lithoClass, rho);
   const layeredSamples = soilSamples && soilSamples.length > 0 ? soilSamples : undefined;
 
   // ─── Seasonal GWT offsets ─────────────────────────────────────────────────
