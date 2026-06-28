@@ -1376,9 +1376,13 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           <div className="flex flex-col gap-2">
             {!calcResult.calculationId && (
               <div className="rounded-lg border border-yellow-500/25 bg-yellow-500/5 px-3 py-2.5 text-xs text-yellow-300 leading-relaxed">
-                Monteur-koppeling en berekening-ID zijn niet opgeslagen
-                {calcResult.persistWarning ? ` (${calcResult.persistWarning})` : ''}.
-                U kunt het rapport wel per e-mail ontvangen.
+                Monteur-koppeling en berekening-ID zijn niet opgeslagen.
+                {calcResult.persistWarning?.includes('schema cache')
+                  ? ' Databasekolommen ontbreken of zijn verouderd — voer supabase/ensure_calculations_canonical.sql uit en herlaad het API-schema.'
+                  : calcResult.persistWarning
+                  ? ` (${calcResult.persistWarning})`
+                  : ''}
+                {' '}U kunt het rapport wel per e-mail ontvangen.
               </div>
             )}
 

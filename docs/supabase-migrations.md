@@ -13,6 +13,7 @@ Pas toe op een lege of bestaande project-DB in deze volgorde. Maak vóór produc
 | Bestand | Inhoud |
 |---------|--------|
 | `supabase/rename_calculations_columns.sql` | `input`→`input_values`, `resultaat`→`result` |
+| `supabase/ensure_calculations_canonical.sql` | Idempotent fix if monteur/ID persist fails (schema cache) |
 
 Na migratie schrijft de app alleen `input_values` / `result`. `getScanContext()` leest legacy als fallback.
 
