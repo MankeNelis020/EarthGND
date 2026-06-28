@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { runGroundingAssessment } from '@/lib/pipeline';
 import { logShadowPrediction } from '@/lib/soil-knowledge/shadow-logger';
+import { persistCalculation } from '@/lib/persist-calculation';
 import type { RawDiepteInput } from '@/lib/pipeline/types';
 
 export const runtime = 'nodejs';
@@ -46,11 +47,11 @@ export async function POST(request: NextRequest) {
     : 1;
 
   // Log to DB — await to capture the UUID for the monteur flow
-  const { data: calcRow } = await supabase.from('calculations').insert({
-    user_id:         user.id,
-    tool:            'diepte',
-    postcode:        typeof body.postcode === 'string' ? body.postcode : null,
-    risicoklasse:    kernelResult.riskClass.riskClass,
+  const persist = await persistCalculation(supabase, {
+    user_id:      user.id,
+    tool:         'diepte',
+    postcode:     typeof body.postcode === 'string' ? body.postcode : null,
+    risicoklasse: kernelResult.riskClass.riskClass,
     input_values: {
       rho:              body.rho,
       targetResistance: body.targetResistance,
@@ -61,15 +62,14 @@ export async function POST(request: NextRequest) {
       drijfmethode:     body.drijfmethode,
     },
     result: {
-      dimension:           primaryDimension,
-      achievedResistance:  gemiddeld.achievedResistance,
+      dimension:          primaryDimension,
+      achievedResistance: gemiddeld.achievedResistance,
       aantalPennen,
     },
-  }).select('id').single();
+  });
 
-  // Shadow mode logging — fire-and-forget, blokkeert de response niet.
-  if (calcRow?.id) {
-    logShadowPrediction(calcRow.id, typeof body.lithoClass === 'number' ? body.lithoClass : null).catch(e =>
+  if (persist.id) {
+    logShadowPrediction(persist.id, typeof body.lithoClass === 'number' ? body.lithoClass : null).catch(e =>
       console.error('[diepte/calculate] shadow log mislukt:', e),
     );
   }
@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
     ...kernelResult,  // scenarios, electrodeType, rhoDry, rhoWet, gwGunstig/Gemiddeld/Ongunstig, riskClass, corrosionClass, parallelAdvice
     ...enrichment,    // confidence, plausibilityFlags, warnings, uncertaintyBand, resultValidation
     creditsRemaining,
-    calculationId: calcRow?.id ?? null,  // UUID voor monteur-flow
+    calculationId: persist.id,
+    persistWarning: persist.id ? undefined : persist.error,
   });
 }

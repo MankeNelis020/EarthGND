@@ -35,6 +35,7 @@ interface CalcResult {
   parallelOption?: ParallelLayout | null;
   creditsRemaining: number;
   calculationId?: string | null;
+  persistWarning?: string;
   rhoDry?: number;
   rhoWet?: number;
   gwGunstig?: number;
@@ -1377,58 +1378,66 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             en droge (+3,0 m) periode. Meet altijd ter plaatse na installatie conform NEN 3140.
           </p>
 
-          {/* CTAs + UUID */}
-          {calcResult.calculationId && (
-            <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <EmailRapportButton
-                  tool="diepte"
-                  inputValues={{
-                    ...(postcode ? { 'Postcode': postcode } : {}),
-                    'Elektrodetype': calcResult.electrodeType === 'pen' ? 'Verticale pen / staaf' : 'Horizontaal lint',
-                    'Bodemweerstand ρ': `${rho} Ω·m`,
-                    'Grondwaterstand (GHG)': `${groundwaterDepth} m`,
-                    'pH bodem': ph,
-                  }}
-                  results={
-                    calcResult.electrodeType === 'pen'
-                      ? {
-                          'Gunstig scenario (GHG)': `${((calcResult.scenarios as { gunstig: { depth: number } }).gunstig.depth).toFixed(2)} m`,
-                          'Gemiddeld scenario': `${((calcResult.scenarios as { gemiddeld: { depth: number } }).gemiddeld.depth).toFixed(2)} m`,
-                          'Ongunstig scenario (GLG)': `${((calcResult.scenarios as { ongunstig: { depth: number } }).ongunstig.depth).toFixed(2)} m`,
-                          'Risicoklasse': calcResult.riskClass.label,
-                          'Corrosieklasse': calcResult.corrosionClass.label,
-                        }
-                      : {
-                          'Gunstig scenario (GHG)': `${((calcResult.scenarios as { gunstig: { length: number } }).gunstig.length).toFixed(1)} m`,
-                          'Gemiddeld scenario': `${((calcResult.scenarios as { gemiddeld: { length: number } }).gemiddeld.length).toFixed(1)} m`,
-                          'Ongunstig scenario (GLG)': `${((calcResult.scenarios as { ongunstig: { length: number } }).ongunstig.length).toFixed(1)} m`,
-                          'Risicoklasse': calcResult.riskClass.label,
-                          'Corrosieklasse': calcResult.corrosionClass.label,
-                        }
-                  }
-                  diepteCalcResult={{
-                    postcode: postcode || undefined,
-                    electrodeType: calcResult.electrodeType,
-                    rho: rho,
-                    groundwaterDepth,
-                    ph,
-                    targetResistance,
-                    rhoDry:      calcResult.rhoDry,
-                    rhoWet:      calcResult.rhoWet,
-                    gwGunstig:   calcResult.gwGunstig,
-                    gwGemiddeld: calcResult.gwGemiddeld,
-                    gwOngunstig: calcResult.gwOngunstig,
-                    scenarios:   calcResult.scenarios as DiepteRapportProps['scenarios'],
-                    parallelAdvice: calcResult.parallelAdvice,
-                    riskClass:      calcResult.riskClass,
-                    corrosionClass: calcResult.corrosionClass,
-                  }}
-                  calculationId={calcResult.calculationId}
-                  className="flex flex-col"
-                />
+          {/* CTAs + UUID — always visible after a successful calculation */}
+          <div className="flex flex-col gap-2">
+            {!calcResult.calculationId && (
+              <div className="rounded-lg border border-yellow-500/25 bg-yellow-500/5 px-3 py-2.5 text-xs text-yellow-300 leading-relaxed">
+                Monteur-koppeling en berekening-ID zijn niet opgeslagen
+                {calcResult.persistWarning ? ` (${calcResult.persistWarning})` : ''}.
+                U kunt het rapport wel per e-mail ontvangen.
+              </div>
+            )}
 
-                {monteurSent ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <EmailRapportButton
+                tool="diepte"
+                inputValues={{
+                  ...(postcode ? { 'Postcode': postcode } : {}),
+                  'Elektrodetype': calcResult.electrodeType === 'pen' ? 'Verticale pen / staaf' : 'Horizontaal lint',
+                  'Bodemweerstand ρ': `${rho} Ω·m`,
+                  'Grondwaterstand (GHG)': `${groundwaterDepth} m`,
+                  'pH bodem': ph,
+                }}
+                results={
+                  calcResult.electrodeType === 'pen'
+                    ? {
+                        'Gunstig scenario (GHG)': `${((calcResult.scenarios as { gunstig: { depth: number } }).gunstig.depth).toFixed(2)} m`,
+                        'Gemiddeld scenario': `${((calcResult.scenarios as { gemiddeld: { depth: number } }).gemiddeld.depth).toFixed(2)} m`,
+                        'Ongunstig scenario (GLG)': `${((calcResult.scenarios as { ongunstig: { depth: number } }).ongunstig.depth).toFixed(2)} m`,
+                        'Risicoklasse': calcResult.riskClass.label,
+                        'Corrosieklasse': calcResult.corrosionClass.label,
+                      }
+                    : {
+                        'Gunstig scenario (GHG)': `${((calcResult.scenarios as { gunstig: { length: number } }).gunstig.length).toFixed(1)} m`,
+                        'Gemiddeld scenario': `${((calcResult.scenarios as { gemiddeld: { length: number } }).gemiddeld.length).toFixed(1)} m`,
+                        'Ongunstig scenario (GLG)': `${((calcResult.scenarios as { ongunstig: { length: number } }).ongunstig.length).toFixed(1)} m`,
+                        'Risicoklasse': calcResult.riskClass.label,
+                        'Corrosieklasse': calcResult.corrosionClass.label,
+                      }
+                }
+                diepteCalcResult={{
+                  postcode: postcode || undefined,
+                  electrodeType: calcResult.electrodeType,
+                  rho: rho,
+                  groundwaterDepth,
+                  ph,
+                  targetResistance,
+                  rhoDry:      calcResult.rhoDry,
+                  rhoWet:      calcResult.rhoWet,
+                  gwGunstig:   calcResult.gwGunstig,
+                  gwGemiddeld: calcResult.gwGemiddeld,
+                  gwOngunstig: calcResult.gwOngunstig,
+                  scenarios:   calcResult.scenarios as DiepteRapportProps['scenarios'],
+                  parallelAdvice: calcResult.parallelAdvice,
+                  riskClass:      calcResult.riskClass,
+                  corrosionClass: calcResult.corrosionClass,
+                }}
+                calculationId={calcResult.calculationId}
+                className="flex flex-col"
+              />
+
+              {calcResult.calculationId ? (
+                monteurSent ? (
                   <div className="flex items-center justify-center rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3">
                     <span className="text-sm font-semibold text-green-400">✓ Uitnodiging verstuurd</span>
                   </div>
@@ -1439,10 +1448,18 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   >
                     ✉ Mail monteur
                   </button>
-                )}
-              </div>
+                )
+              ) : (
+                <div
+                  className="flex items-center justify-center rounded-xl border border-white/8 bg-white/3 px-4 py-3 text-sm text-white/40"
+                  title="Berekening niet opgeslagen — monteur-koppeling niet beschikbaar"
+                >
+                  ✉ Mail monteur (niet beschikbaar)
+                </div>
+              )}
+            </div>
 
-              {/* UUID — copyable chip */}
+            {calcResult.calculationId && (
               <div className="flex items-center justify-between rounded-xl border border-white/8 bg-white/3 px-3 py-2.5">
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-widest text-white/30">Berekening ID</p>
@@ -1459,8 +1476,8 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   {uuidCopied ? '✓ Gekopieerd' : 'Kopieer'}
                 </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Monteur invite modal */}
           {showMonteurModal && (
