@@ -11,6 +11,7 @@ import { useCalculator } from '@/lib/context/CalculatorContext';
 import { calcRhoEffective, lithoClassToRhoDry } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
 import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
+import { buildSoilRhoPreview } from '@/lib/pipeline/effective-rho';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,9 @@ interface CalcResult {
   warnings?:          string[];
   uncertaintyBand?:   { typical: number; low: number; high: number; rhoFactorLow: number; rhoFactorHigh: number };
   plausibilityFlags?: { field: string; value: number | string; message: string; severity: 'light' | 'heavy' }[];
+  effectiveRho?:       number;
+  dominantLithoClass?: number;
+  rhoModel?:           'layered-nl' | 'two-layer' | 'single';
 }
 
 interface Profile { plan: string; credits_left: number; credits_reset: string | null }
@@ -603,8 +607,29 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
     });
   }, []);
 
-  useEffect(() => { if (soilData?.dominantRho) setRho(soilData.dominantRho); }, [soilData]);
+  useEffect(() => {
+    if (!soilData) return;
+    const preview = buildSoilRhoPreview({
+      samples: soilData.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })),
+      gwDepth: soilData.groundwaterDepth,
+      dominantLithoClass: soilData.dominantLithoClass,
+      dominantRho: soilData.dominantRho,
+      dataSource: soilData.dataSource,
+    });
+    setRho(preview.pipelineRho);
+  }, [soilData]);
   useEffect(() => { if (soilData?.groundwaterDepth != null) setGw(soilData.groundwaterDepth); }, [soilData]);
+
+  const soilPreview = useMemo(() => {
+    if (!soilData) return null;
+    return buildSoilRhoPreview({
+      samples: soilData.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })),
+      gwDepth: groundwaterDepth,
+      dominantLithoClass: soilData.dominantLithoClass,
+      dominantRho: soilData.dominantRho,
+      dataSource: soilData.dataSource,
+    });
+  }, [soilData, groundwaterDepth]);
 
   if (user === 'loading') return <div className="h-64 animate-pulse rounded-2xl border border-white/8 bg-white/3" />;
   if (!user) return <LoginGate />;
@@ -616,9 +641,8 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
   const isZonderAardlek = ZONDER_AARDLEK_VALUES.has(targetResistance);
 
-  // ─── Step 1: ρ-koppeling fix ──────────────────────────────────────────────
-  // lithoClass for the legacy legend trigger (kept as-is to avoid UI regressions).
-  const lithoClass = soilData?.samples?.[0]?.lithoClass ?? null;
+  // Dominante lithoClass + droge zone (P1 leidingwerk)
+  const lithoClass = soilPreview?.lithoClass ?? soilData?.dominantLithoClass ?? null;
   // Dry-zone ρ: average lithoClassToRhoDry of BRO samples shallower than GHG.
   // Uses the DRY table (not the GENERAL table) for physically correct dry-zone ρ.
   // When no samples are above GHG, fall back to null (API uses ratio fallback).
@@ -858,7 +882,14 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
         <div className="mb-4">
           <p className="mb-2 text-xs text-white/70">
             Bodemweerstand ρ
-            {soilData && <span className="ml-2 text-green-400">← BRO: {soilData.dominantRho} Ω·m</span>}
+            {soilPreview && soilData && (
+              <span className="ml-2 text-green-400">
+                ← effectief {soilPreview.effectiveRho} Ω·m
+                {soilPreview.model === 'layered-nl' && ' (gelaagd NL)'}
+                {soilPreview.model === 'two-layer' && ' (droog/nat)'}
+                {soilData.dataSource && ` · ${soilData.dataSource}`}
+              </span>
+            )}
           </p>
           <div className="flex items-center gap-3">
             <input type="range" min="10" max="5000" step="10" value={rho}
@@ -875,9 +906,9 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           {lithoClass && (
             <div className="mt-2 flex items-center gap-3 text-[10px] text-white/70">
               <span className="inline-block h-2 w-3 rounded-sm bg-[#78491A]/70" />
-              droog: {calcResult?.rhoDry ?? '—'} Ω·m
+              droog: {calcResult?.rhoDry ?? soilPreview?.rhoDry ?? '—'} Ω·m
               <span className="inline-block h-2 w-3 rounded-sm bg-[#1A3A5C]/90" />
-              verzadigd: {calcResult?.rhoWet ?? '—'} Ω·m
+              verzadigd: {calcResult?.rhoWet ?? soilPreview?.rhoWet ?? '—'} Ω·m
             </div>
           )}
         </div>

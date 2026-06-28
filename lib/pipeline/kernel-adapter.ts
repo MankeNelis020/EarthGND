@@ -31,6 +31,13 @@ import {
 import type { ValidatedDiepteInput } from './parse';
 import { calcZMax, type DriveMethod, type ZMaxBand, type RefusalLayer } from './driveability';
 import { resolveRhoWet } from './rho-priors';
+import {
+  calcDiepteWithNlLayered,
+  effectiveRhoAtDepth,
+  resolveDominantLithoClass,
+  sanitizePipelineRho,
+  type RhoModel,
+} from './effective-rho';
 
 const ROD_DIAMETER = 0.014;
 
@@ -60,6 +67,10 @@ export interface KernelResult {
   riskClass:      RiskClassResult;
   corrosionClass: CorrosionClass;
   parallelAdvice: ParallelAdvice | null;
+  /** Effectieve ρ op gemiddelde scenariodiepte — voor UI/risico (niet dominantRho). */
+  effectiveRho?:      number;
+  dominantLithoClass?: number;
+  rhoModel?:          RhoModel;
   driveability?: {
     method:           DriveMethod;
     zMax:             ZMaxBand;
@@ -108,11 +119,16 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
           drijfmethode, soilSamples } = input;
 
   // ─── Layered/two-layer ρ ──────────────────────────────────────────────────
-  const rhoDry = rhoDryOverride ?? (lithoClass ? lithoClassToRhoDry(lithoClass) : Math.round(rho * 2.2));
+  const dominantLitho = resolveDominantLithoClass(soilSamples, lithoClass);
+  const lithoForModel = dominantLitho ?? lithoClass;
+  const rhoSanitized = sanitizePipelineRho(rho, lithoForModel);
+  const layeredSamples = soilSamples && soilSamples.length > 0 ? soilSamples : undefined;
+  const rhoModel: RhoModel = layeredSamples ? 'layered-nl' : lithoForModel ? 'two-layer' : 'single';
+
+  const rhoDry = rhoDryOverride ?? (lithoForModel ? lithoClassToRhoDry(lithoForModel) : Math.round(rhoSanitized * 2.2));
   // rhoWetOverride is set by the empirical-prior stage (L2/L3 posterior).
   // Falls back to static NL_RHO_WET_PRIOR via resolveRhoWet when absent.
-  const rhoWet = input.rhoWetOverride ?? resolveRhoWet(lithoClass, rho);
-  const layeredSamples = soilSamples && soilSamples.length > 0 ? soilSamples : undefined;
+  const rhoWet = input.rhoWetOverride ?? resolveRhoWet(lithoForModel, rhoSanitized);
 
   // ─── Seasonal GWT offsets ─────────────────────────────────────────────────
   const gwGunstig   = groundwaterDepth;
@@ -129,11 +145,18 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
       gemiddeld: calcLint({ rho: burial < gwGemiddeld ? rhoWet : rhoDry, targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter }),
       ongunstig: calcLint({ rho: burial < gwOngunstig ? rhoWet : rhoDry, targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter }),
     };
+  } else if (layeredSamples) {
+    // P1: NL natte priors in gelaagd model (adapter — kernel calcLayeredRhoEffective ongemoeid)
+    scenarios = {
+      gunstig:   calcDiepteWithNlLayered({ targetResistance, gwDepth: gwGunstig,   soilSamples: layeredSamples }),
+      gemiddeld: calcDiepteWithNlLayered({ targetResistance, gwDepth: gwGemiddeld, soilSamples: layeredSamples }),
+      ongunstig: calcDiepteWithNlLayered({ targetResistance, gwDepth: gwOngunstig, soilSamples: layeredSamples }),
+    };
   } else {
     scenarios = {
-      gunstig:   calcDiepte({ rho, targetResistance, gwDepth: gwGunstig,   rhoDry, rhoWet, soilSamples: layeredSamples }),
-      gemiddeld: calcDiepte({ rho, targetResistance, gwDepth: gwGemiddeld, rhoDry, rhoWet, soilSamples: layeredSamples }),
-      ongunstig: calcDiepte({ rho, targetResistance, gwDepth: gwOngunstig, rhoDry, rhoWet, soilSamples: layeredSamples }),
+      gunstig:   calcDiepte({ rho: rhoSanitized, targetResistance, gwDepth: gwGunstig,   rhoDry, rhoWet }),
+      gemiddeld: calcDiepte({ rho: rhoSanitized, targetResistance, gwDepth: gwGemiddeld, rhoDry, rhoWet }),
+      ongunstig: calcDiepte({ rho: rhoSanitized, targetResistance, gwDepth: gwOngunstig, rhoDry, rhoWet }),
     };
   }
 
@@ -147,7 +170,7 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
   if (electrodeType === 'pen' && drijfmethode) {
     const samples = (soilSamples && soilSamples.length > 0)
       ? soilSamples
-      : (lithoClass ? [{ depth: primaryDim * 0.5, lithoClass }] : []);
+      : (lithoForModel ? [{ depth: primaryDim * 0.5, lithoClass: lithoForModel }] : []);
 
     const drive = calcZMax(samples, drijfmethode, primaryDim);
     driveabilityInfo = { method: drijfmethode, zMax: drive.zMax, refusalLayer: drive.refusalLayer, isLimited: drive.isLimited, requiresParallel: drive.requiresParallel };
@@ -192,9 +215,23 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
   const effectiveDepth = (parallelAdvice?.reason === 'driveability')
     ? (parallelAdvice.zMax?.typical ?? primaryDim)
     : primaryDim;
-  const riskClass = calcDiepteRiskClass({ rho, groundwaterDepth, ph, depth: effectiveDepth });
+  const effectiveRho = effectiveRhoAtDepth({
+    soilSamples: layeredSamples,
+    gwDepth: gwGemiddeld,
+    rodLength: effectiveDepth,
+    lithoClass: lithoForModel,
+    rhoDry,
+    rhoWet,
+    rhoFallback: rhoSanitized,
+  });
+
+  const riskClass = calcDiepteRiskClass({ rho: effectiveRho, groundwaterDepth, ph, depth: effectiveDepth });
 
   const corrosionClass = calcCorrosionClass(ph);
 
-  return { scenarios, electrodeType, rhoDry, rhoWet, gwGunstig, gwGemiddeld, gwOngunstig, riskClass, corrosionClass, parallelAdvice, driveability: driveabilityInfo };
+  return {
+    scenarios, electrodeType, rhoDry, rhoWet, gwGunstig, gwGemiddeld, gwOngunstig,
+    riskClass, corrosionClass, parallelAdvice, driveability: driveabilityInfo,
+    effectiveRho, dominantLithoClass: lithoForModel, rhoModel,
+  };
 }

@@ -1,19 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useCalculator } from '@/lib/context/CalculatorContext';
 import { calcRiskClass } from '@/lib/calculations';
 import { wgs84ToRd } from '@/lib/rd';
 import { reverseGeocode } from '@/lib/geocoding';
+import { buildSoilRhoPreview } from '@/lib/pipeline/effective-rho';
 
 const MANUAL_RHO_OPTIONS = [
-  { label: 'Klei / nat', rho: 30 },
-  { label: 'Leem / vochtig', rho: 60 },
-  { label: 'Zand (gemiddeld)', rho: 125 },
-  { label: 'Droog zand', rho: 300 },
-  { label: 'Veen', rho: 2000 },
-  { label: 'Rots', rho: 4000 },
-];
+  { label: 'Klei / nat', rho: 30, lithoClass: 1 },
+  { label: 'Leem / vochtig', rho: 60, lithoClass: 2 },
+  { label: 'Zand (gemiddeld)', rho: 125, lithoClass: 3 },
+  { label: 'Droog zand', rho: 300, lithoClass: 3 },
+  { label: 'Veen', rho: 2000, lithoClass: 5 },
+  { label: 'Rots', rho: 4000, lithoClass: 6 },
+] as const;
 
 interface PostcodeInputProps {
   onRhoChange?: (rho: number) => void;
@@ -37,8 +38,42 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
   // so there's never a "badge shown but nothing selected" state.
   const effectiveManualRho = manualRho ?? (soilData?.source === 'fallback' ? soilData.dominantRho : null);
 
-  const activeRho = soilData ? soilData.dominantRho : effectiveManualRho;
+  const soilPreview = useMemo(() => {
+    if (!soilData || soilData.source === 'fallback') return null;
+    return buildSoilRhoPreview({
+      samples: soilData.samples?.map((s) => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })),
+      gwDepth: soilData.groundwaterDepth,
+      dominantLithoClass: soilData.dominantLithoClass,
+      dominantRho: soilData.dominantRho,
+      dataSource: soilData.dataSource,
+    });
+  }, [soilData]);
+
+  const manualPreview = useMemo(() => {
+    if (effectiveManualRho == null || soilData) return null;
+    const opt = MANUAL_RHO_OPTIONS.find((o) => o.rho === effectiveManualRho);
+    return buildSoilRhoPreview({
+      gwDepth: null,
+      dominantLithoClass: opt?.lithoClass ?? null,
+      dominantRho: effectiveManualRho,
+    });
+  }, [effectiveManualRho, soilData]);
+
+  const activeRho = soilPreview?.pipelineRho ?? manualPreview?.pipelineRho ?? effectiveManualRho;
   const riskClass = activeRho != null ? calcRiskClass(activeRho) : null;
+
+  function applySoilPreview() {
+    if (!soilData) return;
+    const preview = buildSoilRhoPreview({
+      samples: soilData.samples?.map((s) => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })),
+      gwDepth: soilData.groundwaterDepth,
+      dominantLithoClass: soilData.dominantLithoClass,
+      dominantRho: soilData.dominantRho,
+      dataSource: soilData.dataSource,
+    });
+    onRhoChange?.(preview.pipelineRho);
+    onGroundwaterChange?.(soilData.groundwaterDepth);
+  }
 
   function handleFetch() {
     if (!postcode.trim()) return;
@@ -48,14 +83,18 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
 
   function handleManualSelect(rho: number) {
     setManualRho(rho);
-    onRhoChange?.(rho);
+    const opt = MANUAL_RHO_OPTIONS.find((o) => o.rho === rho);
+    const preview = buildSoilRhoPreview({
+      gwDepth: null,
+      dominantLithoClass: opt?.lithoClass ?? null,
+      dominantRho: rho,
+    });
+    onRhoChange?.(preview.pipelineRho);
     onGroundwaterChange?.(null);
   }
 
   function handleSoilDataApply() {
-    if (!soilData) return;
-    onRhoChange?.(soilData.dominantRho);
-    onGroundwaterChange?.(soilData.groundwaterDepth);
+    applySoilPreview();
   }
 
   function handleGps() {
@@ -97,8 +136,17 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
             setGpsStatus('error');
           } else {
             setSoilData(data);
-            // Auto-apply: feed the GPS result directly into the calculator
-            onRhoChange?.(data.dominantRho);
+            const preview = buildSoilRhoPreview({
+              samples: data.samples?.map((s: { depth: number; lithoClass: number }) => ({
+                depth: Math.abs(s.depth),
+                lithoClass: s.lithoClass,
+              })),
+              gwDepth: data.groundwaterDepth,
+              dominantLithoClass: data.dominantLithoClass,
+              dominantRho: data.dominantRho,
+              dataSource: data.dataSource,
+            });
+            onRhoChange?.(preview.pipelineRho);
             if (data.groundwaterDepth != null) onGroundwaterChange?.(data.groundwaterDepth);
             setGpsStatus('idle');
           }
@@ -271,8 +319,8 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                       className="rounded-lg bg-orange-500 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-400"
                     >
                       {new Set(soilData.samples.map(s => s.lithoClass)).size > 1
-                        ? 'Gebruik gelaagd profiel'
-                        : `Toepassen (ρ = ${soilData.dominantRho} Ω·m)`}
+                        ? `Gebruik gelaagd profiel (effectief ${soilPreview?.effectiveRho ?? soilData.dominantRho} Ω·m)`
+                        : `Toepassen (effectief ${soilPreview?.effectiveRho ?? soilData.dominantRho} Ω·m)`}
                     </button>
                     <a href="/pricing" className="text-xs text-zinc-300 underline hover:text-orange-400">
                       Pendiepteberekening → Pro
@@ -319,8 +367,8 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
                     className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-500"
                   >
                     {new Set(soilData.samples.map(s => s.lithoClass)).size > 1
-                      ? 'Gebruik gelaagd profiel'
-                      : `Toepassen (ρ = ${soilData.dominantRho} Ω·m)`}
+                      ? `Gebruik gelaagd profiel (effectief ${soilPreview?.effectiveRho ?? soilData.dominantRho} Ω·m)`
+                      : `Toepassen (effectief ${soilPreview?.effectiveRho ?? soilData.dominantRho} Ω·m)`}
                   </button>
                 </div>
               )}

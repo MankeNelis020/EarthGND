@@ -7,6 +7,7 @@ import {
 } from '../lib/calculations';
 import { runKernel } from '../lib/pipeline/kernel-adapter';
 import { resolveRhoWet } from '../lib/pipeline/rho-priors';
+import { calcLayeredRhoEffectiveNl } from '../lib/pipeline/effective-rho';
 
 function approx(actual: number, expected: number, tolerance: number, label: string) {
   assert.ok(
@@ -55,6 +56,19 @@ const layeredRho = calcLayeredRhoEffective(
 
 assert.ok(layeredRho > 20 && layeredRho < 300, `Layered rho should reflect both sand and peat, got ${layeredRho}`);
 
+const layeredRhoNl = calcLayeredRhoEffectiveNl(
+  [
+    { depth: 1, lithoClass: 3 },
+    { depth: 3, lithoClass: 5 },
+  ],
+  1,
+  4,
+);
+assert.ok(
+  layeredRhoNl < layeredRho,
+  `NL adapter wet prior (10) should yield lower effective rho than kernel-WET (20), got NL=${layeredRhoNl} kernel=${layeredRho}`,
+);
+
 const sandOnly = calcDiepte({
   rho: 125,
   targetResistance: 10,
@@ -76,5 +90,31 @@ assert.ok(
   `Wet peat layer should reduce required depth versus sand-only profile (${sandOverPeat.depth} >= ${sandOnly.depth})`,
 );
 approx(sandOverPeat.achievedResistance, 10, 1, 'Layered profile achieved resistance');
+
+const layeredPeat = runKernel({
+  rho: 125,
+  targetResistance: 10,
+  groundwaterDepth: 1,
+  ph: 6.5,
+  electrodeType: 'pen',
+  lintBurialDepth: 0.8,
+  lintConductorDiameter: 0.01,
+  lithoClass: 3,
+  hasBroProfile: true,
+  dataSource: 'bhrgt',
+  soilSamples: [
+    { depth: 1, lithoClass: 3 },
+    { depth: 3, lithoClass: 5 },
+  ],
+});
+assert.equal(layeredPeat.rhoModel, 'layered-nl', 'soilSamples → NL layered adapter path');
+assert.ok(
+  layeredPeat.effectiveRho != null && layeredPeat.effectiveRho < layeredRho,
+  `adapter effectiveRho (${layeredPeat.effectiveRho}) should beat kernel-WET layered (${layeredRho})`,
+);
+assert.ok(
+  (layeredPeat.scenarios.gemiddeld as { depth: number }).depth < sandOverPeat.depth,
+  'NL layered adapter should require less depth than kernel calcDiepte with same soilSamples',
+);
 
 console.log('Pendiepte model checks passed');

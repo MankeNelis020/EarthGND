@@ -96,16 +96,17 @@ uit vóór gebruik van `getScanContext()`.
 | Naam | Waarde | Bron | Wanneer |
 |------|--------|------|---------|
 | `LITHO_CLASS_TO_RHO[5]` (GENERAL) | 2000 Ω·m | kernel enkelvoudig (bevroren) | legacy enkelvoudig pad, BRO `dominantRho` display — **niet** actieve productie-ρ |
-| `LITHO_CLASS_TO_RHO_WET[5]` | 20 Ω·m | kernel WET-tabel (bevroren) | gelaagd model (`calcLayeredRhoEffective`, soilSamples aanwezig) |
-| `resolveRhoWet(5, …)` | 10 Ω·m | `NL_RHO_WET_PRIOR[5]` | twee-laag pipeline zonder soilSamples (huidige productiewaarheid) |
+| `LITHO_CLASS_TO_RHO_WET[5]` | 20 Ω·m | kernel WET-tabel (bevroren) | kernel `calcLayeredRhoEffective` — **niet** het actieve productiepad |
+| `resolveRhoWet(5, …)` | 10 Ω·m | `NL_RHO_WET_PRIOR[5]` | twee-laag én **gelaagd NL-adapterpad** (`calcLayeredRhoEffectiveNl`) |
 | `NL_RHO_WET_PRIOR[5]` | 10 Ω·m | NL veldkalibratie 2026-06 | zelfde als resolveRhoWet; L2/L3 pas actief met `SOIL_KNOWLEDGE_ACTIVE=true` |
 
 **Geldende prioriteit** (fijnste niveau wint bij gelaagd model):
 
 ```
 soilSamples (BRO CPT/boring aanwezig)
-  → calcLayeredRhoEffective() gebruikt BRO-lithologie per laag
-  → rhoWet per laag = LITHO_CLASS_TO_RHO_WET[klasse]   ← kernel-tabel (20 voor veen)
+  → adapter calcLayeredRhoEffectiveNl() + calcDiepteWithNlLayered()
+  → rhoWet per laag = resolveRhoWet(klasse) = NL_RHO_WET_PRIOR (10 voor veen)
+  → kernel calcLayeredRhoEffective() blijft ongewijzigd (20 voor veen) — alleen tests/legacy
 
 Geen soilSamples, wel gwDepth/rhoDry/rhoWet opgegeven
   → calcRhoEffective() gebruikt twee-laag harmonisch gemiddelde
@@ -124,7 +125,7 @@ Geen gwDepth → enkelvoudig model
 - golden-set §8 (resolveRhoWet(5,...)) pinned = **10** — NL prior heeft prioriteit
 
 **`dominantRho`-veld:**
-`dominantRho` is een kernel-outputveld dat de meest dominante effectieve ρ toont (enkelvoudig of gewogen over het profiel). Het is een presentatieveld — niet de ρ die de berekening aanstuurt. De UI mag `dominantRho` tonen als indicatie, maar nooit als de gezaghebbende ρ gebruiken voor risicoklasse-bepaling.
+`dominantRho` is een BRO-presentatieveld (GENERAL-tabel, veen=2000). De pipeline gebruikt `buildSoilRhoPreview()` / `sanitizePipelineRho()` om effectieve ρ en `pipelineRho` af te leiden. UI en risicoklasse mogen `dominantRho` tonen als bronindicatie, maar nooit als gezaghebbende ρ.
 
 **Onbevestigde aannames:**
 - De grens tussen gelaagd model en twee-laag model hangt af van of `soilSamples` aanwezig is.
