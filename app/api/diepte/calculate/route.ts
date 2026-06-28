@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     user_id:         user.id,
     tool:            'diepte',
     postcode:        typeof body.postcode === 'string' ? body.postcode : null,
+    risicoklasse:    kernelResult.riskClass.riskClass,
     input_values: {
       rho:              body.rho,
       targetResistance: body.targetResistance,

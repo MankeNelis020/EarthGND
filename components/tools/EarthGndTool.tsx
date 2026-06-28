@@ -5,11 +5,12 @@ import {
   calcDiepte,
   calcOhmWizard,
   lithoClassToRhoDry,
-  lithoClassToRhoWet,
   type BreakerType,
   type GridSystem,
   type InstallationType,
 } from '@/lib/calculations';
+import { buildSoilRhoPreview, calcDiepteWithNlLayered } from '@/lib/pipeline/effective-rho';
+import { resolveRhoWet } from '@/lib/pipeline/rho-priors';
 
 type ToolMode = 'ohm' | 'diepte';
 type AccessLevel = 'free' | 'pro';
@@ -26,8 +27,17 @@ interface SoilState {
   rho: number;
   groundwaterDepth: number;
   ph: number;
+  samples?: { depth: number; lithoClass: number }[];
   message?: string;
   fallbackRequired?: boolean;
+}
+
+function pipelineRhoFromManual(lithoClass: number, rho: number, gwDepth: number | null): number {
+  return buildSoilRhoPreview({
+    gwDepth,
+    dominantLithoClass: lithoClass,
+    dominantRho: rho,
+  }).pipelineRho;
 }
 
 const STORAGE_KEY = 'earthgnd:tool:shared-v3';
@@ -121,8 +131,15 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
   }, [shared, rcdPresent, rcdCurrent, breakerType, breakerAmps, voltageLimit]);
 
   const diepteResult = useMemo(() => {
+    if (soil.samples?.length) {
+      return calcDiepteWithNlLayered({
+        targetResistance,
+        gwDepth: soil.groundwaterDepth,
+        soilSamples: soil.samples,
+      });
+    }
     const rhoDry = soil.lithoClass ? lithoClassToRhoDry(soil.lithoClass) : undefined;
-    const rhoWet = soil.lithoClass ? lithoClassToRhoWet(soil.lithoClass) : undefined;
+    const rhoWet = soil.lithoClass ? resolveRhoWet(soil.lithoClass, soil.rho) : undefined;
     return calcDiepte({
       rho: soil.rho,
       targetResistance,
@@ -164,20 +181,35 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
 
       if (!bro.hasData) {
         const fallback = MANUAL_SOIL_MAP[soilFallback];
+        const gw = typeof bro.groundwaterDepth === 'number' ? bro.groundwaterDepth : null;
         setSoil((prev) => ({
           ...prev,
           lithoClass: fallback.lithoClass,
-          rho: fallback.rho,
-          groundwaterDepth: typeof bro.groundwaterDepth === 'number' ? bro.groundwaterDepth : prev.groundwaterDepth,
+          rho: pipelineRhoFromManual(fallback.lithoClass, fallback.rho, gw ?? prev.groundwaterDepth),
+          samples: undefined,
+          groundwaterDepth: gw ?? prev.groundwaterDepth,
           message: 'BRO bevat geen data op deze locatie. Selecteer handmatig de grondsoort.',
           fallbackRequired: true,
         }));
       } else {
+        const samples = bro.samples?.map((s: { depth: number; lithoClass: number }) => ({
+          depth: Math.abs(s.depth),
+          lithoClass: s.lithoClass,
+        }));
+        const gw = typeof bro.groundwaterDepth === 'number' ? bro.groundwaterDepth : 2;
+        const preview = buildSoilRhoPreview({
+          samples,
+          gwDepth: gw,
+          dominantLithoClass: bro.dominantLithoClass,
+          dominantRho: bro.dominantRho,
+          dataSource: bro.dataSource,
+        });
         setSoil((prev) => ({
           ...prev,
-          lithoClass: bro.dominantLithoClass,
-          rho: bro.dominantRho,
-          groundwaterDepth: typeof bro.groundwaterDepth === 'number' ? bro.groundwaterDepth : prev.groundwaterDepth,
+          lithoClass: preview.lithoClass ?? bro.dominantLithoClass,
+          rho: preview.pipelineRho,
+          samples,
+          groundwaterDepth: gw,
           ph: bro.estimatedPh ?? prev.ph,
           message: accessLevel === 'free'
             ? 'Upgrade naar Pro voor exacte bodemdata per adres.'
@@ -226,8 +258,14 @@ export function EarthGndTool({ mode }: { mode: ToolMode }) {
               value={soilFallback}
               onChange={(e) => {
                 const key = e.target.value as SoilFallback;
+                const entry = MANUAL_SOIL_MAP[key];
                 setSoilFallback(key);
-                setSoil((prev) => ({ ...prev, lithoClass: MANUAL_SOIL_MAP[key].lithoClass, rho: MANUAL_SOIL_MAP[key].rho }));
+                setSoil((prev) => ({
+                  ...prev,
+                  lithoClass: entry.lithoClass,
+                  rho: pipelineRhoFromManual(entry.lithoClass, entry.rho, prev.groundwaterDepth),
+                  samples: undefined,
+                }));
               }}
             >
               {Object.entries(MANUAL_SOIL_MAP).map(([key, value]) => (

@@ -83,9 +83,7 @@ uit vóór gebruik van `getScanContext()`.
 - De `calculations`-tabel bevat ook rijen van de ohm-tool (via `/api/pdf/route.ts`);
   `result.dimension` bestaat daar niet — `getScanContext()` geeft voor die rijen `undefined`
   terug voor `voorspeld_diepte_m`.
-- `risicoklasse` wordt nog niet geschreven door `/api/diepte/calculate/route.ts` — de
-  risicoklasse zit in `result.riskClass` (binnen de API-response) maar wordt niet gepersisteerd.
-  Dit is een bekende gap; `getScanContext()` geeft `undefined` terug voor `risicoklasse`.
+- `risicoklasse` wordt geschreven door `/api/diepte/calculate/route.ts` als `kernelResult.riskClass.riskClass` (`'I'`–`'IV'`). `getScanContext()` leest deze kolom voor rapport-voorvulling.
 
 ---
 
