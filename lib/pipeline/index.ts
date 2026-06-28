@@ -30,9 +30,6 @@ import { lookupPostcode } from '@/lib/pdok';
 
 export type { KernelResult };
 
-// Feature flag — SOIL_KNOWLEDGE_ACTIVE=true activeert L2/L3 empirische priors.
-// Staat standaard UIT zodat het systeem zonder env-var identiek is aan het oude gedrag.
-const SOIL_KNOWLEDGE_ACTIVE = process.env.SOIL_KNOWLEDGE_ACTIVE === 'true';
 
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
