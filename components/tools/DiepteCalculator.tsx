@@ -93,6 +93,45 @@ const PRESET_GROUPS = [
 
 const ZONDER_AARDLEK_VALUES = new Set([1.00, 0.625, 0.40, 0.3125, 0.25]);
 
+type TargetMode = 'rcd' | 'breaker' | 'other' | 'manual';
+
+const TARGET_TABS: { id: TargetMode; label: string; shortLabel: string }[] = [
+  { id: 'rcd',     label: 'Met aardlek',    shortLabel: 'Aardlek' },
+  { id: 'breaker', label: 'Zonder aardlek', shortLabel: 'Automaat' },
+  { id: 'other',   label: 'Overig',         shortLabel: 'Overig' },
+  { id: 'manual',  label: 'Handmatig',      shortLabel: 'Handmatig' },
+];
+
+function presetGroupForMode(mode: Exclude<TargetMode, 'manual'>) {
+  if (mode === 'rcd') return PRESET_GROUPS[0];
+  if (mode === 'breaker') return PRESET_GROUPS[1];
+  return PRESET_GROUPS[2];
+}
+
+function resolveTargetMode(value: number, label?: string): TargetMode {
+  if (ZONDER_AARDLEK_VALUES.has(value)) return 'breaker';
+  if (PRESET_GROUPS[0].items.some(p => p.value === value)) return 'rcd';
+  if (PRESET_GROUPS[2].items.some(p => p.value === value)) return 'other';
+  const l = (label ?? '').toLowerCase();
+  if (l.includes('62305') || l.includes('bliksem')) return 'other';
+  if (l.includes('50522') || l.includes('utiliteit')) return 'other';
+  if (l.includes('mA') || l.includes('aardlek')) return 'rcd';
+  if (/^[BC]\d/i.test(label ?? '')) return 'breaker';
+  return 'manual';
+}
+
+function findPreset(mode: TargetMode, value: number) {
+  if (mode === 'manual') return null;
+  return presetGroupForMode(mode).items.find(p => p.value === value) ?? null;
+}
+
+function formatTargetSummary(mode: TargetMode, value: number): string {
+  if (mode === 'manual') return `Gekozen: ${fmt(value)} Ω (handmatig)`;
+  const preset = findPreset(mode, value);
+  if (preset) return `Gekozen: ${preset.label} → ${preset.sublabel}`;
+  return `Gekozen: ${fmt(value)} Ω (handmatig)`;
+}
+
 // ─── Ra haalbaarheidscheck limits ─────────────────────────────────────────────
 
 const RA_CHECK = [
@@ -575,6 +614,9 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
   const [rho, setRho]                   = useState(125);
   const [targetResistance, setTarget]   = useState(initialTarget ?? 10);
+  const [targetMode, setTargetMode]     = useState<TargetMode>(() =>
+    resolveTargetMode(initialTarget ?? 10, initialLabel),
+  );
   const [groundwaterDepth, setGw]       = useState(3);
   const [ph, setPh]                     = useState(6.5);
 
@@ -637,7 +679,20 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   // to avoid showing pro UI before we know the plan. plan 'gratis' is the free tier.
   const isPro = profile !== null && profile.plan !== 'gratis';
 
-  const isZonderAardlek = ZONDER_AARDLEK_VALUES.has(targetResistance);
+  function handleTargetModeChange(mode: TargetMode) {
+    setTargetMode(mode);
+    setCalcResult(null);
+    if (mode === 'manual') return;
+    const group = presetGroupForMode(mode);
+    if (!group.items.some(p => p.value === targetResistance)) {
+      setTarget(group.items[0].value);
+    }
+  }
+
+  function selectPreset(value: number) {
+    setTarget(value);
+    setCalcResult(null);
+  }
 
   // Dominante lithoClass + droge zone (P1 leidingwerk)
   const lithoClass = soilPreview?.lithoClass ?? soilData?.dominantLithoClass ?? null;
@@ -843,53 +898,108 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           )}
         </div>
 
-        {/* Target resistance — grouped presets */}
+        {/* Target resistance — tabbed presets (one choice) */}
         <div className="mb-5">
           <SectionLabel>Doelweerstand</SectionLabel>
+          <p className="mb-3 text-xs text-white/50">
+            Selecteer één doelweerstand — niet per categorie.
+          </p>
+
+          <div className="mb-3 rounded-lg border border-[#E8761A]/30 bg-[#E8761A]/8 px-3 py-2.5 text-sm font-semibold text-[#E8761A]">
+            {formatTargetSummary(targetMode, targetResistance)}
+          </div>
+
           {initialTarget !== undefined && (
-            <div className="mb-3 rounded-lg border border-[#E8761A]/30 bg-[#E8761A]/8 px-3 py-2 text-xs text-[#E8761A]">
+            <div className="mb-3 rounded-lg border border-[#E8761A]/20 bg-[#E8761A]/5 px-3 py-2 text-xs text-[#E8761A]/90">
               Vooringevuld vanuit Weerstand Calculator{initialLabel ? ` (${initialLabel})` : ''}: Ra ≤ {initialTarget} Ω
             </div>
           )}
 
-          {PRESET_GROUPS.map(group => (
-            <div key={group.label} className="mb-3">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/60">{group.label}</p>
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                {group.items.map(p => (
-                  <button
-                    key={`${p.label}-${p.value}`}
-                    onClick={() => { setTarget(p.value); setCalcResult(null); }}
-                    className={`rounded-lg border px-2 py-2 text-left text-xs transition-all ${
-                      targetResistance === p.value
-                        ? 'border-[#E8761A] bg-[#E8761A]/10 text-[#E8761A]'
-                        : 'border-white/8 bg-white/3 text-white/60 hover:border-white/15 hover:text-white'
-                    }`}
-                  >
-                    <span className="block font-semibold">{p.label}</span>
-                    <span className="block text-[10px] text-white/70 mt-0.5">{p.sublabel}</span>
-                  </button>
-                ))}
+          <div
+            className="mb-3 flex gap-1 overflow-x-auto pb-1 scrollbar-thin"
+            role="tablist"
+            aria-label="Type doelweerstand"
+          >
+            {TARGET_TABS.map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={targetMode === tab.id}
+                onClick={() => handleTargetModeChange(tab.id)}
+                className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold transition-all sm:px-4 ${
+                  targetMode === tab.id
+                    ? 'border-[#E8761A] bg-[#E8761A]/15 text-[#E8761A]'
+                    : 'border-white/8 bg-white/3 text-white/60 hover:border-white/15 hover:text-white'
+                }`}
+              >
+                <span className="sm:hidden">{tab.shortLabel}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {targetMode === 'manual' ? (
+            <div
+              role="tabpanel"
+              className="rounded-xl border border-white/8 bg-white/3 p-4"
+            >
+              <p className="mb-3 text-xs text-white/60 leading-relaxed">
+                Voer uw eigen Ra-doel in (Ω), bijvoorbeeld uit een meting of projecteis.
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={targetResistance}
+                  onChange={e => { setTarget(Number(e.target.value)); setCalcResult(null); }}
+                  className="w-28 rounded-lg border border-[#E8761A]/40 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                  aria-label="Doelweerstand handmatig in ohm"
+                />
+                <span className="text-sm text-white/60">Ω</span>
               </div>
             </div>
-          ))}
-
-          {isZonderAardlek && (
-            <div className="mb-3 rounded-lg border border-orange-500/25 bg-orange-500/5 px-3 py-2.5 text-xs text-orange-300 leading-relaxed">
-              <strong className="font-semibold">TT zonder aardlekschakelaar</strong> — automaat als enige beveiliging
-              stelt zeer strenge eisen (&lt; 1 Ω). In de meeste Nederlandse grond is dit niet haalbaar
-              met één verticale pen. De calculator toont de theoretisch benodigde diepte en alternatieven.
+          ) : (
+            <div role="tabpanel" className="rounded-xl border border-white/8 bg-white/3 p-3">
+              {targetMode === 'breaker' && (
+                <div className="mb-3 rounded-lg border border-orange-500/25 bg-orange-500/5 px-3 py-2.5 text-xs text-orange-300 leading-relaxed">
+                  <strong className="font-semibold">TT zonder aardlekschakelaar</strong> — automaat als enige beveiliging
+                  stelt zeer strenge eisen (&lt; 1 Ω). In de meeste Nederlandse grond is dit niet haalbaar
+                  met één verticale pen. De calculator toont de theoretisch benodigde diepte en alternatieven.
+                </div>
+              )}
+              <div className={`grid gap-1.5 ${
+                targetMode === 'breaker' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
+              }`}>
+                {presetGroupForMode(targetMode).items.map(p => {
+                  const selected = targetResistance === p.value;
+                  return (
+                    <button
+                      key={`${p.label}-${p.value}`}
+                      type="button"
+                      onClick={() => selectPreset(p.value)}
+                      className={`rounded-lg border px-2 py-2.5 text-left text-xs transition-all ${
+                        selected
+                          ? 'border-[#E8761A] bg-[#E8761A]/10 text-[#E8761A] ring-1 ring-[#E8761A]/30'
+                          : 'border-white/8 bg-white/5 text-white/60 hover:border-white/15 hover:text-white'
+                      }`}
+                    >
+                      <span className="flex items-start justify-between gap-1">
+                        <span>
+                          <span className="block font-semibold">{p.label}</span>
+                          <span className="block text-[10px] text-white/70 mt-0.5">{p.sublabel}</span>
+                        </span>
+                        {selected && (
+                          <span className="shrink-0 text-[#E8761A]" aria-hidden="true">✓</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
-
-          <div className="flex items-center gap-2 mt-1">
-            <input
-              type="number" min="0.1" step="0.1" value={targetResistance}
-              onChange={e => { setTarget(Number(e.target.value)); setCalcResult(null); }}
-              className="w-28 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
-            />
-            <span className="text-sm text-white/60">Ω — handmatig</span>
-          </div>
         </div>
 
         {/* ρ slider */}
