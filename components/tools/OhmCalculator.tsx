@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/navigation';
 import { EmailRapportButton } from './EmailRapportButton';
 import { FieldLabel } from '@/components/ui/FieldLabel';
+import { HeroMetric } from '@/components/ui/instrument';
 import {
   calcOhmLayers,
   type InstallationType,
@@ -109,11 +110,8 @@ function ToggleChip({ active, onClick, children }: { active: boolean; onClick: (
   return (
     <button
       onClick={onClick}
-      className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-all ${
-        active
-          ? 'border-[#E8761A] bg-[#E8761A]/15 text-[#E8761A]'
-          : 'border-white/10 bg-white/5 text-white/60 hover:border-white/20 hover:text-white'
-      }`}
+      type="button"
+      className={`choice-chip ${active ? 'choice-chip-active' : ''}`}
     >
       {children}
     </button>
@@ -376,15 +374,15 @@ export function OhmCalculator() {
   const status = result ? statusFromR(result.wettelijkMax) : null;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-section">
       {/* View tabs */}
       <div className="flex gap-1.5 panel p-1.5">
         {(['wizard', 'overzicht'] as ViewMode[]).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all ${
-              view === v ? 'bg-[#E8761A] text-white' : 'text-white/70 hover:text-white'
+            className={`flex-1 rounded-input py-2.5 text-sm font-semibold transition-colors duration-fast ${
+              view === v ? 'bg-brand text-white' : 'text-muted hover:text-foreground'
             }`}
           >
             {v === 'wizard' ? 'Bereken' : 'Overzicht'}
@@ -552,7 +550,7 @@ export function OhmCalculator() {
           <button
             onClick={handleCalculate}
             disabled={!canCalculate()}
-            className="rounded-md bg-brand py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-30"
+            className="btn-primary"
           >
             Bereken maximale aardingsweerstand
           </button>
@@ -565,12 +563,19 @@ export function OhmCalculator() {
 
           {/* Result */}
           {result && (
-            <div className="panel border-brand/20 p-5">
-              <div className="mb-1 flex items-center justify-between gap-3">
-                <span className="text-xs font-medium text-brand">
-                  Resultaat — {result.norm}
-                </span>
-                {status && <span className={`text-xs font-medium ${status.color}`}>{status.label}</span>}
+            <div className="flex flex-col gap-section result-block">
+              <HeroMetric
+                label="Ontwerpdoel"
+                value={fmtR(result.ontwerpdoel)}
+                unit="Ω"
+                context={result.norm}
+                pulseKey={result.ontwerpdoel}
+              />
+
+              <div className="surface-panel p-gutter">
+              <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-4">
+                <span className="type-label">Drempelwaarden</span>
+                {status && <span className={`type-value ${status.color}`}>{status.label}</span>}
               </div>
 
               <table className="mt-4 w-full border-t border-white/8">
@@ -634,6 +639,7 @@ export function OhmCalculator() {
                   'Streefwaarde': `${fmtR(result.streefwaarde)} Ω`,
                 }}
               />
+              </div>
             </div>
           )}
         </>

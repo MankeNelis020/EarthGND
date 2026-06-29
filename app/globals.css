@@ -4,10 +4,61 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Fase 0: design tokens (single source of truth) ─────────────────────────── */
+
 :root {
-  --primary: #E8761A;
-  --dark: #1C1917;
-  --text: #F5EFE6;
+  /* Brand — #E8761A is the ONE accent per screen (hero / primary CTA / active) */
+  --brand: #E8761A;
+  --brand-hover: #d06510;
+  --brand-soft: rgba(232, 118, 26, 0.14);
+  --brand-subtle: rgba(232, 118, 26, 0.08);
+
+  /* Surfaces — warm dark greys, no pure black */
+  --surface-0: #1C1917;
+  --surface-1: #23201d;
+  --surface-2: #2a2623;
+  --surface-3: #312d29;
+
+  /* Text — WCAG AA on surface-0/2 */
+  --text-primary: #F5EFE6;
+  --text-secondary: rgba(245, 239, 230, 0.62);
+  --text-muted: rgba(245, 239, 230, 0.42);
+  --text-faint: rgba(245, 239, 230, 0.28);
+
+  /* Borders — hairline on grey reads better than on black */
+  --border-subtle: rgba(245, 239, 230, 0.06);
+  --border-default: rgba(245, 239, 230, 0.10);
+  --border-strong: rgba(245, 239, 230, 0.16);
+
+  /* Status — separate from brand orange; use with icon + label */
+  --status-success: #34d399;
+  --status-warning: #fbbf24;
+  --status-danger: #f87171;
+  --status-info: rgba(245, 239, 230, 0.55);
+
+  /* Spacing — 4/8 grid */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-gutter: 1.25rem;
+  --space-section: 1.5rem;
+
+  /* Radii */
+  --radius-panel: 0.5rem;
+  --radius-input: 0.375rem;
+
+  /* Motion */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Legacy aliases (map to tokens — do not duplicate hex in components) */
+  --primary: var(--brand);
+  --dark: var(--surface-0);
+  --text: var(--text-primary);
 }
 
 html {
@@ -15,10 +66,22 @@ html {
 }
 
 body {
-  background-color: #1C1917;
-  color: #F5EFE6;
+  background-color: var(--surface-0);
+  color: var(--text-primary);
   font-family: 'Barlow', system-ui, -apple-system, sans-serif;
+  font-weight: 500;
   -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @layer utilities {
@@ -26,8 +89,141 @@ body {
     text-wrap: balance;
   }
 
-  /* Shared panel surface — tighter radius than legacy rounded-2xl stacks */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Typographic roles */
+  .type-display {
+    @apply font-condensed text-display tabular-nums text-foreground;
+  }
+
+  .type-title {
+    @apply text-title text-foreground;
+  }
+
+  .type-label {
+    @apply text-label text-muted;
+  }
+
+  .type-value {
+    @apply text-value tabular-nums text-foreground;
+  }
+
+  .type-caption {
+    @apply text-caption text-muted-faint;
+  }
+
+  /* Surfaces */
+  .surface-panel {
+    @apply rounded-panel border border-border bg-surface-2;
+  }
+
+  .surface-elevated {
+    @apply rounded-panel border border-border-strong bg-surface-3;
+  }
+
   .panel {
-    @apply rounded-lg border border-white/10 bg-surface;
+    @apply surface-panel;
+  }
+
+  .panel-interactive {
+    @apply surface-panel transition-[background-color,border-color] duration-fast ease-instrument;
+  }
+
+  .panel-interactive:hover {
+    background-color: var(--surface-3);
+    border-color: var(--border-strong);
+  }
+
+  /* Inputs — instrument fields */
+  .instrument-input {
+    @apply h-10 w-full rounded-input border border-border bg-surface-1 px-3 text-value text-foreground;
+    @apply placeholder:text-muted-faint;
+    @apply transition-[border-color,box-shadow] duration-fast ease-instrument;
+    @apply focus:outline-none;
+  }
+
+  .instrument-input:focus {
+    border-color: color-mix(in srgb, var(--brand) 50%, transparent);
+    box-shadow: 0 0 0 2px var(--brand-soft);
+  }
+
+  .instrument-input-sm {
+    @apply instrument-input h-9 text-label;
+  }
+
+  /* Primary CTA — one orange button per screen section */
+  .btn-primary {
+    @apply inline-flex h-11 w-full items-center justify-center rounded-input bg-brand px-4 text-sm font-semibold text-white;
+    @apply transition-colors duration-fast ease-instrument;
+    @apply hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50;
+    @apply focus-visible:outline-none;
+  }
+
+  .btn-primary:focus-visible {
+    box-shadow: 0 0 0 2px var(--surface-0), 0 0 0 4px var(--brand-soft);
+  }
+
+  /* Choice chips / toggles */
+  .choice-chip {
+    @apply rounded-input border border-border bg-surface-1 px-4 py-2 text-sm font-semibold text-muted;
+    @apply transition-[border-color,background-color,color] duration-fast ease-instrument;
+    @apply hover:border-border-strong hover:text-foreground;
+  }
+
+  .choice-chip-active {
+    border-color: color-mix(in srgb, var(--brand) 45%, transparent);
+    background-color: var(--brand-subtle);
+    color: var(--brand);
+  }
+
+  .choice-card {
+    @apply rounded-panel border border-border bg-surface-1 px-4 py-3 text-left;
+    @apply transition-[border-color,background-color] duration-fast ease-instrument;
+    @apply hover:border-border-strong hover:bg-surface-2;
+  }
+
+  .choice-card-active {
+    border-color: color-mix(in srgb, var(--brand) 45%, transparent);
+    background-color: var(--brand-subtle);
+  }
+
+  /* Result block */
+  .result-block {
+    @apply animate-result-in;
+  }
+
+  /* Shimmer skeleton (BRO loading) */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--surface-1) 0%,
+      var(--surface-3) 50%,
+      var(--surface-1) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer rounded-input;
+  }
+
+  /* Status surfaces — color + structure, not color alone */
+  .status-success {
+    border-color: color-mix(in srgb, var(--status-success) 25%, transparent);
+    background-color: color-mix(in srgb, var(--status-success) 8%, transparent);
+    color: var(--status-success);
+  }
+
+  .status-warning {
+    border-color: color-mix(in srgb, var(--status-warning) 25%, transparent);
+    background-color: color-mix(in srgb, var(--status-warning) 8%, transparent);
+    color: var(--status-warning);
+  }
+
+  .status-danger {
+    border-color: color-mix(in srgb, var(--status-danger) 25%, transparent);
+    background-color: color-mix(in srgb, var(--status-danger) 8%, transparent);
+    color: var(--status-danger);
   }
 }

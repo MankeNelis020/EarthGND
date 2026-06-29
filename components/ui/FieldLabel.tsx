@@ -1,16 +1,12 @@
-/** Section / field label — sentence case, no shouty uppercase tracking. */
+/** Section / field label — typographic role `label`. */
 export function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-2 text-xs font-medium text-white/50">
-      {children}
-    </p>
-  );
+  return <p className="type-label mb-2">{children}</p>;
 }
 
-/** Page-level norm / context line (replaces hero pill badges). */
+/** Page-level norm / context line. */
 export function PageMeta({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-3 border-l-2 border-brand/35 pl-3 text-xs font-medium leading-relaxed text-white/45">
+    <p className="type-caption mb-3 border-l-2 border-brand/35 pl-3 leading-relaxed">
       {children}
     </p>
   );

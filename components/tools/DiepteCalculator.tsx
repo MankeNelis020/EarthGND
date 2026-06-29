@@ -13,6 +13,7 @@ import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '
 import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
 import { buildSoilRhoPreview } from '@/lib/pipeline/effective-rho';
 import { FieldLabel } from '@/components/ui/FieldLabel';
+import { HeroMetric, ScenarioMetric } from '@/components/ui/instrument';
 import { IconAlert, IconCheck, IconMail, IconX } from '@/components/ui/icons';
 import type { SavedColleague } from '@/lib/colleagues';
 import { colleagueDisplayLabel, normalizeColleagueEmail } from '@/lib/colleagues';
@@ -445,15 +446,15 @@ function ScenarioCard({ label, sublabel, dimension, dimensionUnit, resistance, d
   label: string; sublabel: string; dimension: number; dimensionUnit: string; resistance: number; dimmed?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border p-4 transition-opacity ${dimmed ? 'border-white/5 opacity-50' : 'border-white/10'}`}>
-      <p className="mb-0.5 text-xs font-semibold text-white/60">{label}</p>
-      <p className="mb-3 text-[11px] text-white/70">{sublabel}</p>
-      <div className="flex items-baseline gap-1 mb-1">
-        <span className="font-condensed text-3xl font-black text-white">{dimension.toFixed(2)}</span>
-        <span className="text-sm text-white/60">{dimensionUnit}</span>
-      </div>
-      <div className="text-xs text-white/60">{resistance.toFixed(2)} Ω berekend</div>
-    </div>
+    <ScenarioMetric
+      label={label}
+      sublabel={sublabel}
+      value={dimension.toFixed(2)}
+      unit={dimensionUnit}
+      secondary={`${resistance.toFixed(2)} Ω berekend`}
+      dimmed={dimmed}
+      highlight={label === 'Gemiddeld'}
+    />
   );
 }
 
@@ -580,14 +581,14 @@ function CorrosieKaart({ cc }: { cc: CorrosionClass }) {
   }[cc.color];
 
   return (
-    <div className={`rounded-2xl border ${colors.border} ${colors.bg} p-4`}>
+    <div className={`rounded-panel border p-4 ${colors.border} ${colors.bg}`}>
       <div className="mb-2 flex items-center gap-2">
-        <p className={`text-xs font-semibold uppercase tracking-wider ${colors.text}`}>
+        <p className={`type-label ${colors.text}`}>
           Corrosieclassificatie — {cc.label}
         </p>
-        <span className="ml-auto text-[10px] text-white/70">{cc.lifetimeYears}</span>
+        <span className="type-caption ml-auto tabular-nums">{cc.lifetimeYears}</span>
       </div>
-      <p className="text-xs text-white/72 leading-relaxed">{cc.advies}</p>
+      <p className="type-caption leading-relaxed text-muted">{cc.advies}</p>
     </div>
   );
 }
@@ -844,7 +845,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   const parallelOption = calcResult?.parallelOption ?? null;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-section">
       {/* Soil / postcode lookup */}
       <PostcodeInput onRhoChange={setRho} onGroundwaterChange={d => d != null && setGw(d)} isPro={isPro} />
 
@@ -1142,7 +1143,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       <button
         onClick={() => handleCalculate()}
         disabled={loading}
-        className="rounded-md bg-brand py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
+        className="btn-primary"
       >
         {loading ? 'Berekening...' : `Bereken ${electrodeType === 'pen' ? 'pendiepte' : 'lintlengte'} — 1 credit`}
       </button>
@@ -1153,7 +1154,21 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
       {/* Results */}
       {calcResult && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-section result-block">
+          {(() => {
+            const gem = calcResult.scenarios.gemiddeld as DiepteResult | LintResult;
+            const heroDim = scenarioDim(gem);
+            const heroUnit = calcResult.electrodeType === 'pen' ? 'm diep' : 'm lint';
+            return (
+              <HeroMetric
+                label={calcResult.electrodeType === 'pen' ? 'Benodigde pendiepte (gemiddeld)' : 'Benodigde lintlengte (gemiddeld)'}
+                value={heroDim.toFixed(2)}
+                unit={heroUnit}
+                context={`doel ≤ ${fmt(targetResistance)} Ω · GHG ${groundwaterDepth} m`}
+                pulseKey={`${heroDim}-${targetResistance}`}
+              />
+            );
+          })()}
 
           {/* Soil cross-section + aanbevolen config */}
           {calcResult.electrodeType === 'pen' && rodLength > 0 && (
@@ -1233,9 +1248,9 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           )}
 
           {/* Three scenarios */}
-          <div className="rounded-2xl border border-white/10 p-5">
+          <div className="surface-panel p-gutter">
             <div className="mb-4 flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-brand">
+              <span className="type-label text-brand">
                 Drie scenario&apos;s
               </span>
               <div className="flex flex-col items-end gap-0.5">

@@ -259,9 +259,9 @@ export function PostcodeInput({ onRhoChange, onGroundwaterChange, isPro = false 
 
           {/* Loading skeleton — replaces old data while new fetch is in progress */}
           {soilLoading && (
-            <div className="mb-3 space-y-2 animate-pulse">
-              <div className="h-3 w-40 rounded bg-white/8" />
-              <div className="h-20 rounded-lg bg-white/6" />
+            <div className="mb-3 space-y-2">
+              <div className="shimmer h-3 w-40" />
+              <div className="shimmer h-20" />
             </div>
           )}
 
