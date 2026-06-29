@@ -1,8 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
+
+interface SoilEvidencePoint {
+  depthM: number;
+  ra: number | null;
+  rhoApparent: number;
+  zone: string;
+  dominantLabel: string;
+  dominantProb: number;
+}
+
+interface SoilSegment {
+  fromDepthM: number;
+  toDepthM: number;
+  deltaRa: number;
+  ohmPerMeter: number;
+  rhoAtToDepth: number;
+  dominantLabel: string;
+}
 
 interface Meting {
   id: string;
@@ -68,15 +86,32 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
   const locale = useLocale();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
+  const [soilPoints, setSoilPoints] = useState<SoilEvidencePoint[]>([]);
+  const [soilSegments, setSoilSegments] = useState<SoilSegment[]>([]);
+  const [soilGw, setSoilGw] = useState<number | null>(null);
+
+  const input     = calc.input_values as Calc['input_values'];
+  const resultaat = calc.result       as Calc['result'];
+  const status    = meting?.status ?? 'draft';
+
+  useEffect(() => {
+    if (!meting?.depth_curve?.length) return;
+    if (status !== 'submitted' && status !== 'confirmed') return;
+    fetch(`/api/meting/${uuid}/evidence`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        setSoilPoints(data.points ?? []);
+        setSoilSegments(data.segments ?? []);
+        setSoilGw(data.gwDepthM ?? null);
+      })
+      .catch(() => {});
+  }, [uuid, meting?.depth_curve, status]);
 
   // Inline rename state
   const [naam, setNaam]           = useState(calc.rapport_naam ?? '');
   const [editingNaam, setEditing] = useState(false);
   const [naamSaving, setNaamSaving] = useState(false);
-
-  const input     = calc.input_values as Calc['input_values'];
-  const resultaat = calc.result       as Calc['result'];
-  const status    = meting?.status ?? 'draft';
 
   async function saveNaam() {
     if (!naam.trim() || naam.trim() === calc.rapport_naam) { setEditing(false); return; }
@@ -297,6 +332,60 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
         </div>
       )}
 
+      {/* Bodemanalyse uit dieptecurve */}
+      {soilPoints.length > 0 && (
+        <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
+          <div className="border-b border-white/8 px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
+              Bodemanalyse (veldmeting)
+            </p>
+            {soilGw != null && (
+              <p className="mt-0.5 text-[10px] text-white/35">GWT-referentie: {soilGw} m</p>
+            )}
+          </div>
+          <div className="divide-y divide-white/5">
+            {soilPoints.map(pt => (
+              <div key={pt.depthM} className="grid grid-cols-2 gap-2 px-4 py-2.5 sm:grid-cols-4">
+                <div>
+                  <p className="text-[10px] text-white/40">Diepte</p>
+                  <p className="text-sm text-white">{pt.depthM} m</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40">ρ schijnbaar</p>
+                  <p className="text-sm font-semibold text-[#E8761A]">{pt.rhoApparent} Ω·m</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40">Grondtype</p>
+                  <p className="text-sm text-white capitalize">{pt.dominantLabel} ({pt.dominantProb}%)</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-white/40">Zone</p>
+                  <p className="text-sm text-white/70">{pt.zone === 'wet' ? 'nat' : 'droog'}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {soilSegments.length > 0 && (
+            <div className="border-t border-white/8 px-4 py-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/40">
+                Ω-daling per segment
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {soilSegments.map((seg, i) => (
+                  <p key={i} className="text-xs text-white/70">
+                    {seg.fromDepthM}→{seg.toDepthM} m:{' '}
+                    <span className={seg.ohmPerMeter < 0 ? 'text-green-400' : 'text-white/50'}>
+                      {seg.ohmPerMeter > 0 ? '+' : ''}{seg.ohmPerMeter} Ω/m
+                    </span>
+                    {' '}→ {seg.dominantLabel} (ρ≈{seg.rhoAtToDepth} Ω·m)
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Notes */}
       {meting?.notes && (
         <div className="rounded-xl border border-white/8 bg-white/3 px-4 py-3">
@@ -323,8 +412,8 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
         <div className="rounded-2xl border border-[#E8761A]/20 bg-[#E8761A]/5 p-5">
           <p className="mb-1 text-sm font-semibold text-[#E8761A]">Meting controleren en bevestigen</p>
           <p className="mb-4 text-xs text-white/60 leading-relaxed">
-            Controleer de meetwaarden van de monteur. Na bevestiging worden de waarden vergrendeld en
-            kunt u het rapport als opleverrapport gebruiken conform NEN 3140.
+            Controleer de meetwaarden van de monteur. Na bevestiging worden de waarden vergrendeld,
+            wordt bodemkennis opgeslagen in de kennisbank, en kunt u het rapport als opleverrapport gebruiken conform NEN 3140.
             <br/><span className="mt-1 block text-white/40">
               De conformiteitsverklaring wordt ondertekend door de erkende persoon die het werk heeft beoordeeld.
             </span>
