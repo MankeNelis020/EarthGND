@@ -62,6 +62,7 @@ export interface ParsedDiepteInput {
   groundwaterDepth:      number | null;
   ph:                    number | null;
   postcode?:             string;
+  huisnummer?:           string;
   electrodeType:         ElectrodeType;
   lintBurialDepth:       number | null;
   lintConductorDiameter: number | null;
@@ -86,6 +87,7 @@ export function parseDiepteInput(raw: RawDiepteInput): ParsedDiepteInput {
     groundwaterDepth:      parseNumber(raw.groundwaterDepth),
     ph:                    parseNumber(raw.ph),
     postcode:              typeof raw.postcode === 'string' ? raw.postcode.trim() || undefined : undefined,
+    huisnummer:            typeof raw.huisnummer === 'string' ? raw.huisnummer.trim() || undefined : undefined,
     electrodeType:         parseElectrodeType(raw.electrodeType),
     lintBurialDepth:       parseNumber(raw.lintBurialDepth),
     lintConductorDiameter: parseNumber(raw.lintConductorDiameter),
@@ -110,6 +112,7 @@ export function buildValidated(p: ParsedDiepteInput): ValidatedDiepteInput {
     groundwaterDepth:      p.groundwaterDepth!,
     ph:                    p.ph ?? 7.0,
     postcode:              p.postcode,
+    huisnummer:            p.huisnummer,
     electrodeType:         p.electrodeType,
     lintBurialDepth:       p.lintBurialDepth ?? 0.8,
     lintConductorDiameter: p.lintConductorDiameter ?? 0.01,

@@ -59,6 +59,8 @@ interface CalcResult {
   warnings?:          string[];
   uncertaintyBand?:   { typical: number; low: number; high: number; rhoFactorLow: number; rhoFactorHigh: number };
   plausibilityFlags?: { field: string; value: number | string; message: string; severity: 'light' | 'heavy' }[];
+  rhoWetSource?:      'l4_local' | 'l3_regional_agnostic' | 'l3_regional' | 'l2_global' | 'l1_literature';
+  localDepthHint?:    { medianDepthM: number; n: number; maxDistanceM: number; source: string; confidence: number };
   effectiveRho?:       number;
   dominantLithoClass?: number;
   rhoModel?:           'layered-nl' | 'two-layer' | 'single';
@@ -601,7 +603,7 @@ interface DiepteCalculatorProps {
 }
 
 export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculatorProps) {
-  const { soilData, postcode } = useCalculator();
+  const { soilData, postcode, huisnummer } = useCalculator();
 
   const [user, setUser]       = useState<User | null | 'loading'>('loading');
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -732,6 +734,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           groundwaterDepth,
           ph,
           postcode: postcode || undefined,
+          huisnummer: huisnummer.trim() || undefined,
           electrodeType,
           lithoClass: lithoClass ?? undefined,
           rhoDryOverride: rhoDryProfile ?? undefined,
@@ -1302,6 +1305,15 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 <span className="ml-1 text-white/40">
                   (ρ × {calcResult.uncertaintyBand.rhoFactorLow}–{calcResult.uncertaintyBand.rhoFactorHigh})
                 </span>
+              </div>
+            )}
+
+            {calcResult.localDepthHint && calcResult.localDepthHint.n >= 1 && (
+              <div className="mt-2 rounded-lg border border-[#E8761A]/20 bg-[#E8761A]/5 px-4 py-2.5 text-xs text-[#F5EFE6]/80">
+                Lokale veldmetingen
+                {calcResult.localDepthHint.source === 'exact_address' ? ' op dit adres' : ` binnen ${calcResult.localDepthHint.maxDistanceM} m`}:
+                {' '}gemiddeld ~{calcResult.localDepthHint.medianDepthM.toFixed(1)} m diepte
+                ({calcResult.localDepthHint.n} eerdere meting{calcResult.localDepthHint.n > 1 ? 'en' : ''}).
               </div>
             )}
 

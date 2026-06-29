@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { processMeting } from '@/lib/soil-knowledge/evidence-accumulator';
+import { enrichMetingFromCalculation } from '@/lib/soil-knowledge/meting-enrichment';
+import { pushMetingToGoogleSheet } from '@/lib/soil-knowledge/sheet-sync';
 
 export const runtime = 'nodejs';
 
@@ -15,7 +17,6 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
 
-  // Verify this is the calculator user
   const { data: calc } = await supabase
     .from('calculations')
     .select('user_id')
@@ -25,7 +26,6 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
 
   if (!calc) return NextResponse.json({ error: 'Berekening niet gevonden of geen toegang' }, { status: 404 });
 
-  // Use admin client to bypass RLS when reading/updating pendiepte_metingen
   const admin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -33,7 +33,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
 
   const { data: meting } = await admin
     .from('pendiepte_metingen')
-    .select('id, status')
+    .select('*')
     .eq('calculation_id', uuid)
     .single();
 
@@ -41,6 +41,9 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
   if (meting.status !== 'submitted') {
     return NextResponse.json({ error: 'Meting kan alleen worden bevestigd als de status "ingediend" is' }, { status: 409 });
   }
+
+  // BRO-snapshot uit berekening vóór kennisbank-verwerking
+  await enrichMetingFromCalculation(uuid, meting.id, admin);
 
   const { error } = await admin
     .from('pendiepte_metingen')
@@ -52,11 +55,38 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Kennisbank verwerking — fire-and-forget, blokkeert de response niet.
+  // Herlaad meting na enrich
+  const { data: metingFresh } = await admin
+    .from('pendiepte_metingen')
+    .select('*')
+    .eq('id', meting.id)
+    .single();
+
   processMeting(meting.id, admin).catch(e =>
     console.error('[confirm/processMeting]', e),
   );
 
+  if (metingFresh) {
+    pushMetingToGoogleSheet({
+      event:               'veldmeting_confirmed',
+      timestamp:           new Date().toISOString(),
+      meting_id:           metingFresh.id,
+      calculation_id:      uuid,
+      postcode:            metingFresh.postcode,
+      huisnummer:          metingFresh.huisnummer,
+      straatnaam:          metingFresh.straatnaam,
+      woonplaats:          metingFresh.woonplaats,
+      lat:                 metingFresh.lat,
+      lon:                 metingFresh.lon,
+      installed_depth:     metingFresh.installed_depth,
+      achieved_ra:         metingFresh.achieved_ra,
+      field_gw_depth:      metingFresh.field_gw_depth,
+      bro_litho_class:     metingFresh.bro_litho_class,
+      depth_curve:         JSON.stringify(metingFresh.depth_curve ?? []),
+      source_type:         metingFresh.source_type ?? 'monteur_app',
+      measurement_quality: metingFresh.measurement_quality ?? 'goed',
+    }).catch(e => console.error('[confirm/sheet-sync]', e));
+  }
+
   return NextResponse.json({ ok: true });
 }
-

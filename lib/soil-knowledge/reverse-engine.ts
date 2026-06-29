@@ -78,6 +78,74 @@ export function estimateClassDistribution(rhoApparent: number): ClassDistributio
  * @param depthCurve  [{depth, ra}] — diepte in m, weerstand in Ω
  * @param gwDepthM    grondwaterdiepte in m (gebruik field_gw_depth als beschikbaar)
  */
+
+/**
+ * Segment-analyse: Ω-daling per meter tussen opeenvolgende dieptepunten.
+ * Gebruikt voor bodeminterpretatie in opleverrapport.
+ */
+export interface DepthSegmentAnalysis {
+  fromDepthM:     number;
+  toDepthM:       number;
+  deltaRa:        number;
+  deltaDepthM:    number;
+  ohmPerMeter:    number;
+  rhoAtToDepth:   number;
+  dominantClass:  number;
+  dominantLabel:  string;
+  classDist:      ClassDistribution;
+}
+
+const LITHO_LABELS: Record<number, string> = {
+  1: 'klei', 2: 'leem', 3: 'zand', 4: 'grind', 5: 'veen',
+};
+
+function dominantClassFromDist(dist: ClassDistribution): { k: number; label: string } {
+  let bestK = 3;
+  let bestP = 0;
+  for (const [kStr, p] of Object.entries(dist)) {
+    if ((p ?? 0) > bestP) {
+      bestP = p ?? 0;
+      bestK = parseInt(kStr);
+    }
+  }
+  return { k: bestK, label: LITHO_LABELS[bestK] ?? 'onbekend' };
+}
+
+export function analyzeDepthSegments(
+  depthCurve: Array<{ depth: number; ra: number }>,
+  gwDepthM: number,
+): DepthSegmentAnalysis[] {
+  const points = analyzeDepthCurve(depthCurve, gwDepthM);
+  if (points.length < 2) return [];
+
+  const segments: DepthSegmentAnalysis[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const cur = points[i];
+    const deltaDepth = cur.depthM - prev.depthM;
+    if (deltaDepth <= 0) continue;
+
+    const prevRa = depthCurve.find(p => p.depth === prev.depthM)?.ra ?? 0;
+    const curRa = depthCurve.find(p => p.depth === cur.depthM)?.ra ?? 0;
+    const deltaRa = curRa - prevRa;
+    const ohmPerMeter = deltaRa / deltaDepth;
+    const dom = dominantClassFromDist(cur.classDist);
+
+    segments.push({
+      fromDepthM:    prev.depthM,
+      toDepthM:      cur.depthM,
+      deltaRa:       Math.round(deltaRa * 1000) / 1000,
+      deltaDepthM:   deltaDepth,
+      ohmPerMeter:   Math.round(ohmPerMeter * 1000) / 1000,
+      rhoAtToDepth:  Math.round(cur.rhoApparent * 10) / 10,
+      dominantClass: dom.k,
+      dominantLabel: dom.label,
+      classDist:     cur.classDist,
+    });
+  }
+  return segments;
+}
+
 export function analyzeDepthCurve(
   depthCurve: Array<{ depth: number; ra: number }>,
   gwDepthM: number,

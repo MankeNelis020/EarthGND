@@ -23,9 +23,12 @@ import {
 } from './bayesian-posterior';
 import { NL_RHO_WET_PRIOR } from '@/lib/pipeline/rho-priors';
 import { MIN_SOFT_N_GLOBAL, MIN_SOFT_N_REGIONAL } from './priors';
+import { resolveLocalKnowledge, type LocalDepthHint } from './local-prior';
+import { isSoilKnowledgeActive } from './sheet-sync';
 import type { WelfordState } from './types';
 
 export type ActivePriorSource =
+  | 'l4_local'              // IDW nabije veldmetingen (≤500 m)
   | 'l3_regional_agnostic'  // class-agnostisch: werkt ondanks verkeerde BRO-klasse
   | 'l3_regional'           // per-klasse regionaal
   | 'l2_global'             // per-klasse globaal
@@ -36,6 +39,7 @@ export interface ActivePriorResult {
   source:        ActivePriorSource;
   posteriorMu?:  number;
   posteriorSigma?: number;
+  localDepthHint?: LocalDepthHint | null;
 }
 
 function getServiceClient() {
@@ -57,30 +61,66 @@ function snapToGrid(v: number, step = 5000): number {
  * @param rhoFallback Bulk-ρ uit gebruikersinvoer (Ω·m)
  * @param rdX         RD-x coördinaat (EPSG:28992), null als niet beschikbaar
  * @param rdY         RD-y coördinaat
+ * @param lat         WGS84 (voor L4), null als niet beschikbaar
+ * @param lon         WGS84
+ * @param postcode    Voor exact-adres match in L4
+ * @param huisnummer  Voor exact-adres match in L4
  */
 export async function resolveActivePrior(
   lithoClass:  number | null | undefined,
   rhoFallback: number,
   rdX?:        number | null,
   rdY?:        number | null,
+  lat?:        number | null,
+  lon?:        number | null,
+  postcode?:   string | null,
+  huisnummer?: string | null,
 ): Promise<ActivePriorResult> {
-  // Feature flag — als uit: identiek aan oud gedrag
-  if (process.env.SOIL_KNOWLEDGE_ACTIVE !== 'true') {
-    const rhoWet = lithoClass != null
-      ? ((NL_RHO_WET_PRIOR as Record<number, number | undefined>)[lithoClass] ?? Math.round(rhoFallback * 0.45))
-      : Math.round(rhoFallback * 0.45);
-    return { rhoWet, source: 'l1_literature' };
+  const l1Rho = lithoClass != null
+    ? ((NL_RHO_WET_PRIOR as Record<number, number | undefined>)[lithoClass] ?? Math.round(rhoFallback * 0.45))
+    : Math.round(rhoFallback * 0.45);
+
+  // Feature flag — als uit: L1 + optioneel lokale diepte-hint (informatief)
+  if (!isSoilKnowledgeActive()) {
+    let localDepthHint: LocalDepthHint | null = null;
+    if (lat != null && lon != null) {
+      try {
+        const local = await resolveLocalKnowledge(lat, lon, postcode, huisnummer);
+        localDepthHint = local.depthHint;
+      } catch { /* non-critical */ }
+    }
+    return { rhoWet: l1Rho, source: 'l1_literature', localDepthHint };
   }
 
   let supabase: ReturnType<typeof getServiceClient> | null = null;
   try {
     supabase = getServiceClient();
   } catch {
-    // Geen service-role key (lokaal dev zonder env vars) → L1
-    const rhoWet = lithoClass != null
-      ? ((NL_RHO_WET_PRIOR as Record<number, number | undefined>)[lithoClass] ?? Math.round(rhoFallback * 0.45))
-      : Math.round(rhoFallback * 0.45);
-    return { rhoWet, source: 'l1_literature' };
+    return { rhoWet: l1Rho, source: 'l1_literature' };
+  }
+
+  let localDepthHint: LocalDepthHint | null = null;
+
+  // ── L4 lokaal (IDW veldmetingen ≤500 m) ───────────────────────────────────
+  if (lat != null && lon != null) {
+    try {
+      const local = await resolveLocalKnowledge(lat, lon, postcode, huisnummer, supabase);
+      localDepthHint = local.depthHint;
+
+      if (local.l4 && lithoClass != null) {
+        const l1 = getLiteratureLevel(lithoClass);
+        const posterior = computeSafePosterior(l1, null, null, local.l4);
+        return {
+          rhoWet:         Math.round(posterior.mu),
+          source:         'l4_local',
+          posteriorMu:    posterior.mu,
+          posteriorSigma: posterior.sigma,
+          localDepthHint,
+        };
+      }
+    } catch (e) {
+      console.warn('[active-prior/L4]', e);
+    }
   }
 
   // ── L3 class-agnostisch (werkt ook als BRO-klasse verkeerd is) ────────────
@@ -109,6 +149,7 @@ export async function resolveActivePrior(
           return {
             rhoWet: Math.round(weightedRho),
             source: 'l3_regional_agnostic',
+            localDepthHint,
           };
         }
       }
@@ -134,6 +175,7 @@ export async function resolveActivePrior(
             source:        'l3_regional',
             posteriorMu:   posterior.mu,
             posteriorSigma: posterior.sigma,
+            localDepthHint,
           };
         }
       }
@@ -158,14 +200,12 @@ export async function resolveActivePrior(
           source:        'l2_global',
           posteriorMu:   posterior.mu,
           posteriorSigma: posterior.sigma,
+          localDepthHint,
         };
       }
     }
   }
 
   // ── L1 literatuurprior ────────────────────────────────────────────────────
-  const l1Rho = lithoClass != null
-    ? ((NL_RHO_WET_PRIOR as Record<number, number | undefined>)[lithoClass] ?? Math.round(rhoFallback * 0.45))
-    : Math.round(rhoFallback * 0.45);
-  return { rhoWet: l1Rho, source: 'l1_literature' };
+  return { rhoWet: l1Rho, source: 'l1_literature', localDepthHint };
 }

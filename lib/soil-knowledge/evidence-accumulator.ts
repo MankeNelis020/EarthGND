@@ -109,6 +109,8 @@ export async function processMeting(
     return { pointsProcessed: 0, evidenceInserted: 0 };
   }
 
+  const alreadyProcessed = meting.knowledge_processed_at != null;
+
   const depthCurve: Array<{ depth: number; ra: number }> = meting.depth_curve ?? [];
   if (!depthCurve.length) return { pointsProcessed: 0, evidenceInserted: 0 };
 
@@ -159,7 +161,14 @@ export async function processMeting(
 
   if (evidenceError) throw new Error(`soil_evidence insert fout: ${evidenceError.message}`);
 
-  // ── 5. Accumuleer natte punten naar L2/L3 ───────────────────────────────
+  // ── 5. Accumuleer natte punten naar L2/L3 (skip bij herverwerking) ───────
+  if (alreadyProcessed) {
+    return {
+      pointsProcessed: analyzed.length,
+      evidenceInserted: evidenceRows.length,
+    };
+  }
+
   // Alleen natte punten (onder GWT) voor rhoWet kennisbank.
   const wetPoints = analyzed.filter(pt => pt.zone === 'wet');
 
@@ -222,6 +231,12 @@ export async function processMeting(
       }
     }
   }
+
+  // ── Markeer als verwerkt (idempotent Welford) ─────────────────────────────
+  await supabase
+    .from('pendiepte_metingen')
+    .update({ knowledge_processed_at: new Date().toISOString() })
+    .eq('id', metingId);
 
   // ── 6. Shadow ground truth (Poort 2) ─────────────────────────────────────
   if (meting.calculation_id) {

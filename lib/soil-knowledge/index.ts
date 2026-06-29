@@ -1,4 +1,9 @@
-export { deriveRhoApparent, estimateClassDistribution, analyzeDepthCurve } from './reverse-engine';
+export { deriveRhoApparent, estimateClassDistribution, analyzeDepthCurve, analyzeDepthSegments } from './reverse-engine';
+export type { DepthSegmentAnalysis } from './reverse-engine';
+export { resolveLocalKnowledge, fetchNearbyMetingen, buildLocalKnowledge, L4_MAX_RADIUS_M } from './local-prior';
+export type { LocalDepthHint, LocalKnowledgeResult } from './local-prior';
+export { isSoilKnowledgeActive, pushMetingToGoogleSheet } from './sheet-sync';
+export { enrichMetingFromCalculation } from './meting-enrichment';
 export { computePosterior, computeChainPosterior, computeSafePosterior, getLiteratureLevel, welfordToLevel, getActivePrior, isLearningBlocked } from './bayesian-posterior';
 export { processMeting } from './evidence-accumulator';
 export { resolveActivePrior } from './active-prior';

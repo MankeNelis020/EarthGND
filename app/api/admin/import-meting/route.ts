@@ -19,6 +19,7 @@ import { processMeting } from '@/lib/soil-knowledge/evidence-accumulator';
 export const runtime = 'nodejs';
 
 interface ImportBody {
+  external_import_id?: string;
   straatnaam?:         string;
   huisnummer?:         string;
   postcode?:           string;
@@ -52,6 +53,18 @@ export async function POST(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } },
   );
+
+  // Dedup op external_import_id (Google Sheets rij-ID)
+  if (body.external_import_id) {
+    const { data: existing } = await admin
+      .from('pendiepte_metingen')
+      .select('id')
+      .eq('external_import_id', body.external_import_id)
+      .maybeSingle();
+    if (existing) {
+      return NextResponse.json({ ok: true, id: existing.id, duplicate: true });
+    }
+  }
 
   // ── Coördinaten normaliseren ──────────────────────────────────────────────
   // Google Sheets slaat coördinaten soms op als integer zonder decimaal punt:
@@ -118,6 +131,8 @@ export async function POST(request: NextRequest) {
       bro_litho_class:     body.bro_litho_class     ?? null,
       bro_gw_depth:        body.bro_gw_depth        ?? null,
       field_gw_depth:      body.field_gw_depth      ?? null,
+      external_import_id:  body.external_import_id  ?? null,
+      source_type:         'manual_import',
       notes:               body.notes               ?? null,
       submitted_at:        new Date().toISOString(),
       confirmed_at:        new Date().toISOString(),

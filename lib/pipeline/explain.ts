@@ -11,7 +11,7 @@
  */
 
 import type { KernelResult } from './kernel-adapter';
-import type { SourceConfidence, PlausibilityFlag, UncertaintyBand } from './types';
+import type { SourceConfidence, PlausibilityFlag, UncertaintyBand, LocalDepthHintEnrichment } from './types';
 import { confidenceSummary } from './confidence';
 
 export interface UIExplanation {
@@ -28,6 +28,8 @@ export function buildExplanation(
   plausFlags:  PlausibilityFlag[],
   band:        UncertaintyBand,
   targetResistance: number,
+  localDepthHint?: LocalDepthHintEnrichment | null,
+  rhoWetSource?: string,
 ): UIExplanation {
   const warnings: string[] = [];
   const info:     string[] = [];
@@ -64,6 +66,29 @@ export function buildExplanation(
   // Canonical: GHG = hoogste grondwaterstand (natte periode). The "+1.5 m" and "+3.0 m"
   // variants are SEASONAL ESTIMATES, not measured values.
   const gwLabel = 'GHG (hoogste grondwaterstand, natte periode)';
+
+  // ─── Empirische kennis (L2/L3/L4) ─────────────────────────────────────────
+  if (rhoWetSource && rhoWetSource !== 'l1_literature') {
+    const srcLabel: Record<string, string> = {
+      l4_local:             'lokale veldmetingen (≤500 m)',
+      l3_regional_agnostic: 'regionale veldmetingen (5×5 km)',
+      l3_regional:          'regionale klassekennis',
+      l2_global:            'Nederlandse veldmetingen (per grondtype)',
+    };
+    info.push(
+      `Natte bodemweerstand verfijnd via ${srcLabel[rhoWetSource] ?? rhoWetSource}.`,
+    );
+  }
+
+  if (localDepthHint && localDepthHint.n >= 1) {
+    const locLabel = localDepthHint.source === 'exact_address'
+      ? 'op dit adres'
+      : `binnen ${localDepthHint.maxDistanceM} m`;
+    info.push(
+      `Lokale referentie ${locLabel}: ${localDepthHint.n} eerdere meting${localDepthHint.n > 1 ? 'en' : ''}, ` +
+      `gemiddeld ~${localDepthHint.medianDepthM.toFixed(1)} m diepte.`,
+    );
+  }
 
   // ─── Non-convergence warning ──────────────────────────────────────────────
   const ongunstig = result.scenarios.ongunstig as { converged?: boolean };

@@ -18,6 +18,7 @@ export interface RawDiepteInput {
   groundwaterDepth?:      unknown;
   ph?:                    unknown;
   postcode?:              string;
+  huisnummer?:            string;
   electrodeType?:         unknown;
   lintBurialDepth?:       unknown;
   lintConductorDiameter?: unknown;
@@ -50,6 +51,7 @@ export interface ValidatedDiepteInput {
   groundwaterDepth:      number; // >= 0
   ph:                    number; // 0–14
   postcode?:             string;
+  huisnummer?:           string;
   electrodeType:         ElectrodeType;
   lintBurialDepth:       number; // default 0.8 m
   lintConductorDiameter: number; // default 0.01 m
@@ -137,13 +139,22 @@ export interface ResultValidation {
 
 // ─── Pipeline success shape (extends existing route response shape) ───────────
 
+export interface LocalDepthHintEnrichment {
+  medianDepthM:   number;
+  n:              number;
+  maxDistanceM:   number;
+  source:         'exact_address' | 'proximity' | 'none';
+  confidence:     number;
+}
+
 export interface PipelineEnrichment {
   confidence:        SourceConfidence;
   plausibilityFlags: PlausibilityFlag[];
   warnings:          string[];          // UI-explanation layer — one source of truth
   uncertaintyBand:   UncertaintyBand;
   resultValidation:  ResultValidation;
-  rhoWetSource:      'l3_regional_agnostic' | 'l3_regional' | 'l2_global' | 'l1_literature';
+  rhoWetSource:      'l4_local' | 'l3_regional_agnostic' | 'l3_regional' | 'l2_global' | 'l1_literature';
+  localDepthHint?:   LocalDepthHintEnrichment | null;
 }
 
 // PipelineResult wraps existing data + enrichment
