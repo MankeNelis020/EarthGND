@@ -8,6 +8,7 @@ import { toIntlLocale } from '@/lib/locale-utils';
 import { LogoutButton } from '@/components/ui/LogoutButton';
 import { PostAuthRedirect } from '@/components/auth/PostAuthRedirect';
 import { DashboardSections } from '@/components/dashboard/DashboardSections';
+import { ColleaguesSection } from '@/components/dashboard/ColleaguesSection';
 
 export const runtime = 'nodejs';
 
@@ -228,6 +229,8 @@ export default async function DashboardPage({
             ))}
           </div>
         </div>
+
+        <ColleaguesSection />
 
         {/* ── Workflow sections (client component handles delete + modal) ── */}
         <DashboardSections

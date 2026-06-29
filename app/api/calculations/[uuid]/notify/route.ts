@@ -15,7 +15,12 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
 
-  const { monteurEmail: monteurEmailRaw } = await request.json() as { monteurEmail: string };
+  const body = await request.json() as {
+    monteurEmail: string;
+    colleagueId?: string;
+    saveColleague?: { name?: string };
+  };
+  const { monteurEmail: monteurEmailRaw, colleagueId, saveColleague } = body;
   if (!monteurEmailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(monteurEmailRaw)) {
     return NextResponse.json({ error: 'Geldig e-mailadres vereist' }, { status: 400 });
   }
@@ -160,6 +165,26 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     monteur_email:      monteurEmail,
     monteur_invited_at: new Date().toISOString(),
   }).eq('id', uuid);
+
+  if (colleagueId) {
+    await supabase
+      .from('saved_colleagues')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', colleagueId)
+      .eq('user_id', user.id);
+  } else if (saveColleague) {
+    await supabase
+      .from('saved_colleagues')
+      .upsert(
+        {
+          user_id: user.id,
+          email: monteurEmail,
+          name: (saveColleague.name ?? '').trim(),
+          last_used_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,email' },
+      );
+  }
 
   return NextResponse.json({ ok: true });
 }

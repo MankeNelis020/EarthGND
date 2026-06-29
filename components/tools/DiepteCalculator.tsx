@@ -14,6 +14,8 @@ import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMe
 import { buildSoilRhoPreview } from '@/lib/pipeline/effective-rho';
 import { FieldLabel } from '@/components/ui/FieldLabel';
 import { IconAlert, IconCheck, IconMail, IconX } from '@/components/ui/icons';
+import type { SavedColleague } from '@/lib/colleagues';
+import { colleagueDisplayLabel, normalizeColleagueEmail } from '@/lib/colleagues';
 import type { ParallelLayout } from '@/lib/pipeline/parallel-policy';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -630,6 +632,11 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   const [monteurError, setMonteurError]     = useState('');
   const [showMonteurModal, setShowMonteurModal] = useState(false);
   const [uuidCopied, setUuidCopied]         = useState(false);
+  const [colleagues, setColleagues]         = useState<SavedColleague[]>([]);
+  const [colleaguesLoading, setColleaguesLoading] = useState(false);
+  const [selectedColleagueId, setSelectedColleagueId] = useState('');
+  const [saveAsColleague, setSaveAsColleague] = useState(false);
+  const [colleagueNameDraft, setColleagueNameDraft] = useState('');
 
   useEffect(() => {
     const supabase = createClient();
@@ -641,6 +648,16 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!showMonteurModal) return;
+    setColleaguesLoading(true);
+    fetch('/api/colleagues')
+      .then(r => r.json())
+      .then(data => setColleagues(data.colleagues ?? []))
+      .catch(() => setColleagues([]))
+      .finally(() => setColleaguesLoading(false));
+  }, [showMonteurModal]);
 
   useEffect(() => {
     if (!soilData) return;
@@ -748,27 +765,54 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
   async function handleSendMonteur() {
     if (!calcResult?.calculationId) return;
-    if (!monteurEmail || !monteurEmail.includes('@')) { setMonteurError('Voer een geldig e-mailadres in.'); return; }
+    const email = normalizeColleagueEmail(monteurEmail);
+    if (!email || !email.includes('@')) { setMonteurError('Voer een geldig e-mailadres in.'); return; }
     setMonteurSending(true);
     setMonteurError('');
     try {
-      // Ensure draft record exists and rapport_naam is set before sending invite
       await fetch(`/api/calculations/${calcResult.calculationId}/draft`, { method: 'POST' });
 
       const res = await fetch(`/api/calculations/${calcResult.calculationId}/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ monteurEmail }),
+        body: JSON.stringify({
+          monteurEmail: email,
+          colleagueId: selectedColleagueId || undefined,
+          saveColleague: saveAsColleague && !selectedColleagueId ? { name: colleagueNameDraft.trim() } : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setMonteurError(data.error ?? 'Verzenden mislukt'); return; }
       setMonteurSent(true);
       setShowMonteurModal(false);
+      setSelectedColleagueId('');
+      setSaveAsColleague(false);
+      setColleagueNameDraft('');
     } catch {
       setMonteurError('Verbindingsfout — probeer opnieuw.');
     } finally {
       setMonteurSending(false);
     }
+  }
+
+  function openMonteurModal() {
+    setShowMonteurModal(true);
+    setMonteurError('');
+    setMonteurSent(false);
+    setSelectedColleagueId('');
+    setMonteurEmail('');
+    setSaveAsColleague(false);
+    setColleagueNameDraft('');
+  }
+
+  function selectColleague(id: string) {
+    setSelectedColleagueId(id);
+    if (!id) {
+      setMonteurEmail('');
+      return;
+    }
+    const c = colleagues.find(x => x.id === id);
+    if (c) setMonteurEmail(c.email);
   }
 
   function scenarioDim(s: DiepteResult | LintResult): number {
@@ -1441,7 +1485,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   </div>
                 ) : (
                   <button
-                    onClick={() => { setShowMonteurModal(true); setMonteurError(''); setMonteurSent(false); }}
+                    onClick={openMonteurModal}
                     className="flex items-center justify-center gap-2 rounded-md border border-brand/30 bg-brand-muted px-4 py-3 text-sm font-semibold text-brand hover:bg-brand/20 transition-colors"
                   >
                     <IconMail className="h-4 w-4" />
@@ -1485,18 +1529,69 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
                 <h2 className="mb-1 text-base font-bold text-white">Monteur uitnodigen</h2>
                 <p className="mb-4 text-xs text-white/60 leading-relaxed">
-                  De monteur ontvangt een e-mail met de verwachte meetwaarden en een directe inloglink naar het meetformulier.
+                  Kies een opgeslagen collega of voer een e-mailadres in. Per berekening gaat één uitnodiging naar één monteur.
                 </p>
+
+                {colleaguesLoading ? (
+                  <p className="mb-3 text-xs text-white/40">Collega&apos;s laden…</p>
+                ) : colleagues.length > 0 ? (
+                  <div className="mb-3">
+                    <label className="mb-1 block text-xs text-white/70">Kies collega</label>
+                    <select
+                      value={selectedColleagueId}
+                      onChange={e => selectColleague(e.target.value)}
+                      className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-brand/50 focus:outline-none"
+                    >
+                      <option value="">— Handmatig e-mailadres —</option>
+                      {colleagues.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {colleagueDisplayLabel(c)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <p className="mb-3 text-xs text-white/45">
+                    Voeg vaste contactpersonen toe via Dashboard → Mijn collega&apos;s.
+                  </p>
+                )}
+
                 <label className="mb-1 block text-xs text-white/70">E-mailadres monteur</label>
                 <input
                   type="email"
                   value={monteurEmail}
-                  onChange={e => setMonteurEmail(e.target.value)}
+                  onChange={e => {
+                    setMonteurEmail(e.target.value);
+                    setSelectedColleagueId('');
+                  }}
                   placeholder="monteur@bedrijf.nl"
-                  className="mb-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                  className="mb-3 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-brand/50 focus:outline-none"
                   onKeyDown={e => e.key === 'Enter' && handleSendMonteur()}
-                  autoFocus
+                  autoFocus={colleagues.length === 0}
                 />
+
+                {!selectedColleagueId && monteurEmail.includes('@') && (
+                  <label className="mb-3 flex cursor-pointer items-start gap-2 rounded-md border border-white/8 bg-white/3 px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={saveAsColleague}
+                      onChange={e => setSaveAsColleague(e.target.checked)}
+                      className="mt-0.5 accent-brand"
+                    />
+                    <span className="text-xs text-white/65">
+                      <span className="font-medium text-white/85">Onthouden als collega</span>
+                      {saveAsColleague && (
+                        <input
+                          type="text"
+                          value={colleagueNameDraft}
+                          onChange={e => setColleagueNameDraft(e.target.value)}
+                          placeholder="Naam (optioneel)"
+                          className="mt-2 block w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white placeholder-white/25 focus:border-brand/50 focus:outline-none"
+                        />
+                      )}
+                    </span>
+                  </label>
+                )}
                 {monteurError && <p className="mb-2 text-xs text-red-400">{monteurError}</p>}
                 <div className="flex gap-2">
                   <button

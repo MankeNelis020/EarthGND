@@ -22,6 +22,7 @@ Na migratie schrijft de app alleen `input_values` / `result`. `getScanContext()`
 | Bestand | Inhoud |
 |---------|--------|
 | `supabase/pendiepte_meting_schema.sql` | Monteur-metingen, depth_curve |
+| `supabase/saved_colleagues_schema.sql` | Opgeslagen collega-contacten (Mail monteur dropdown) |
 | `supabase/opleverrapport_schema.sql` | inspection_reports |
 | `supabase/soil_knowledge_schema.sql` | soil_evidence, global/regional_prior, shadow_predictions |
 | `supabase/fix_prior_rls_and_constraints.sql` | RLS policies service role |
