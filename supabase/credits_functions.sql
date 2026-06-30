@@ -7,6 +7,13 @@
 --   credits_left = plan_quota + credits_purchased
 --
 -- Deduction order: subscription pool first, then purchased.
+--
+-- If upgrading from the old deduct_credit signature, DROP is required first
+-- (PostgreSQL cannot change OUT-parameter row types via CREATE OR REPLACE).
+
+DROP FUNCTION IF EXISTS deduct_credit(uuid);
+DROP FUNCTION IF EXISTS release_credit(uuid, boolean, text);
+DROP FUNCTION IF EXISTS set_subscription_credits(uuid, integer, text, timestamptz);
 
 -- ─── deduct_credit ────────────────────────────────────────────────────────────
 
