@@ -13,7 +13,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('saved_colleagues')
-    .select('id, name, email, created_at, last_used_at')
+    .select('id, name, email, erkenning, created_at, last_used_at')
     .eq('user_id', user.id)
     .order('last_used_at', { ascending: false, nullsFirst: false })
     .order('name', { ascending: true });
@@ -31,9 +31,10 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 });
 
-  const body = await request.json() as { name?: string; email?: string };
+  const body = await request.json() as { name?: string; email?: string; erkenning?: string };
   const email = normalizeColleagueEmail(body.email ?? '');
   const name = (body.name ?? '').trim();
+  const erkenning = (body.erkenning ?? '').trim() || null;
 
   if (!isValidColleagueEmail(email)) {
     return NextResponse.json({ error: 'Geldig e-mailadres vereist' }, { status: 400 });
@@ -42,10 +43,10 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from('saved_colleagues')
     .upsert(
-      { user_id: user.id, email, name },
+      { user_id: user.id, email, name, erkenning },
       { onConflict: 'user_id,email' },
     )
-    .select('id, name, email, created_at, last_used_at')
+    .select('id, name, email, erkenning, created_at, last_used_at')
     .single();
 
   if (error) {

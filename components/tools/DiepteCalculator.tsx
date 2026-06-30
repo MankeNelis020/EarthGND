@@ -1516,15 +1516,15 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                     className="flex items-center justify-center gap-2 rounded-md border border-brand/30 bg-brand-muted px-4 py-3 text-sm font-semibold text-brand hover:bg-brand/20 transition-colors"
                   >
                     <IconMail className="h-4 w-4" />
-                    Mail monteur
+                    Uitnodigen installateur
                   </button>
                 )
               ) : (
                 <div
                   className="flex items-center justify-center rounded-xl border border-white/8 bg-white/3 px-4 py-3 text-sm text-white/40"
-                  title="Berekening niet opgeslagen — monteur-koppeling niet beschikbaar"
+                  title="Berekening niet opgeslagen — veldmeting niet beschikbaar"
                 >
-                  ✉ Mail monteur (niet beschikbaar)
+                  ✉ Uitnodigen installateur (niet beschikbaar)
                 </div>
               )}
             </div>
@@ -1556,7 +1556,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
                 <h2 className="mb-1 text-base font-bold text-white">Monteur uitnodigen</h2>
                 <p className="mb-4 text-xs text-white/60 leading-relaxed">
-                  Kies een opgeslagen collega of voer een e-mailadres in. Per berekening gaat één uitnodiging naar één monteur.
+                  Kies een opgeslagen collega of voer een e-mailadres in. Per berekening gaat één uitnodiging naar één installateur.
                 </p>
 
                 {colleaguesLoading ? (
@@ -1583,7 +1583,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   </p>
                 )}
 
-                <label className="mb-1 block text-xs text-white/70">E-mailadres monteur</label>
+                <label className="mb-1 block text-xs text-white/70">E-mailadres installateur</label>
                 <input
                   type="email"
                   value={monteurEmail}

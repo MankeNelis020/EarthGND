@@ -36,9 +36,10 @@ export default async function PendiepteRapportPage({ params }: Ctx) {
 
   if (!user) redirect(`/${locale}/login?next=/${locale}/pendiepte-rapport/${uuid}`);
 
-  const [{ data: meting }, { data: calc }] = await Promise.all([
+  const [{ data: meting }, { data: calc }, { data: profileRaw }] = await Promise.all([
     supabase.from('pendiepte_metingen').select('*').eq('calculation_id', uuid).single(),
     supabase.from('calculations').select('*, rapport_naam').eq('id', uuid).single(),
+    supabase.from('profiles').select('company_name, logo_url, installateur_naam, installateur_erkenning').eq('id', user.id).single(),
   ]);
 
   if (!calc) notFound();
@@ -66,6 +67,7 @@ export default async function PendiepteRapportPage({ params }: Ctx) {
           calc={calc}
           meting={meting}
           isCalculator={isCalculator}
+          profile={isCalculator ? profileRaw : null}
         />
       </div>
     </div>

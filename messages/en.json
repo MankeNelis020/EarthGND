@@ -19,7 +19,7 @@
     "card1Title": "Resistance Calculator",
     "card1Desc": "Calculate the maximum grounding resistance per NEN 1010. Choose your grid, installation type and RCD — get four output layers instantly.",
     "card1Cta": "Open calculator",
-    "card2Label": "From €10/mo",
+    "card2Label": "From {price}/mo",
     "card2Title": "Rod Depth Calculator",
     "card2Desc": "Enter a postal code. EarthGND automatically retrieves soil type, groundwater depth and pH from BRO — and calculates the required rod depth.",
     "card2Cta": "View pricing",
@@ -42,7 +42,7 @@
       "f4": "PDF report",
       "f5": "Groundwater & pH corrections"
     },
-    "card2PriceNote": "or €2.95 per calculation"
+    "card2PriceNote": "or {price} per calculation"
   },
   "ohm": {
     "title": "Resistance Calculator",
@@ -60,7 +60,7 @@
     "ctaTitle": "How deep should the rod go?",
     "ctaDesc": "The Rod Depth Calculator computes the exact rod length based on your soil, groundwater and pH.",
     "ctaPrimary": "View pricing",
-    "ctaSecondary": "Buy 1 credit — €2.95"
+    "ctaSecondary": "View credit packs"
   },
   "diepte": {
     "title": "Rod Depth Calculator",

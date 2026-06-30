@@ -3,6 +3,8 @@ import { createClient } from '@/utils/supabase/server';
 import { DiepteCalculator } from '@/components/tools/DiepteCalculator';
 import { PageMeta } from '@/components/ui/FieldLabel';
 import { Link } from '@/i18n/navigation';
+import { PLANS } from '@/lib/plans';
+import { formatPriceCompact } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
 export const metadata = {
@@ -20,7 +22,8 @@ export default async function DieptePage({
   params: Params;
   searchParams: SearchParams;
 }) {
-  await paramsPromise; // locale not needed; auth gate uses i18n links
+  const { locale } = await paramsPromise;
+  const starterPrice = formatPriceCompact(PLANS.starter.prijs, locale);
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const { data: { user } } = await supabase.auth.getUser();
@@ -110,7 +113,7 @@ export default async function DieptePage({
                 href="/pricing"
                 className="rounded-xl bg-[#E8761A] px-6 py-3 text-sm font-bold text-white hover:bg-[#d06510] transition-colors"
               >
-                Upgraden — vanaf €10/maand
+                Upgraden — vanaf {starterPrice}/maand
               </Link>
               <Link
                 href="/dashboard"

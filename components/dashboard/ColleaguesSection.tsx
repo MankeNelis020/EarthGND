@@ -10,6 +10,7 @@ export function ColleaguesSection() {
   const [error, setError] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [erkenning, setErkenning] = useState('');
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(true);
 
@@ -43,12 +44,13 @@ export function ColleaguesSection() {
       const res = await fetch('/api/colleagues', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), email: normalized }),
+        body: JSON.stringify({ name: name.trim(), email: normalized, erkenning: erkenning.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Opslaan mislukt');
       setName('');
       setEmail('');
+      setErkenning('');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Opslaan mislukt');
@@ -81,7 +83,7 @@ export function ColleaguesSection() {
         <div>
           <p className="text-sm font-semibold text-white/90">Mijn collega&apos;s</p>
           <p className="mt-0.5 text-xs text-white/45">
-            Snel kiezen bij &ldquo;Mail monteur&rdquo; in de Pendiepte Calculator
+            Snel kiezen bij &ldquo;Uitnodigen installateur&rdquo; in de Pendiepte Calculator
           </p>
         </div>
         <span className="text-xs text-white/35">{colleagues.length}</span>
@@ -93,7 +95,7 @@ export function ColleaguesSection() {
             <p className="text-xs text-white/40">Laden…</p>
           ) : colleagues.length === 0 ? (
             <p className="mb-3 text-xs text-white/45">
-              Nog geen collega&apos;s opgeslagen. Voeg monteurs of vaste contactpersonen toe.
+              Nog geen collega&apos;s opgeslagen. Voeg installateurs of vaste contactpersonen toe.
             </p>
           ) : (
             <ul className="mb-3 divide-y divide-white/6 rounded-lg border border-white/8">
@@ -119,7 +121,7 @@ export function ColleaguesSection() {
 
           <form onSubmit={handleAdd} className="space-y-2">
             <p className="text-xs font-medium text-white/50">Collega toevoegen</p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <input
                 type="text"
                 value={name}
@@ -133,6 +135,13 @@ export function ColleaguesSection() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="e-mail@bedrijf.nl"
                 required
+                className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-brand/50 focus:outline-none"
+              />
+              <input
+                type="text"
+                value={erkenning}
+                onChange={e => setErkenning(e.target.value)}
+                placeholder="Certificaatnr. (optioneel)"
                 className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-brand/50 focus:outline-none"
               />
             </div>

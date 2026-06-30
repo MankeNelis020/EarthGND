@@ -1,16 +1,19 @@
 export const PLANS = {
   gratis:  { label: 'Gratis',  prijs: 0,   credits: 0,   stripe_price_id: null },
-  starter: { label: 'Starter', prijs: 10,  credits: 10,  stripe_price_id: process.env.STRIPE_PRICE_STARTER ?? 'price_starter' },
-  basic:   { label: 'Basic',   prijs: 25,  credits: 25,  stripe_price_id: process.env.STRIPE_PRICE_BASIC   ?? 'price_basic' },
-  pro:     { label: 'Pro',     prijs: 60,  credits: 100, stripe_price_id: process.env.STRIPE_PRICE_PRO     ?? 'price_pro' },
+  starter: { label: 'Starter', prijs: 39,  credits: 10,  stripe_price_id: process.env.STRIPE_PRICE_STARTER ?? 'price_starter' },
+  basic:   { label: 'Basic',   prijs: 80,  credits: 50,  stripe_price_id: process.env.STRIPE_PRICE_BASIC   ?? 'price_basic' },
+  pro:     { label: 'Pro',     prijs: 129, credits: 150, stripe_price_id: process.env.STRIPE_PRICE_PRO     ?? 'price_pro' },
 } as const;
 
 export type PlanKey = keyof typeof PLANS;
 
 export const LOSSE_CREDITS = {
-  single: { credits: 1,  prijs: 2.95,  stripe_price_id: process.env.STRIPE_PRICE_CREDIT_1  ?? 'price_credit_1' },
-  bundel: { credits: 10, prijs: 19.95, stripe_price_id: process.env.STRIPE_PRICE_CREDIT_10 ?? 'price_credit_10' },
+  single:   { credits: 1,  prijs: 5.95,  stripe_price_id: process.env.STRIPE_PRICE_CREDIT_1  ?? 'price_credit_1' },
+  bundel:   { credits: 10, prijs: 50,    stripe_price_id: process.env.STRIPE_PRICE_CREDIT_10 ?? 'price_credit_10' },
+  bundel50: { credits: 50, prijs: 99,    stripe_price_id: process.env.STRIPE_PRICE_CREDIT_50 ?? 'price_credit_50' },
 } as const;
+
+export type LosseCreditKey = keyof typeof LOSSE_CREDITS;
 
 export function getPlanByPriceId(priceId: string): { key: PlanKey; plan: typeof PLANS[PlanKey] } | null {
   for (const [key, plan] of Object.entries(PLANS)) {
