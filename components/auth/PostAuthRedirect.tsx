@@ -13,6 +13,12 @@ export function PostAuthRedirect() {
       return;
     }
 
+    // Account acceptatie (voorwaarden + dataverbetering) vastleggen
+    if (sessionStorage.getItem('terms_accepted') === '1') {
+      sessionStorage.removeItem('terms_accepted');
+      fetch('/api/profile/accept-terms', { method: 'POST' }).catch(() => {});
+    }
+
     fetch('/api/meting/pending')
       .then(r => r.json())
       .then(({ calculationId }) => {

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
+import { MetingKoppelenPanel } from '@/components/meting/MetingKoppelenPanel';
+import type { UserProfileSettings } from '@/lib/profile';
 
 interface SoilEvidencePoint {
   depthM: number;
@@ -59,6 +61,7 @@ interface Props {
   calc:         Calc;
   meting:       Meting | null;
   isCalculator: boolean;
+  profile?:     Pick<UserProfileSettings, 'company_name' | 'logo_url' | 'installateur_naam' | 'installateur_erkenning'> | null;
 }
 
 function fmt(v: number | null | undefined, unit = '') {
@@ -81,7 +84,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) {
+export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }: Props) {
   const router = useRouter();
   const locale = useLocale();
   const [confirming, setConfirming] = useState(false);
@@ -89,6 +92,15 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
   const [soilPoints, setSoilPoints] = useState<SoilEvidencePoint[]>([]);
   const [soilSegments, setSoilSegments] = useState<SoilSegment[]>([]);
   const [soilGw, setSoilGw] = useState<number | null>(null);
+  const [soilExpanded, setSoilExpanded] = useState(false);
+  const [showSwitcher, setShowSwitcher]   = useState(false);
+  const [nenLoading, setNenLoading]       = useState(false);
+  const [nenCreating, setNenCreating]     = useState(false);
+  const [nenInfo, setNenInfo]             = useState<{
+    canCreate: boolean;
+    reason: string | null;
+    existingReport: { id: string; status: string } | null;
+  } | null>(null);
 
   const input     = calc.input_values as Calc['input_values'];
   const resultaat = calc.result       as Calc['result'];
@@ -107,6 +119,36 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
       })
       .catch(() => {});
   }, [uuid, meting?.depth_curve, status]);
+
+  useEffect(() => {
+    if (!isCalculator) return;
+    setNenLoading(true);
+    fetch(`/api/rapport/from-pendiepte/${uuid}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setNenInfo(data as typeof nenInfo);
+      })
+      .catch(() => {})
+      .finally(() => setNenLoading(false));
+  }, [uuid, isCalculator, status]);
+
+  async function handleCreateNenReport() {
+    setNenCreating(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/rapport/from-pendiepte/${uuid}`, { method: 'POST' });
+      const data = await res.json() as { reportId?: string; error?: string };
+      if (!res.ok || !data.reportId) {
+        setError(data.error ?? 'NEN 1010-rapport aanmaken mislukt');
+        return;
+      }
+      router.push(`/${locale}/rapport/${data.reportId}`);
+    } catch {
+      setError('Verbindingsfout — probeer opnieuw.');
+    } finally {
+      setNenCreating(false);
+    }
+  }
 
   // Inline rename state
   const [naam, setNaam]           = useState(calc.rapport_naam ?? '');
@@ -206,6 +248,50 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
           <p className="mt-1 font-mono text-[11px] text-white/35 tracking-tight">{identityLine}</p>
         </div>
         <StatusBadge status={status} />
+      </div>
+
+      {/* Installateur — auto from profile + calc context */}
+      {(profile?.installateur_naam || profile?.company_name || profile?.logo_url) && (
+        <div className="flex items-start gap-4 rounded-xl border border-white/8 bg-white/3 px-4 py-3">
+          {profile.logo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profile.logo_url} alt="" className="h-10 max-w-[120px] object-contain" />
+          )}
+          <div className="min-w-0 text-sm">
+            {profile.company_name && <p className="font-semibold text-white">{profile.company_name}</p>}
+            {profile.installateur_naam && (
+              <p className="text-white/70">Installateur: {profile.installateur_naam}</p>
+            )}
+            {profile.installateur_erkenning && (
+              <p className="text-white/45 text-xs">Erkenning: {profile.installateur_erkenning}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Auto-filled locatie summary */}
+      <div className="rounded-xl border border-white/8 bg-[#111] px-4 py-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/40">Locatie &amp; berekening</p>
+        <div className="grid gap-2 text-sm sm:grid-cols-2">
+          <p className="text-white/80">
+            <span className="text-white/40">Adres: </span>
+            {meting?.straatnaam
+              ? [meting.straatnaam, meting.huisnummer, meting.postcode, meting.woonplaats].filter(Boolean).join(' ')
+              : calc.postcode ?? '—'}
+          </p>
+          <p className="text-white/80">
+            <span className="text-white/40">Doelweerstand: </span>
+            ≤ {input?.targetResistance ?? '—'} Ω
+          </p>
+          <p className="text-white/80">
+            <span className="text-white/40">Berekende diepte: </span>
+            {fmt(resultaat?.dimension, 'm')}
+          </p>
+          <p className="text-white/80">
+            <span className="text-white/40">Bodem ρ (calc): </span>
+            {input?.rho != null ? `${input.rho} Ω·m` : '—'}
+          </p>
+        </div>
       </div>
 
       {/* Side-by-side comparison */}
@@ -332,17 +418,17 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
         </div>
       )}
 
-      {/* Bodemanalyse uit dieptecurve */}
+      {/* Bodemanalyse — collapsed by default */}
       {soilPoints.length > 0 && (
-        <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
-          <div className="border-b border-white/8 px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
-              Bodemanalyse (veldmeting)
-            </p>
-            {soilGw != null && (
-              <p className="mt-0.5 text-[10px] text-white/35">GWT-referentie: {soilGw} m</p>
-            )}
-          </div>
+        <details
+          open={soilExpanded}
+          onToggle={e => setSoilExpanded((e.target as HTMLDetailsElement).open)}
+          className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden"
+        >
+          <summary className="cursor-pointer border-b border-white/8 px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-white/40 hover:text-white/60">
+            Bodemanalyse (detail) — {soilPoints.length} punten
+            {soilGw != null && <span className="ml-2 normal-case text-white/35">GWT {soilGw} m</span>}
+          </summary>
           <div className="divide-y divide-white/5">
             {soilPoints.map(pt => (
               <div key={pt.depthM} className="grid grid-cols-2 gap-2 px-4 py-2.5 sm:grid-cols-4">
@@ -356,7 +442,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
                 </div>
                 <div>
                   <p className="text-[10px] text-white/40">Grondtype</p>
-                  <p className="text-sm text-white capitalize">{pt.dominantLabel} ({pt.dominantProb}%)</p>
+                  <p className="text-sm text-white capitalize">{pt.dominantLabel}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-white/40">Zone</p>
@@ -367,29 +453,23 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
           </div>
           {soilSegments.length > 0 && (
             <div className="border-t border-white/8 px-4 py-3">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/40">
-                Ω-daling per segment
-              </p>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-white/40">Ω-daling per segment</p>
               <div className="flex flex-col gap-1.5">
                 {soilSegments.map((seg, i) => (
                   <p key={i} className="text-xs text-white/70">
-                    {seg.fromDepthM}→{seg.toDepthM} m:{' '}
-                    <span className={seg.ohmPerMeter < 0 ? 'text-green-400' : 'text-white/50'}>
-                      {seg.ohmPerMeter > 0 ? '+' : ''}{seg.ohmPerMeter} Ω/m
-                    </span>
-                    {' '}→ {seg.dominantLabel} (ρ≈{seg.rhoAtToDepth} Ω·m)
+                    {seg.fromDepthM}→{seg.toDepthM} m: {seg.ohmPerMeter > 0 ? '+' : ''}{seg.ohmPerMeter} Ω/m → {seg.dominantLabel}
                   </p>
                 ))}
               </div>
             </div>
           )}
-        </div>
+        </details>
       )}
 
       {/* Notes */}
       {meting?.notes && (
         <div className="rounded-xl border border-white/8 bg-white/3 px-4 py-3">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-white/40">Opmerkingen monteur</p>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-white/40">Opmerkingen</p>
           <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{meting.notes}</p>
         </div>
       )}
@@ -412,11 +492,8 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
         <div className="rounded-2xl border border-[#E8761A]/20 bg-[#E8761A]/5 p-5">
           <p className="mb-1 text-sm font-semibold text-[#E8761A]">Meting controleren en bevestigen</p>
           <p className="mb-4 text-xs text-white/60 leading-relaxed">
-            Controleer de meetwaarden van de monteur. Na bevestiging worden de waarden vergrendeld,
-            wordt bodemkennis opgeslagen in de kennisbank, en kunt u het rapport als opleverrapport gebruiken conform NEN 3140.
-            <br/><span className="mt-1 block text-white/40">
-              De conformiteitsverklaring wordt ondertekend door de erkende persoon die het werk heeft beoordeeld.
-            </span>
+            Controleer de meetwaarden. Na bevestiging worden de waarden vergrendeld
+            en kunt u het rapport als opleverrapport gebruiken conform NEN 3140.
           </p>
           {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
           <button
@@ -430,36 +507,81 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator }: Props) 
       )}
 
       {status === 'confirmed' && (
-        <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4 text-center">
-          <p className="text-sm font-semibold text-green-400">Rapport bevestigd en vergrendeld</p>
+        <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4">
+          <p className="text-sm font-semibold text-green-400">Veldmeting bevestigd</p>
           <p className="mt-1 text-xs text-white/60">
-            De meetwaarden zijn gecontroleerd en bevestigd. Dit rapport kan als opleverrapport worden gebruikt.
+            Berekening en meetgegevens zijn gekoppeld. U kunt dit rapport gebruiken of een NEN 1010-opleverrapport starten.
           </p>
+
+          {isCalculator && !nenLoading && nenInfo && (
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+              {nenInfo.existingReport ? (
+                <a
+                  href={`/${locale}/rapport/${nenInfo.existingReport.id}`}
+                  className="inline-flex justify-center rounded-xl border border-[#E8761A]/40 bg-[#E8761A]/10 px-5 py-2.5 text-sm font-bold text-[#E8761A] hover:bg-[#E8761A]/20 transition-colors"
+                >
+                  Open NEN 1010-rapport ({nenInfo.existingReport.status === 'ondertekend' ? 'ondertekend' : 'concept'})
+                </a>
+              ) : nenInfo.canCreate ? (
+                <button
+                  type="button"
+                  onClick={handleCreateNenReport}
+                  disabled={nenCreating}
+                  className="inline-flex justify-center rounded-xl bg-[#E8761A] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#d06510] disabled:opacity-50 transition-colors"
+                >
+                  {nenCreating ? 'Aanmaken…' : 'Maak NEN 1010-opleverrapport →'}
+                </button>
+              ) : nenInfo.reason ? (
+                <p className="text-xs text-white/45">{nenInfo.reason}</p>
+              ) : null}
+            </div>
+          )}
         </div>
       )}
 
       {/* No meting yet — prompt to invite monteur */}
       {isCalculator && !meting && (
-        <div className="rounded-xl border border-white/10 bg-white/3 p-6 text-center">
-          <p className="mb-1 text-sm font-semibold text-white/70">Nog geen veldmeting gekoppeld</p>
-          <p className="mb-4 text-xs text-white/40 leading-relaxed">
-            Ga terug naar de Pendiepte Calculator en gebruik de knop &ldquo;Mail monteur&rdquo; om een veldmeting te koppelen.
-          </p>
-          <a
-            href="/tool/diepte"
-            className="inline-block rounded-lg border border-[#E8761A]/30 bg-[#E8761A]/10 px-4 py-2 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/20 transition-colors"
+        <div className="flex flex-col gap-4">
+          <div className="rounded-xl border border-white/10 bg-white/3 p-6 text-center">
+            <p className="mb-1 text-sm font-semibold text-white/70">Nog geen veldmeting gekoppeld</p>
+            <p className="mb-4 text-xs text-white/40 leading-relaxed">
+              Nodig een installateur uit via de Pendiepte Calculator, of koppel een bestaande berekening hieronder.
+            </p>
+            <a
+              href="/tool/diepte"
+              className="inline-block rounded-lg border border-[#E8761A]/30 bg-[#E8761A]/10 px-4 py-2 text-xs font-semibold text-[#E8761A] hover:bg-[#E8761A]/20 transition-colors"
+            >
+              Naar Pendiepte Calculator
+            </a>
+          </div>
+          <MetingKoppelenPanel locale={locale} currentCalculationId={uuid} />
+        </div>
+      )}
+
+      {/* Calculator: switch to another veldmeting */}
+      {isCalculator && meting && (
+        <div className="border-t border-white/8 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowSwitcher(v => !v)}
+            className="text-xs font-semibold text-white/40 hover:text-[#E8761A] transition-colors"
           >
-            Naar Pendiepte Calculator
-          </a>
+            {showSwitcher ? 'Verberg lijst ▲' : 'Andere veldmeting kiezen ▼'}
+          </button>
+          {showSwitcher && (
+            <div className="mt-3">
+              <MetingKoppelenPanel locale={locale} currentCalculationId={uuid} compact />
+            </div>
+          )}
         </div>
       )}
 
       {/* Meting invited but not yet submitted */}
       {isCalculator && meting && status === 'invited' && (
         <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-center">
-          <p className="text-sm text-blue-400">Wachten op monteur</p>
+          <p className="text-sm text-blue-400">Wachten op installateur</p>
           <p className="mt-1 text-xs text-white/50">
-            De uitnodiging is verstuurd naar {meting.monteur_email ?? 'de monteur'}.
+            De uitnodiging is verstuurd naar {meting.monteur_email ?? 'de installateur'}.
             U ontvangt een e-mail zodra de meting is ingediend.
           </p>
         </div>

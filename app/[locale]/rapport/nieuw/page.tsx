@@ -40,17 +40,26 @@ export default async function NieuwRapportPage({ searchParams }: { searchParams:
     }
   }
 
+  const { data: userProfile } = await supabase
+    .from('profiles')
+    .select('installateur_naam, installateur_erkenning')
+    .eq('id', user.id)
+    .single();
+
   const { data: report, error } = await supabase
     .from('inspection_reports')
     .insert({
-      user_id:        user.id,
-      status:         'concept',
-      versie:         1,
-      calculation_id: calculationId,
-      scan_context:   scanContext,
-      systeemtype:    systeemtype,
-      locatie:        locatie,
-      audit_trail:    [],
+      user_id:              user.id,
+      status:               'concept',
+      versie:               1,
+      calculation_id:       calculationId,
+      scan_context:         scanContext,
+      systeemtype:          systeemtype,
+      locatie:              locatie,
+      uitvoerder_naam:      userProfile?.installateur_naam ?? null,
+      uitvoerder_erkenning: userProfile?.installateur_erkenning ?? null,
+      consent_kalibratie:   true,
+      audit_trail:          [],
     })
     .select('id')
     .single();

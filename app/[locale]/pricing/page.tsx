@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { useLocale } from 'next-intl';
 import { PLANS, LOSSE_CREDITS } from '@/lib/plans';
+import { formatPriceCompact, unitPricePerCredit } from '@/lib/pricing';
 import { createClient } from '@/utils/supabase/client';
 
 export const dynamic = 'force-dynamic';
@@ -50,6 +51,12 @@ export default function PricingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const stripeReady = true;
+
+  const losseItems = ([
+    { key: 'single' as const, label: '1 credit', sub: 'Eenmalige berekening' },
+    { key: 'bundel' as const, label: '10 credits bundel', sub: `${unitPricePerCredit(LOSSE_CREDITS.bundel.prijs, LOSSE_CREDITS.bundel.credits, locale)} per berekening` },
+    { key: 'bundel50' as const, label: '50 credits bundel', sub: `${unitPricePerCredit(LOSSE_CREDITS.bundel50.prijs, LOSSE_CREDITS.bundel50.credits, locale)} per berekening` },
+  ]).map(item => ({ ...item, ...LOSSE_CREDITS[item.key] }));
 
   async function handleCheckout(planKey: string, mode: 'subscription' | 'payment') {
     setLoading(planKey);
@@ -131,7 +138,7 @@ export default function PricingPage() {
                       <span className="font-condensed text-3xl font-black text-[#E8761A]">Gratis</span>
                     ) : (
                       <>
-                        <span className="font-condensed text-3xl font-black text-[#E8761A]">€{plan.prijs}</span>
+                        <span className="font-condensed text-3xl font-black text-[#E8761A]">{formatPriceCompact(plan.prijs, locale)}</span>
                         <span className="text-sm text-white/35">/mnd</span>
                       </>
                     )}
@@ -186,18 +193,15 @@ export default function PricingPage() {
               <p className="text-sm text-white/50">Geen abonnement nodig. Credits vervallen niet.</p>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {([
-              { key: 'single', ...LOSSE_CREDITS.single, label: '1 credit', sub: 'Eenmalige berekening' },
-              { key: 'bundel', ...LOSSE_CREDITS.bundel, label: '10 credits bundel', sub: '€1,99 per berekening' },
-            ] as const).map((item) => (
-              <div key={item.key} className="flex items-center justify-between rounded-xl border border-white/8 bg-white/3 px-5 py-4">
-                <div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {losseItems.map((item) => (
+              <div key={item.key} className="flex flex-col justify-between rounded-xl border border-white/8 bg-white/3 px-5 py-4 sm:flex-row sm:items-center">
+                <div className="mb-3 sm:mb-0">
                   <p className="font-semibold text-white">{item.label}</p>
                   <p className="text-xs text-white/40">{item.sub}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="font-condensed text-xl font-black text-[#E8761A]">€{item.prijs}</span>
+                  <span className="font-condensed text-xl font-black text-[#E8761A]">{formatPriceCompact(item.prijs, locale)}</span>
                   <button
                     onClick={() => handleCheckout(item.key, 'payment')}
                     disabled={!stripeReady || loading === item.key}

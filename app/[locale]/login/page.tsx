@@ -29,6 +29,19 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
+  function requireTerms(): boolean {
+    if (!termsAccepted) {
+      setError('Accepteer de voorwaarden en privacyverklaring om door te gaan.');
+      return false;
+    }
+    return true;
+  }
+
+  function markTermsAccepted() {
+    sessionStorage.setItem('terms_accepted', '1');
+  }
 
   function callbackUrl() {
     const base = `${window.location.origin}/auth/callback`;
@@ -36,6 +49,8 @@ export default function LoginPage() {
   }
 
   async function handleGoogleLogin() {
+    if (!requireTerms()) return;
+    markTermsAccepted();
     setGoogleLoading(true);
     setError('');
     const supabase = createClient();
@@ -55,6 +70,8 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email) return;
+    if (!requireTerms()) return;
+    markTermsAccepted();
     setLoading(true);
     setError('');
 
@@ -131,6 +148,21 @@ export default function LoginPage() {
 
           {/* Magic link form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={e => { setTermsAccepted(e.target.checked); if (e.target.checked) setError(''); }}
+                className="mt-1 h-4 w-4 accent-[#E8761A]"
+              />
+              <span className="text-xs text-white/60 leading-relaxed">
+                Ik ga akkoord met de{' '}
+                <Link href="/voorwaarden" className="text-[#E8761A] underline underline-offset-2">voorwaarden</Link>
+                {' '}en{' '}
+                <Link href="/privacy" className="text-[#E8761A] underline underline-offset-2">privacyverklaring</Link>
+                , inclusief het geanonimiseerd gebruik van meetgegevens ter verbetering van het EarthGND-model.
+              </span>
+            </label>
             <Input
               label={t('email')}
               type="email"

@@ -284,7 +284,13 @@ export default async function DashboardPage({
               </div>
             ))}
           </div>
-          <div className="border-t border-white/6 px-6 py-4">
+          <div className="border-t border-white/6 px-6 py-4 flex items-center justify-between gap-4">
+            <Link
+              href="/instellingen"
+              className="text-sm font-semibold text-[#E8761A] hover:text-[#d06510] transition-colors"
+            >
+              Instellingen →
+            </Link>
             <LogoutButton />
           </div>
         </div>

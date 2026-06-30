@@ -19,7 +19,7 @@
     "card1Title": "Weerstand Calculator",
     "card1Desc": "Bereken de maximale aardingsweerstand per NEN 1010. Kies je stelsel, installatietype en aardlekschakelaar — krijg direct vier outputlagen.",
     "card1Cta": "Open calculator",
-    "card2Label": "Vanaf €10/mnd",
+    "card2Label": "Vanaf {price}/mnd",
     "card2Title": "Pendiepte Calculator",
     "card2Desc": "Voer een postcode in. EarthGND haalt automatisch grondsoort, grondwaterstand en pH op via het BRO — en berekent hoe diep de aardpen moet.",
     "card2Cta": "Bekijk tarieven",
@@ -42,7 +42,7 @@
       "f4": "PDF rapport",
       "f5": "Grondwater & pH correcties"
     },
-    "card2PriceNote": "of €2,95 per berekening"
+    "card2PriceNote": "of {price} per berekening"
   },
   "ohm": {
     "title": "Weerstand Calculator",
@@ -60,7 +60,7 @@
     "ctaTitle": "Hoe diep moet de aardpen?",
     "ctaDesc": "De Pendiepte Calculator berekent de exacte penlengtte op basis van uw bodem, grondwater en pH.",
     "ctaPrimary": "Bekijk tarieven",
-    "ctaSecondary": "Direct 1 credit — €2,95"
+    "ctaSecondary": "Bekijk losse credits"
   },
   "diepte": {
     "title": "Pendiepte Calculator",

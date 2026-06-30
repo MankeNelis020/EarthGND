@@ -500,12 +500,20 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
           title={t('sections.reports')}
           subtitle={t('sections.reportsSubtitle')}
           action={
-            <Link
-              href="/rapport/nieuw"
-              className="shrink-0 rounded-lg border border-[#E8761A]/30 px-2 py-1 text-[10px] font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
-            >
-              {t('modal.newReport')}
-            </Link>
+            <div className="flex shrink-0 gap-2">
+              <Link
+                href="/opleverrapport"
+                className="rounded-lg border border-white/15 px-2 py-1 text-[10px] font-semibold text-white/60 hover:border-white/30 hover:text-white transition-colors"
+              >
+                Pendiepte
+              </Link>
+              <Link
+                href="/rapport/nieuw"
+                className="rounded-lg border border-[#E8761A]/30 px-2 py-1 text-[10px] font-semibold text-[#E8761A] hover:bg-[#E8761A]/8 transition-colors"
+              >
+                {t('modal.newReport')}
+              </Link>
+            </div>
           }
         />
         {displayRapport.length === 0

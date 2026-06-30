@@ -26,6 +26,7 @@ Na migratie schrijft de app alleen `input_values` / `result`. `getScanContext()`
 | `supabase/opleverrapport_schema.sql` | inspection_reports |
 | `supabase/soil_knowledge_schema.sql` | soil_evidence, global/regional_prior, shadow_predictions |
 | `supabase/knowledge_production_migration.sql` | knowledge_processed_at, external_import_id (Sheets dedup) |
+| `supabase/profile_settings_migration.sql` | Installateur gegevens, logo, terms_accepted_at, collega erkenning |
 | `supabase/fix_prior_rls_and_constraints.sql` | RLS policies service role |
 
 ## 4. Overige patches
