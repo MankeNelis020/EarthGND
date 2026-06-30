@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getStripe } from '@/lib/stripe';
 import { addCredits, resetMonthlyCredits } from '@/lib/credits';
 import { getPlanByPriceId, LOSSE_CREDITS, type PlanKey } from '@/lib/plans';
+import { isValidCreditPurchase, totalCentsForCredits } from '@/lib/credit-slider';
 import { Resend } from 'resend';
 
 export const runtime = 'nodejs';
@@ -100,6 +101,20 @@ export async function POST(request: NextRequest) {
           const fullSession = await getStripe().checkout.sessions.retrieve(sessionId, {
             expand: ['line_items'],
           });
+
+          const creditCountRaw = metadata?.creditCount;
+          const creditCount = creditCountRaw ? parseInt(creditCountRaw, 10) : NaN;
+
+          if (isValidCreditPurchase(creditCount)) {
+            const expectedCents = totalCentsForCredits(creditCount);
+            if (fullSession.amount_total !== expectedCents) {
+              console.error(`Credit slider amount mismatch: expected ${expectedCents}, got ${fullSession.amount_total}`);
+              break;
+            }
+            await addCredits(userId, creditCount, `Credits aankoop — ${creditCount} credits (staffel) [stripe:${event.id}]`);
+            break;
+          }
+
           const priceId = fullSession.line_items?.data?.[0]?.price?.id;
           const creditEntry = Object.entries(LOSSE_CREDITS).find(([, c]) => c.stripe_price_id === priceId);
           if (creditEntry) {

@@ -226,4 +226,58 @@ body {
     background-color: color-mix(in srgb, var(--status-danger) 8%, transparent);
     color: var(--status-danger);
   }
+
+  /* Credit slider — mobile-first, touch-friendly */
+  .credit-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 2.75rem;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .credit-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: linear-gradient(
+      to right,
+      var(--brand) 0%,
+      var(--brand) var(--slider-progress, 50%),
+      rgba(245, 239, 230, 0.12) var(--slider-progress, 50%),
+      rgba(245, 239, 230, 0.12) 100%
+    );
+  }
+
+  .credit-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    margin-top: -11px;
+    border-radius: 50%;
+    background: var(--brand);
+    border: 3px solid var(--surface-0);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+
+  .credit-slider::-moz-range-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: rgba(245, 239, 230, 0.12);
+  }
+
+  .credit-slider::-moz-range-progress {
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--brand);
+  }
+
+  .credit-slider::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--brand);
+    border: 3px solid var(--surface-0);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
 }

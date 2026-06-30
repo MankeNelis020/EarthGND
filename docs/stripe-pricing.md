@@ -16,9 +16,20 @@ Alle **getoonde bedragen** staan in `lib/plans.ts`. Stripe regelt alleen de **af
 | `STRIPE_PRICE_STARTER` | Starter abonnement (€39/mnd, 10 credits) |
 | `STRIPE_PRICE_BASIC` | Basic abonnement (€80/mnd, 50 credits) |
 | `STRIPE_PRICE_PRO` | Pro abonnement (€129/mnd, 150 credits) |
-| `STRIPE_PRICE_CREDIT_1` | Los: 1 credit |
-| `STRIPE_PRICE_CREDIT_10` | Los: 10 credits bundel (€50) |
-| `STRIPE_PRICE_CREDIT_50` | Los: 50 credits bundel (€99) |
+## Losse credits — schuif (staffel)
+
+Losse credits worden via een **schuif 1–100** verkocht. De staffel staat in `lib/credit-slider.ts` (ankerpunten uit `lib/plans.ts`):
+
+| Credits | Totaal | Stukprijs |
+|---------|--------|-----------|
+| 1 | €5,95 | €5,95 |
+| 10 | €50,00 | €5,00 |
+| 50 | €99,00 | €1,98 |
+| 51–100 | × €1,98/st | €1,98 |
+
+Checkout gebruikt **Stripe `price_data`** (dynamisch bedrag) + metadata `creditCount`. Geen aparte Stripe Price per schuifstand nodig.
+
+Legacy env vars `STRIPE_PRICE_CREDIT_*` zijn optioneel (vaste packs); de schuif werkt zonder.
 
 Ook vereist: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
 
