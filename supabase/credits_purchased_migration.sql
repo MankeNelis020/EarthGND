@@ -1,5 +1,9 @@
 -- Split subscription credits from purchased (loose) credits.
--- Run once via Supabase SQL editor after credits_functions.sql is updated.
+-- Run once via Supabase SQL editor.
+--
+-- Order:
+--   1. This file (adds credits_purchased column)
+--   2. credits_functions.sql (recreates RPC functions)
 
 alter table public.profiles
   add column if not exists credits_purchased integer not null default 0;
