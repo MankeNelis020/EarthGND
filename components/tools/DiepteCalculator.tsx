@@ -66,7 +66,7 @@ interface CalcResult {
   rhoModel?:           'layered-nl' | 'two-layer' | 'single';
 }
 
-interface Profile { plan: string; credits_left: number; credits_reset: string | null }
+interface Profile { plan: string; credits_left: number; credits_purchased: number; credits_reset: string | null }
 
 // ─── Presets ──────────────────────────────────────────────────────────────────
 
@@ -430,12 +430,14 @@ function LoginGate() {
   );
 }
 
-function CreditsGate({ plan }: { plan: string }) {
+function CreditsGate({ plan, hasPurchasedCredits }: { plan: string; hasPurchasedCredits?: boolean }) {
   return (
     <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-8 text-center">
       <h3 className="mb-2 font-condensed text-xl font-bold text-white">Geen credits</h3>
       <p className="mb-5 text-sm text-white/70">
-        {plan === 'gratis' ? 'De Pendiepte Calculator vereist een abonnement of losse credits.' : 'Je credits zijn op.'}
+        {plan === 'gratis' && !hasPurchasedCredits
+          ? 'De Pendiepte Calculator vereist een abonnement of losse credits.'
+          : 'Je credits zijn op. Koop credits bij of neem een abonnement.'}
       </p>
       <Link href="/pricing" className="rounded-lg bg-[#E8761A] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#d06510] transition-colors">
         {plan === 'gratis' ? 'Bekijk tarieven' : 'Credits bijkopen'}
@@ -646,7 +648,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
     supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
       setUser(data.user);
       if (data.user) {
-        supabase.from('profiles').select('plan, credits_left, credits_reset').eq('id', data.user.id).single()
+        supabase.from('profiles').select('plan, credits_left, credits_purchased, credits_reset').eq('id', data.user.id).single()
           .then(({ data: p }: { data: Profile | null }) => { if (p) setProfile(p); });
       }
     });
@@ -688,10 +690,12 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
   if (user === 'loading') return <div className="h-64 animate-pulse rounded-2xl border border-white/8 bg-white/3" />;
   if (!user) return <LoginGate />;
-  if (profile && profile.credits_left <= 0) return <CreditsGate plan={profile.plan} />;
+  if (profile && profile.credits_left <= 0) {
+    return <CreditsGate plan={profile.plan} hasPurchasedCredits={(profile.credits_purchased ?? 0) > 0} />;
+  }
 
   // Profile is fetched async after auth — treat null (still loading) as non-pro
-  // to avoid showing pro UI before we know the plan. plan 'gratis' is the free tier.
+  // Pro features require active subscription; purchased-only users on gratis keep basic calculator access.
   const isPro = profile !== null && profile.plan !== 'gratis';
 
   function handleTargetModeChange(mode: TargetMode) {

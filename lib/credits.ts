@@ -28,19 +28,36 @@ export async function getPlan(userId: string): Promise<PlanKey> {
 }
 
 /**
- * Atomically deduct one credit via a Postgres function that uses FOR UPDATE
- * to prevent the read-then-write race condition that could allow free calculations.
- * The audit record is inserted in the same transaction as the decrement.
+ * Atomically deduct one credit. Subscription pool is consumed first, then purchased.
  */
-export async function deductCredit(userId: string): Promise<{ ok: boolean; remaining: number }> {
+export async function deductCredit(
+  userId: string,
+): Promise<{ ok: boolean; remaining: number; fromPurchased: boolean }> {
   const { data, error } = await adminClient().rpc('deduct_credit', { p_user_id: userId });
-  if (error || !Array.isArray(data) || !data.length) return { ok: false, remaining: 0 };
-  return { ok: Boolean(data[0].ok), remaining: Number(data[0].remaining) };
+  if (error || !Array.isArray(data) || !data.length) {
+    return { ok: false, remaining: 0, fromPurchased: false };
+  }
+  return {
+    ok: Boolean(data[0].ok),
+    remaining: Number(data[0].remaining),
+    fromPurchased: Boolean(data[0].from_purchased),
+  };
 }
 
-/**
- * Atomically add credits and record an audit entry in the same transaction.
- */
+/** Refund one credit to the pool it was taken from (subscription vs purchased). */
+export async function releaseCredit(
+  userId: string,
+  fromPurchased: boolean,
+  description: string,
+): Promise<void> {
+  await adminClient().rpc('release_credit', {
+    p_user_id: userId,
+    p_from_purchased: fromPurchased,
+    p_description: description,
+  });
+}
+
+/** Loose / one-time credits — added to the purchased pool only. */
 export async function addCredits(userId: string, amount: number, description: string): Promise<void> {
   await adminClient().rpc('add_credits', {
     p_user_id: userId,
@@ -50,8 +67,27 @@ export async function addCredits(userId: string, amount: number, description: st
 }
 
 /**
- * Atomically reset credits to the plan's monthly allowance and record an audit entry.
+ * Set subscription credits to plan quota; purchased credits are preserved.
+ * nextReset should align with Stripe current_period_end when available.
  */
+export async function setSubscriptionCredits(
+  userId: string,
+  plan: PlanKey,
+  label: string,
+  nextReset: Date,
+): Promise<void> {
+  const planConfig = PLANS[plan];
+  if (!planConfig || planConfig.credits === 0) return;
+
+  await adminClient().rpc('set_subscription_credits', {
+    p_user_id: userId,
+    p_credits: planConfig.credits,
+    p_label: label,
+    p_next_reset: nextReset.toISOString(),
+  });
+}
+
+/** @deprecated Use setSubscriptionCredits with Stripe period end. */
 export async function resetMonthlyCredits(userId: string, plan: PlanKey): Promise<void> {
   const planConfig = PLANS[plan];
   if (!planConfig || planConfig.credits === 0) return;

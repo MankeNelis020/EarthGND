@@ -5,6 +5,7 @@ create table if not exists public.profiles (
   email                  text,
   plan                   text not null default 'gratis',
   credits_left           integer not null default 0,
+  credits_purchased      integer not null default 0,
   credits_reset          timestamptz,
   stripe_customer_id     text,
   stripe_subscription_id text,
