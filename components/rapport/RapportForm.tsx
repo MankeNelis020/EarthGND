@@ -456,17 +456,27 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
           {Object.keys(scanCtx).length > 0 && (
             <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-blue-400">
-                Scan-context — indicatief, o.b.v. BRO-bodemdata (postcodeniveau)
+                {(scanCtx as Record<string, unknown>).gemeten_ra_ohm
+                  ? 'Pendiepte + veldmeting — vooringevuld'
+                  : 'Scan-context — indicatief, o.b.v. BRO-bodemdata (postcodeniveau)'}
               </p>
               <p className="mb-3 text-[10px] text-white/70">
-                Lokale bodem kan afwijken. Definitieve aardingsweerstand wordt op locatie gemeten.
+                {(scanCtx as Record<string, unknown>).gemeten_ra_ohm
+                  ? 'Gemeten waarden komen uit de bevestigde EarthGND veldmeting.'
+                  : 'Lokale bodem kan afwijken. Definitieve aardingsweerstand wordt op locatie gemeten.'}
               </p>
               <div className="grid grid-cols-2 gap-2 text-xs">
+                {!!(scanCtx as Record<string, unknown>).gemeten_ra_ohm && (
+                  <><span className="text-white/60">Ra gemeten</span><span className="text-green-400 font-semibold">{String((scanCtx as Record<string, unknown>).gemeten_ra_ohm)} Ω</span></>
+                )}
+                {!!(scanCtx as Record<string, unknown>).gemeten_diepte_m && (
+                  <><span className="text-white/60">Diepte gemeten</span><span className="text-green-400 font-semibold">{String((scanCtx as Record<string, unknown>).gemeten_diepte_m)} m</span></>
+                )}
                 {!!(scanCtx as Record<string, unknown>).rho && (
                   <><span className="text-white/60">Bodemweerstand ρ</span><span className="text-white font-semibold">{String((scanCtx as Record<string, unknown>).rho)} Ω·m</span></>
                 )}
                 {!!(scanCtx as Record<string, unknown>).voorspeld_diepte_m && (
-                  <><span className="text-white/60">Richtdiepte (indicatief)</span><span className="text-white font-semibold">{String((scanCtx as Record<string, unknown>).voorspeld_diepte_m)} m</span></>
+                  <><span className="text-white/60">Richtdiepte (berekend)</span><span className="text-white font-semibold">{String((scanCtx as Record<string, unknown>).voorspeld_diepte_m)} m</span></>
                 )}
                 {!!(scanCtx as Record<string, unknown>).risicoklasse && (
                   <><span className="text-white/60">Risicoklasse</span><span className="text-white font-semibold">Klasse {String((scanCtx as Record<string, unknown>).risicoklasse)}</span></>

@@ -45,6 +45,10 @@ export interface ScanContext {
   ph?: number;
   voorspeld_diepte_m?: number;
   voorspeld_ra_ohm?: number;
+  gemeten_ra_ohm?: number;
+  gemeten_diepte_m?: number;
+  veldmeting_status?: string;
+  veldmeting_op?: string;
   risicoklasse?: string;
   databron?: string;
   berekend_op?: string;

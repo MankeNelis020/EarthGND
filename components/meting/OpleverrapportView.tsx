@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
-import { LinkCalculationFallback } from '@/components/meting/LinkCalculationFallback';
+import { MetingKoppelenPanel } from '@/components/meting/MetingKoppelenPanel';
 import type { UserProfileSettings } from '@/lib/profile';
 
 interface SoilEvidencePoint {
@@ -93,6 +93,14 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
   const [soilSegments, setSoilSegments] = useState<SoilSegment[]>([]);
   const [soilGw, setSoilGw] = useState<number | null>(null);
   const [soilExpanded, setSoilExpanded] = useState(false);
+  const [showSwitcher, setShowSwitcher]   = useState(false);
+  const [nenLoading, setNenLoading]       = useState(false);
+  const [nenCreating, setNenCreating]     = useState(false);
+  const [nenInfo, setNenInfo]             = useState<{
+    canCreate: boolean;
+    reason: string | null;
+    existingReport: { id: string; status: string } | null;
+  } | null>(null);
 
   const input     = calc.input_values as Calc['input_values'];
   const resultaat = calc.result       as Calc['result'];
@@ -111,6 +119,36 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
       })
       .catch(() => {});
   }, [uuid, meting?.depth_curve, status]);
+
+  useEffect(() => {
+    if (!isCalculator) return;
+    setNenLoading(true);
+    fetch(`/api/rapport/from-pendiepte/${uuid}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setNenInfo(data as typeof nenInfo);
+      })
+      .catch(() => {})
+      .finally(() => setNenLoading(false));
+  }, [uuid, isCalculator, status]);
+
+  async function handleCreateNenReport() {
+    setNenCreating(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/rapport/from-pendiepte/${uuid}`, { method: 'POST' });
+      const data = await res.json() as { reportId?: string; error?: string };
+      if (!res.ok || !data.reportId) {
+        setError(data.error ?? 'NEN 1010-rapport aanmaken mislukt');
+        return;
+      }
+      router.push(`/${locale}/rapport/${data.reportId}`);
+    } catch {
+      setError('Verbindingsfout — probeer opnieuw.');
+    } finally {
+      setNenCreating(false);
+    }
+  }
 
   // Inline rename state
   const [naam, setNaam]           = useState(calc.rapport_naam ?? '');
@@ -469,11 +507,35 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
       )}
 
       {status === 'confirmed' && (
-        <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4 text-center">
-          <p className="text-sm font-semibold text-green-400">Rapport bevestigd en vergrendeld</p>
+        <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4">
+          <p className="text-sm font-semibold text-green-400">Veldmeting bevestigd</p>
           <p className="mt-1 text-xs text-white/60">
-            De meetwaarden zijn gecontroleerd en bevestigd. Dit rapport kan als opleverrapport worden gebruikt.
+            Berekening en meetgegevens zijn gekoppeld. U kunt dit rapport gebruiken of een NEN 1010-opleverrapport starten.
           </p>
+
+          {isCalculator && !nenLoading && nenInfo && (
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+              {nenInfo.existingReport ? (
+                <a
+                  href={`/${locale}/rapport/${nenInfo.existingReport.id}`}
+                  className="inline-flex justify-center rounded-xl border border-[#E8761A]/40 bg-[#E8761A]/10 px-5 py-2.5 text-sm font-bold text-[#E8761A] hover:bg-[#E8761A]/20 transition-colors"
+                >
+                  Open NEN 1010-rapport ({nenInfo.existingReport.status === 'ondertekend' ? 'ondertekend' : 'concept'})
+                </a>
+              ) : nenInfo.canCreate ? (
+                <button
+                  type="button"
+                  onClick={handleCreateNenReport}
+                  disabled={nenCreating}
+                  className="inline-flex justify-center rounded-xl bg-[#E8761A] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#d06510] disabled:opacity-50 transition-colors"
+                >
+                  {nenCreating ? 'Aanmaken…' : 'Maak NEN 1010-opleverrapport →'}
+                </button>
+              ) : nenInfo.reason ? (
+                <p className="text-xs text-white/45">{nenInfo.reason}</p>
+              ) : null}
+            </div>
+          )}
         </div>
       )}
 
@@ -492,7 +554,25 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
               Naar Pendiepte Calculator
             </a>
           </div>
-          <LinkCalculationFallback locale={locale} />
+          <MetingKoppelenPanel locale={locale} currentCalculationId={uuid} />
+        </div>
+      )}
+
+      {/* Calculator: switch to another veldmeting */}
+      {isCalculator && meting && (
+        <div className="border-t border-white/8 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowSwitcher(v => !v)}
+            className="text-xs font-semibold text-white/40 hover:text-[#E8761A] transition-colors"
+          >
+            {showSwitcher ? 'Verberg lijst ▲' : 'Andere veldmeting kiezen ▼'}
+          </button>
+          {showSwitcher && (
+            <div className="mt-3">
+              <MetingKoppelenPanel locale={locale} currentCalculationId={uuid} compact />
+            </div>
+          )}
         </div>
       )}
 
