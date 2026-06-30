@@ -53,6 +53,7 @@ interface Rapport {
 interface Profile {
   plan: string;
   credits_left: number;
+  credits_purchased: number;
   credits_reset: string | null;
   email: string;
   created_at: string;
@@ -88,7 +89,7 @@ export default async function DashboardPage({
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('plan, credits_left, credits_reset, email, created_at')
+      .select('plan, credits_left, credits_purchased, credits_reset, email, created_at')
       .eq('id', user.id)
       .single(),
     supabase
@@ -120,15 +121,21 @@ export default async function DashboardPage({
   const calcs     = (calculations as Calculation[]) ?? [];
   const rapporten = (rapports as Rapport[]) ?? [];
 
-  const planConfig   = PLANS[(profile?.plan ?? 'gratis') as keyof typeof PLANS];
-  const totalCredits = planConfig.credits;
-  const creditsLeft  = profile?.credits_left ?? 0;
-  const creditsPct   = totalCredits > 0 ? Math.round((creditsLeft / totalCredits) * 100) : 0;
+  const planConfig      = PLANS[(profile?.plan ?? 'gratis') as keyof typeof PLANS];
+  const totalCredits    = planConfig.credits;
+  const creditsLeft     = profile?.credits_left ?? 0;
+  const creditsPurchased = profile?.credits_purchased ?? 0;
+  const subscriptionCredits = Math.max(0, creditsLeft - creditsPurchased);
+  const creditsPct = totalCredits > 0
+    ? Math.min(100, Math.round((subscriptionCredits / totalCredits) * 100))
+    : 0;
 
   const intlLocale = toIntlLocale(locale);
   const resetDate = profile?.credits_reset
-    ? new Date(profile.credits_reset).toLocaleDateString(intlLocale, { day: 'numeric', month: 'long' })
-    : '1e van de maand';
+    ? new Date(profile.credits_reset).toLocaleDateString(intlLocale, { day: 'numeric', month: 'long', year: 'numeric' })
+    : profile?.plan !== 'gratis'
+      ? '—'
+      : null;
 
   const diepteCalcs = calcs.filter(c => c.tool === 'diepte');
 
@@ -194,18 +201,30 @@ export default async function DashboardPage({
             </Link>
           </div>
           <div className="px-6 py-4">
-            {totalCredits > 0 ? (
+            {totalCredits > 0 || creditsLeft > 0 ? (
               <>
                 <div className="mb-1.5 flex items-center justify-between text-xs">
                   <span className="text-white/50">Credits resterend</span>
                   <span className="font-semibold text-white">
-                    {creditsLeft} <span className="text-white/30">/ {totalCredits}</span>
+                    {creditsLeft}
+                    {totalCredits > 0 && (
+                      <span className="text-white/30"> ({subscriptionCredits} abo / {totalCredits})</span>
+                    )}
                   </span>
                 </div>
-                <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
-                  <div className="h-full rounded-full bg-[#E8761A] transition-all" style={{ width: `${creditsPct}%` }} />
-                </div>
-                <p className="text-[11px] text-white/30">Reset op: {resetDate}</p>
+                {totalCredits > 0 && (
+                  <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-white/8">
+                    <div className="h-full rounded-full bg-[#E8761A] transition-all" style={{ width: `${creditsPct}%` }} />
+                  </div>
+                )}
+                {creditsPurchased > 0 && (
+                  <p className="mb-1 text-[11px] text-white/40">
+                    Inclusief {creditsPurchased} gekochte credit{creditsPurchased === 1 ? '' : 's'} (vervallen niet)
+                  </p>
+                )}
+                {resetDate && (
+                  <p className="text-[11px] text-white/30">Abonnement reset op: {resetDate}</p>
+                )}
               </>
             ) : (
               <p className="text-sm text-white/40">Gratis plan — Weerstand Calculator onbeperkt beschikbaar.</p>

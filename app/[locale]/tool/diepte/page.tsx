@@ -73,18 +73,19 @@ export default async function DieptePage({
     );
   }
 
-  // Check plan
+  // Check plan and credits
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan')
+    .select('plan, credits_left')
     .eq('id', user.id)
     .single();
 
   const plan = profile?.plan ?? 'gratis';
-  const isPaid = plan !== 'gratis';
+  const creditsLeft = profile?.credits_left ?? 0;
+  const hasAccess = plan !== 'gratis' || creditsLeft > 0;
 
-  // Free user
-  if (!isPaid) {
+  // No subscription and no purchased credits
+  if (!hasAccess) {
     return (
       <div className="min-h-screen bg-canvas">
         <div className="mx-auto max-w-2xl px-4 py-10">
