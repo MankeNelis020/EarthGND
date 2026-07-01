@@ -116,6 +116,8 @@ async function importRecord(rec: ImportRecord): Promise<string | null> {
     bro_gw_depth:       rec.broGwDepth ?? null,
     bro_boring_afstand: rec.broBoringAfstand ?? null,
     field_gw_depth:     rec.gwDepth,
+    elektrode_diameter_mm: rec.electrodeDiameterMm ?? 14,
+    stopreden:          rec.stopreden ?? 'onbekend',
     version_tag:        '2026-06',
     submitted_at:       new Date().toISOString(),
     confirmed_at:       new Date().toISOString(),

@@ -83,5 +83,7 @@ export interface ImportRecord {
   depthCurve: Array<{ depth: number; ra: number }>;
   measurementQuality?: 'goed' | 'twijfelachtig' | 'onbruikbaar';
   electrodeCount?: number;
+  electrodeDiameterMm?: number;
+  stopreden?: 'doel_bereikt' | 'vastgelopen' | 'materiaal_op' | 'onbekend';
   notes?: string;
 }

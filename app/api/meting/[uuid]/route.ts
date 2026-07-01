@@ -117,6 +117,8 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       rods:            body.rods ?? [],
       aantal_pennen:   body.rods?.length ?? null,
       notes:           body.notes ?? null,
+      elektrode_diameter_mm: body.elektrode_diameter_mm ?? 14,
+      stopreden:       body.stopreden ?? 'onbekend',
       // status stays unchanged
     })
     .eq('calculation_id', uuid);
@@ -139,6 +141,8 @@ interface MetingBody {
   drijfmethode?:   string;
   rods?:           RodMeting[];
   notes?:          string;
+  elektrode_diameter_mm?: number;
+  stopreden?:      string;
 }
 
 // POST — monteur submits measurements
@@ -219,6 +223,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       rods:            body.rods ?? [],
       aantal_pennen:   body.rods?.length ?? null,
       notes:           body.notes,
+      elektrode_diameter_mm: body.elektrode_diameter_mm ?? 14,
+      stopreden:       body.stopreden ?? 'onbekend',
       status:          'submitted',
       submitted_at:    new Date().toISOString(),
     })

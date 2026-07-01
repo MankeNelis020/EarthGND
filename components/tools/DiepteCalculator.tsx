@@ -18,6 +18,13 @@ import { IconAlert, IconCheck, IconMail, IconX } from '@/components/ui/icons';
 import type { SavedColleague } from '@/lib/colleagues';
 import { colleagueDisplayLabel, normalizeColleagueEmail } from '@/lib/colleagues';
 import type { ParallelLayout } from '@/lib/pipeline/parallel-policy';
+import {
+  DEFAULT_ELECTRODE_DIAMETER_MM,
+  ELECTRODE_DIAMETER_PRESETS,
+  type ElectrodeDiameterPresetId,
+  mmToRodDiameterM,
+  formatElectrodeDiameterLabel,
+} from '@/lib/electrode-diameter';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -295,25 +302,25 @@ function RvsDiepteGraph({
   gwDepth,
   targetResistance,
   achievedDepth,
+  rodDiameterM,
 }: {
   rhoDry: number;
   rhoWet: number;
   gwDepth: number;
   targetResistance: number;
   achievedDepth: number;
+  rodDiameterM: number;
 }) {
   const maxDepth = Math.max(achievedDepth * 1.3, 6);
-  const d = 0.014;
-
   const points = useMemo(() => {
     const pts: { depth: number; R: number }[] = [];
     for (let L = 0.5; L <= maxDepth + 0.01; L += 0.25) {
       const rhoEff = calcRhoEffective(rhoDry, rhoWet, gwDepth, L);
-      const R = (rhoEff / (2 * Math.PI * L)) * Math.log((4 * L) / d);
+      const R = (rhoEff / (2 * Math.PI * L)) * Math.log((4 * L) / rodDiameterM);
       pts.push({ depth: L, R: Math.round(R * 100) / 100 });
     }
     return pts;
-  }, [rhoDry, rhoWet, gwDepth, maxDepth]);
+  }, [rhoDry, rhoWet, gwDepth, maxDepth, rodDiameterM]);
 
   const maxR = Math.min(points[0]?.R ?? 500, 500);
   const W = 300;
@@ -516,14 +523,16 @@ function DriveabilityBlock({
   isLimited,
   soilSamples,
   zReq,
+  rodDiameterM,
 }: {
   method:       DriveMethod;
   refusalLayer: RefusalLayer | null;
   isLimited:    boolean;
   soilSamples:  ReadonlyArray<{ depth: number; lithoClass: number }>;
   zReq:         number;
+  rodDiameterM: number;
 }) {
-  const allMethods = calcAllMethods(soilSamples, zReq);
+  const allMethods = calcAllMethods(soilSamples, zReq, rodDiameterM);
   const methods = Object.keys(DRIVE_METHOD_LABELS) as DriveMethod[];
   return (
     <div className="panel overflow-hidden">
@@ -612,7 +621,15 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
   const [electrodeType, setElectrodeType] = useState<ElectrodeType>('pen');
   const [drijfmethode, setDrijfmethode]   = useState<DriveMethod>('sds');
+  const [diameterPreset, setDiameterPreset] = useState<ElectrodeDiameterPresetId>('pen_14');
+  const [customDiameterMm, setCustomDiameterMm] = useState(DEFAULT_ELECTRODE_DIAMETER_MM);
   const [parallelRequested, setParallelRequested] = useState(false);
+
+  const electrodeDiameterMm = useMemo(() => {
+    if (diameterPreset === 'custom') return customDiameterMm;
+    return ELECTRODE_DIAMETER_PRESETS.find(p => p.id === diameterPreset)?.mm ?? DEFAULT_ELECTRODE_DIAMETER_MM;
+  }, [diameterPreset, customDiameterMm]);
+  const rodDiameterM = useMemo(() => mmToRodDiameterM(electrodeDiameterMm), [electrodeDiameterMm]);
 
   const [rho, setRho]                   = useState(125);
   const [targetResistance, setTarget]   = useState(initialTarget ?? 10);
@@ -747,6 +764,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           lintConductorDiameter: electrodeType === 'lint' ? lintDiameter : undefined,
           // Driveability
           drijfmethode: electrodeType === 'pen' ? drijfmethode : undefined,
+          electrodeDiameterMm: electrodeType === 'pen' ? electrodeDiameterMm : undefined,
           parallelRequested: electrodeType === 'pen' && parallelRequested ? true : undefined,
           soilSamples:  soilData?.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })) ?? [],
           // Source metadata for pipeline confidence scoring
@@ -918,6 +936,40 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   {' '}— optioneel; standaard adviseren we één pen tenzij indrijfbaarheid het onmogelijk maakt.
                 </span>
               </label>
+              <div className="mt-3">
+                <p className="mb-1.5 text-xs text-white/70">Elektrodediameter</p>
+                <select
+                  value={diameterPreset}
+                  onChange={(e) => {
+                    setDiameterPreset(e.target.value as ElectrodeDiameterPresetId);
+                    setCalcResult(null);
+                  }}
+                  className="mb-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A]/50 focus:outline-none"
+                >
+                  {ELECTRODE_DIAMETER_PRESETS.map(p => (
+                    <option key={p.id} value={p.id} className="bg-[#111]">
+                      {p.label}{p.id !== 'custom' ? ` — ${p.mm} mm` : ''}
+                    </option>
+                  ))}
+                </select>
+                {diameterPreset === 'custom' && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={4}
+                      max={50}
+                      step={0.1}
+                      value={customDiameterMm}
+                      onChange={(e) => { setCustomDiameterMm(Number(e.target.value)); setCalcResult(null); }}
+                      className="w-24 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A]/50 focus:outline-none"
+                    />
+                    <span className="text-xs text-white/50">mm</span>
+                  </div>
+                )}
+                <p className="mt-1.5 text-[10px] text-white/35">
+                  Diameter van de geslagen elektrode (niet de aansluitdraad). Standaard: {formatElectrodeDiameterLabel(14)}.
+                </p>
+              </div>
             </div>
           )}
 
@@ -1390,6 +1442,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 gwDepth={calcResult.gwGemiddeld ?? groundwaterDepth + 1.5}
                 targetResistance={targetResistance}
                 achievedDepth={scenarioDim(calcResult.scenarios.gemiddeld as DiepteResult)}
+                rodDiameterM={rodDiameterM}
               />
             </div>
           )}
@@ -1402,6 +1455,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               isLimited={calcResult.driveability.isLimited}
               soilSamples={soilData?.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })) ?? []}
               zReq={dwightDepth}
+              rodDiameterM={rodDiameterM}
             />
           )}
 

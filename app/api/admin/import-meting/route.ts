@@ -32,6 +32,8 @@ interface ImportBody {
   measurement_quality?: string;
   notes?:              string;
   depthCurve:          { depth: number; ra: number }[];
+  elektrode_diameter_mm?: number;
+  stopreden?:          string;
 }
 
 export async function POST(request: NextRequest) {
@@ -131,6 +133,8 @@ export async function POST(request: NextRequest) {
       bro_litho_class:     body.bro_litho_class     ?? null,
       bro_gw_depth:        body.bro_gw_depth        ?? null,
       field_gw_depth:      body.field_gw_depth      ?? null,
+      elektrode_diameter_mm: body.elektrode_diameter_mm ?? 14,
+      stopreden:           body.stopreden ?? 'onbekend',
       external_import_id:  body.external_import_id  ?? null,
       source_type:         'manual_import',
       notes:               body.notes               ?? null,

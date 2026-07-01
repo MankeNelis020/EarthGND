@@ -10,6 +10,7 @@
 import type { ValidatedDiepteInput } from './parse';
 import type { PlausibilityFlag, PlausibilityResult } from './types';
 import { PLAUSIBILITY_THRESHOLDS as T } from './config';
+import { isNonStandardElectrodeDiameterMm } from '@/lib/electrode-diameter';
 
 export function checkPlausibility(
   input: ValidatedDiepteInput,
@@ -78,6 +79,17 @@ export function checkPlausibility(
       message:
         `Doelweerstand ${input.targetResistance} Ω overschrijdt gangbare normen ` +
         `(NEN 1010 max 167 Ω bij 300 mA, 1667 Ω bij 30 mA). Controleer of dit de juiste waarde is.`,
+      severity: 'light',
+    });
+  }
+
+  if (input.electrodeType === 'pen' && isNonStandardElectrodeDiameterMm(input.electrodeDiameterMm)) {
+    flags.push({
+      field: 'electrodeDiameterMm',
+      value: input.electrodeDiameterMm,
+      message:
+        `Elektrodediameter ⌀ ${input.electrodeDiameterMm} mm wijkt af van de standaard 14 mm grondpen — ` +
+        'elektrische én mechanische uitkomst kunnen afwijken.',
       severity: 'light',
     });
   }

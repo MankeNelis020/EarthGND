@@ -32,6 +32,7 @@ const broPeat = runKernel({
   lithoClass: 5,
   hasBroProfile: true,
   dataSource: 'bhrgt',
+  electrodeDiameterMm: 14,
 });
 
 // Without soilSamples, resolveRhoWet(5) uses NL_RHO_WET_PRIOR[5] = 10 (not kernel table 20)
@@ -106,6 +107,7 @@ const layeredPeat = runKernel({
     { depth: 1, lithoClass: 3 },
     { depth: 3, lithoClass: 5 },
   ],
+  electrodeDiameterMm: 14,
 });
 assert.equal(layeredPeat.rhoModel, 'layered-nl', 'soilSamples → NL layered adapter path');
 assert.ok(
@@ -132,6 +134,7 @@ const orkadenInput = {
   drijfmethode: 'sds' as const,
   soilSamples: orkadenSamples,
   dataSource: 'cpt' as const,
+  electrodeDiameterMm: 14,
 };
 const orkaden = runKernel(orkadenInput);
 assert.equal(orkaden.parallelAdvice, null, 'Full BRO + achievable SDS depth → no mandatory parallel');

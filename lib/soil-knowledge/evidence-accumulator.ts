@@ -118,7 +118,11 @@ export async function processMeting(
   const gwDepth: number = meting.field_gw_depth ?? meting.bro_gw_depth ?? 2.0;
 
   // ── 3. Analyseer dieptecurve ────────────────────────────────────────────
-  const analyzed = analyzeDepthCurve(depthCurve, gwDepth);
+  const analyzed = analyzeDepthCurve(
+    depthCurve,
+    gwDepth,
+    meting.elektrode_diameter_mm ?? undefined,
+  );
   if (!analyzed.length) return { pointsProcessed: 0, evidenceInserted: 0 };
 
   const broLithoClass: number | null = meting.bro_litho_class ?? null;

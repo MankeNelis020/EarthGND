@@ -160,6 +160,7 @@ export async function runGroundingAssessment(
       input.targetResistance,
       localDepthHint,
       rhoWetSource,
+      input.electrodeDiameterMm,
     );
 
     // ── Capture credit ────────────────────────────────────────────────────────

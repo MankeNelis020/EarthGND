@@ -13,6 +13,7 @@
 import type { KernelResult } from './kernel-adapter';
 import type { SourceConfidence, PlausibilityFlag, UncertaintyBand, LocalDepthHintEnrichment } from './types';
 import { confidenceSummary } from './confidence';
+import { formatElectrodeDiameterLabel, isNonStandardElectrodeDiameterMm } from '@/lib/electrode-diameter';
 
 export interface UIExplanation {
   warnings:   string[];   // Actionable warnings shown in a yellow box
@@ -30,6 +31,7 @@ export function buildExplanation(
   targetResistance: number,
   localDepthHint?: LocalDepthHintEnrichment | null,
   rhoWetSource?: string,
+  electrodeDiameterMm?: number,
 ): UIExplanation {
   const warnings: string[] = [];
   const info:     string[] = [];
@@ -104,6 +106,16 @@ export function buildExplanation(
   const bandLine =
     `Verwacht bereik ρ-bandbreedte (gemiddeld scenario): ${band.low.toFixed(1)}–${band.high.toFixed(1)} ${unit} ` +
     `(ρ × ${band.rhoFactorLow}–${band.rhoFactorHigh})`;
+
+  // ─── Electrode diameter ───────────────────────────────────────────────────
+  if (result.electrodeType === 'pen' && electrodeDiameterMm != null) {
+    info.push(`Elektrodediameter: ${formatElectrodeDiameterLabel(electrodeDiameterMm)}.`);
+    if (isNonStandardElectrodeDiameterMm(electrodeDiameterMm)) {
+      info.push(
+        'Niet-standaard diameter: elektrische weerstand en haalbare indrijfdiepte wijken af van een ⌀ 14 mm grondpen.',
+      );
+    }
+  }
 
   // ─── Methodology reminder ─────────────────────────────────────────────────
   info.push('Meet altijd ter plaatse na installatie conform NEN 3140.');

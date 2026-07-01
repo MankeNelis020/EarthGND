@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       electrodeType:    body.electrodeType ?? 'pen',
       lithoClass:       body.lithoClass,
       drijfmethode:     body.drijfmethode,
+      electrodeDiameterMm: body.electrodeDiameterMm ?? 14,
     },
     result: {
       dimension:          primaryDimension,

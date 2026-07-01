@@ -45,8 +45,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   }
 
   const gwDepth = meting.field_gw_depth ?? meting.bro_gw_depth ?? 2.0;
-  const analyzed = analyzeDepthCurve(curve, gwDepth);
-  const segments = analyzeDepthSegments(curve, gwDepth);
+  const diameterMm = meting.elektrode_diameter_mm ?? undefined;
+  const analyzed = analyzeDepthCurve(curve, gwDepth, diameterMm);
+  const segments = analyzeDepthSegments(curve, gwDepth, diameterMm);
 
   const points = analyzed.map(pt => {
     let domK = 3;
