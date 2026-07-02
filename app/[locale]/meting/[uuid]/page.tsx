@@ -75,7 +75,12 @@ export default async function MetingPage({ params }: Ctx) {
     .single();
 
   const resultaat = calc?.result       as { dimension?: number; achievedResistance?: number; aantalPennen?: number } | null;
-  const input     = calc?.input_values as { electrodeType?: string; targetResistance?: number; drijfmethode?: string } | null;
+  const input     = calc?.input_values as {
+    electrodeType?: string;
+    targetResistance?: number;
+    drijfmethode?: string;
+    electrodeDiameterMm?: number;
+  } | null;
   const isSubmitted = meting.status === 'submitted';
 
   return (
@@ -144,6 +149,9 @@ export default async function MetingPage({ params }: Ctx) {
             expectedDepth={resultaat?.dimension}
             recommendedAantalPennen={resultaat?.aantalPennen ?? 1}
             recommendedDrijfmethode={input?.drijfmethode}
+            initialElectrodeDiameterMm={
+              typeof input?.electrodeDiameterMm === 'number' ? input.electrodeDiameterMm : undefined
+            }
             savedMeting={meting as SavedMeting}
           />
         )}

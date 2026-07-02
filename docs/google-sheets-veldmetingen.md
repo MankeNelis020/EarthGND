@@ -26,6 +26,8 @@ Gebruik het **bestaande** Apps Script op tab `Metingen`. Canonieke versie in de 
 | L–U | R_3m, R_6m, … R_30m (Ω) | min. 1 kolom |
 | V | importstatus (automatisch) | — |
 | W | Supabase meting_id (automatisch) | — |
+| X | elektrode_diameter_mm (default 14) | nee |
+| Y | stopreden (`doel_bereikt` / `vastgelopen` / `materiaal_op` / `onbekend`) | nee |
 
 \* Minimaal straatnaam **of** lat/lon **of** meetdata in L–U.
 

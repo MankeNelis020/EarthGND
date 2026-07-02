@@ -4,6 +4,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { reverseGeocode, forwardGeocode } from '@/lib/geocoding';
 import { DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod } from '@/lib/pipeline/driveability';
+import {
+  DEFAULT_ELECTRODE_DIAMETER_MM,
+  ELECTRODE_DIAMETER_PRESETS,
+  STOPREDEN_OPTIONS,
+  type ElectrodeDiameterPresetId,
+  type Stopreden,
+  normalizeElectrodeDiameterMm,
+  normalizeStopreden,
+  presetIdForDiameterMm,
+} from '@/lib/electrode-diameter';
 
 interface DepthPoint { depth: number; ra: number }
 interface RodMeting  { rod_number: number; installed_depth: string; achieved_ra: string }
@@ -25,6 +35,8 @@ export interface SavedMeting {
   rods:            { rod_number: number; installed_depth: number; achieved_ra: number }[];
   aantal_pennen:   number | null;
   notes:           string | null;
+  elektrode_diameter_mm?: number | null;
+  stopreden?:          string | null;
 }
 
 interface Props {
@@ -34,6 +46,7 @@ interface Props {
   expectedDepth?:            number;
   recommendedAantalPennen?:  number;
   recommendedDrijfmethode?:  string;
+  initialElectrodeDiameterMm?: number;
   savedMeting?:              SavedMeting | null;
 }
 
@@ -58,6 +71,7 @@ const DRIVE_METHODS = ACTIVE_DRIVE_METHODS;
 export function MonteurForm({
   uuid, initialPostcode, initialElectrodeType,
   expectedDepth, recommendedAantalPennen = 1, recommendedDrijfmethode,
+  initialElectrodeDiameterMm,
   savedMeting,
 }: Props) {
   const router = useRouter();
@@ -94,6 +108,19 @@ export function MonteurForm({
   const [drijfmethode, setDrijfmethode] = useState<string>(
     savedMeting?.drijfmethode ?? recommendedDrijfmethode ?? 'sds',
   );
+  const initialDiameter = normalizeElectrodeDiameterMm(
+    savedMeting?.elektrode_diameter_mm ?? initialElectrodeDiameterMm,
+  );
+  const [diameterPreset, setDiameterPreset] = useState<ElectrodeDiameterPresetId>(
+    () => presetIdForDiameterMm(initialDiameter),
+  );
+  const [customDiameterMm, setCustomDiameterMm] = useState(initialDiameter);
+  const [stopreden, setStopreden] = useState<Stopreden>(
+    normalizeStopreden(savedMeting?.stopreden),
+  );
+  const electrodeDiameterMm = diameterPreset === 'custom'
+    ? customDiameterMm
+    : (ELECTRODE_DIAMETER_PRESETS.find(p => p.id === diameterPreset)?.mm ?? DEFAULT_ELECTRODE_DIAMETER_MM);
 
   // ── Single-rod measurements (depth_curve + final) ─────────────────────────
   const [depthCurve, setDepthCurve] = useState<DepthPoint[]>(() => {
@@ -166,6 +193,8 @@ export function MonteurForm({
       postcode, straatnaam, huisnummer, woonplaats,
       electrode_type: electrodeType,
       drijfmethode:   electrodeType === 'pen' ? drijfmethode : null,
+      elektrode_diameter_mm: electrodeType === 'pen' ? electrodeDiameterMm : DEFAULT_ELECTRODE_DIAMETER_MM,
+      stopreden:      electrodeType === 'pen' ? stopreden : 'onbekend',
       notes,
     };
     if (isMultiRod && electrodeType === 'pen') {
@@ -215,7 +244,7 @@ export function MonteurForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lon, postcode, straatnaam, huisnummer, woonplaats,
       depthCurve, achievedRa, installedDepth, electrodeType, drijfmethode,
-      rods, combinedRa, notes]);
+      rods, combinedRa, notes, diameterPreset, customDiameterMm, stopreden]);
 
   // ── GPS ───────────────────────────────────────────────────────────────────
   function requestGPS() {
@@ -559,6 +588,51 @@ export function MonteurForm({
       ) : (
         /* Single rod — depth curve + final measurement */
         <>
+          <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
+              Elektrode &amp; stopreden
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs text-white/70">Geslagen diameter</label>
+                <select
+                  value={diameterPreset}
+                  onChange={e => setDiameterPreset(e.target.value as ElectrodeDiameterPresetId)}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                >
+                  {ELECTRODE_DIAMETER_PRESETS.map(p => (
+                    <option key={p.id} value={p.id} className="bg-[#111]">
+                      {p.label}{p.id !== 'custom' ? ` — ${p.mm} mm` : ''}
+                    </option>
+                  ))}
+                </select>
+                {diameterPreset === 'custom' && (
+                  <input
+                    type="number"
+                    min={4}
+                    max={50}
+                    step={0.1}
+                    value={customDiameterMm}
+                    onChange={e => setCustomDiameterMm(Number(e.target.value))}
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                  />
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-white/70">Stopreden</label>
+                <select
+                  value={stopreden}
+                  onChange={e => setStopreden(e.target.value as Stopreden)}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                >
+                  {STOPREDEN_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value} className="bg-[#111]">{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
           <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
             <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-white/60">
               Dieptecurve — meting per 3 m

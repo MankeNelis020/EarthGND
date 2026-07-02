@@ -22,6 +22,8 @@ import {
   LITHO_CLASS_TO_RHO_WET,
 } from '../lib/calculations';
 import { NL_RHO_WET_PRIOR, resolveRhoWet } from '../lib/pipeline/rho-priors';
+import { calcZMax } from '../lib/pipeline/driveability';
+import { DEFAULT_ELECTRODE_DIAMETER_M, mmToRodDiameterM } from '../lib/electrode-diameter';
 import {
   deriveRhoApparent, estimateClassDistribution, analyzeDepthCurve,
 } from '../lib/soil-knowledge/reverse-engine';
@@ -452,6 +454,32 @@ check('k=1 klei:  niet geblokkeerd', isLearningBlocked(1), false);
 check('k=2 leem:  niet geblokkeerd', isLearningBlocked(2), false);
 check('k=3 zand:  niet geblokkeerd', isLearningBlocked(3), false);
 check('k=5 veen:  niet geblokkeerd', isLearningBlocked(5), false);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 16. Elektrodediameter — elektrisch + mechanisch
+// ══════════════════════════════════════════════════════════════════════════════
+
+section('Elektrodediameter — Dwight + calcZMax');
+
+{
+  const d14 = calcDiepte({ rho: 45, targetResistance: 30, rodDiameter: DEFAULT_ELECTRODE_DIAMETER_M });
+  const d8  = calcDiepte({ rho: 45, targetResistance: 30, rodDiameter: mmToRodDiameterM(8) });
+  check('dunner elektrode → diepere pen (8 mm vs 14 mm)', d8.depth > d14.depth, true);
+  check('14 mm default ongewijzigd @ ρ=45, Ra=30', d14.depth, calcDiepte({ rho: 45, targetResistance: 30 }).depth, 1e-9);
+}
+
+{
+  const samples = [{ depth: 1, lithoClass: 3 }];
+  const z14 = calcZMax(samples, 'sds', 12, DEFAULT_ELECTRODE_DIAMETER_M);
+  const z19 = calcZMax(samples, 'sds', 12, mmToRodDiameterM(19));
+  check('dikkere elektrode → lagere zMax (19 mm vs 14 mm)', z19.zMax.typical < z14.zMax.typical, true);
+}
+
+{
+  const rho8 = deriveRhoApparent(31, 3, mmToRodDiameterM(8));
+  const rho14 = deriveRhoApparent(31, 3, DEFAULT_ELECTRODE_DIAMETER_M);
+  check('inversie: kleinere d → lagere ρ_apparent (zelfde R,L)', rho8 < rho14, true);
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Samenvatting

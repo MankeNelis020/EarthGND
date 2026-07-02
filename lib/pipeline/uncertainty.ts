@@ -16,6 +16,7 @@ import type { UncertaintyBand, ConfidenceLevel } from './types';
 import { UNCERTAINTY_FACTORS } from './config';
 import { resolveRhoWet } from './rho-priors';
 import { calcDiepteWithNlLayered, resolveDominantLithoClass, sanitizePipelineRho } from './effective-rho';
+import { mmToRodDiameterM } from '@/lib/electrode-diameter';
 
 function primaryDim(s: { depth?: number; length?: number }): number {
   return s.depth ?? s.length ?? 0;
@@ -29,7 +30,9 @@ export function computeUncertaintyBand(
   const { factorLow, factorHigh } = factors;
 
   const { rho, targetResistance, groundwaterDepth, electrodeType,
-          lintBurialDepth, lintConductorDiameter } = input;
+          lintBurialDepth, lintConductorDiameter, electrodeDiameterMm } = input;
+
+  const rodDiameterM = electrodeType === 'pen' ? mmToRodDiameterM(electrodeDiameterMm) : undefined;
 
   const gwMid = groundwaterDepth + 1.5; // gemiddeld scenario GWT
 
@@ -56,6 +59,7 @@ export function computeUncertaintyBand(
     if (input.soilSamples && input.soilSamples.length > 0) {
       const result = calcDiepteWithNlLayered({
         targetResistance,
+        rodDiameter: rodDiameterM,
         gwDepth: gwMid,
         soilSamples: input.soilSamples,
         rhoScale: rhoFactor,
@@ -73,6 +77,7 @@ export function computeUncertaintyBand(
     const result = calcDiepte({
       rho: rhoScaled,
       targetResistance,
+      rodDiameter: rodDiameterM,
       gwDepth: gwMid,
       rhoDry: rhoDryScaled,
       rhoWet: rhoWetScaled,

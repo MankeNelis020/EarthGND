@@ -14,6 +14,7 @@ import {
   type DriveMethodKey,
   type ZMaxEntry,
 } from './driveability-config';
+import { DEFAULT_ELECTRODE_DIAMETER_M, driveabilityDiameterScale } from '@/lib/electrode-diameter';
 
 export type DriveMethod = DriveMethodKey;
 export type { GrndType, ZMaxEntry };
@@ -63,20 +64,32 @@ function entryForLitho(lithoClass: number, method: DriveMethod): ZMaxEntry {
   return getDriveEntry(grnd, method);
 }
 
+function scaleZMaxBand(band: ZMaxBand, scale: number): ZMaxBand {
+  const s = Math.max(0.1, scale);
+  return {
+    low:     Math.round(band.low * s * 10) / 10,
+    typical: Math.round(band.typical * s * 10) / 10,
+    high:    Math.round(band.high * s * 10) / 10,
+  };
+}
+
 // ─── Publieke API ─────────────────────────────────────────────────────────────
 
 /**
  * Bereken de maximaal haalbare indrijfdiepte voor een bodemkolom en methode.
  *
- * @param samples   Gesorteerde bodemsamples [{depth (positief, m), lithoClass}]
- * @param method    Gekozen drijfmethode
- * @param zReq      Benodigde diepte uit Dwight-solver (gemiddeld scenario, m)
+ * @param samples        Gesorteerde bodemsamples [{depth (positief, m), lithoClass}]
+ * @param method         Gekozen drijfmethode
+ * @param zReq           Benodigde diepte uit Dwight-solver (gemiddeld scenario, m)
+ * @param rodDiameterM   Diameter geslagen elektrode in m (default 14 mm)
  */
 export function calcZMax(
   samples: ReadonlyArray<{ depth: number; lithoClass: number }>,
   method:  DriveMethod,
   zReq:    number,
+  rodDiameterM: number = DEFAULT_ELECTRODE_DIAMETER_M,
 ): DriveabilityResult {
+  const diameterScale = driveabilityDiameterScale(rodDiameterM);
   const sorted = [...samples].sort((a, b) => a.depth - b.depth);
 
   for (const s of sorted) {
@@ -85,9 +98,9 @@ export function calcZMax(
     const entry = entryForLitho(s.lithoClass, method);
 
     if (entry.refusal) {
-      // Harde weigering — pen kan hier helemaal niet
+      const zMax = scaleZMaxBand({ low: s.depth, typical: s.depth, high: s.depth }, diameterScale);
       return {
-        zMax: { low: s.depth, typical: s.depth, high: s.depth },
+        zMax,
         refusalLayer: { depth: s.depth, lithoClass: s.lithoClass, soil: LITHO_NAMES[s.lithoClass] ?? 'onbekend' },
         isLimited:        true,
         requiresParallel: true,
@@ -98,11 +111,12 @@ export function calcZMax(
     // Grind of andere beperkte laag: controle of typische diepte begrenst
     if (entry.typical < s.depth) {
       // De laag wordt bereikt op s.depth maar entry.typical zegt hoe diep je erin kunt
-      const zMax: ZMaxBand = {
+      const zMaxRaw: ZMaxBand = {
         low:     Math.round((s.depth + entry.low)     * 10) / 10,
         typical: Math.round((s.depth + entry.typical) * 10) / 10,
         high:    Math.round((s.depth + entry.high)    * 10) / 10,
       };
+      const zMax = scaleZMaxBand(zMaxRaw, diameterScale);
       return {
         zMax,
         refusalLayer: {
@@ -126,12 +140,14 @@ export function calcZMax(
 
   const isLimited        = dominantEntry.typical < zReq;
   const requiresParallel = dominantEntry.high    < zReq;
+  const zMaxRaw: ZMaxBand = {
+    low:     Math.round(Math.min(dominantEntry.low, zReq)              * 10) / 10,
+    typical: Math.round((isLimited ? dominantEntry.typical : zReq)     * 10) / 10,
+    high:    Math.round(dominantEntry.high                              * 10) / 10,
+  };
+  const zMax = scaleZMaxBand(zMaxRaw, diameterScale);
   return {
-    zMax: {
-      low:     Math.round(Math.min(dominantEntry.low, zReq)              * 10) / 10,
-      typical: Math.round((isLimited ? dominantEntry.typical : zReq)     * 10) / 10,
-      high:    Math.round(dominantEntry.high                              * 10) / 10,
-    },
+    zMax,
     refusalLayer: null,
     isLimited,
     requiresParallel,
@@ -144,10 +160,11 @@ export function calcZMax(
 export function calcAllMethods(
   samples: ReadonlyArray<{ depth: number; lithoClass: number }>,
   zReq:    number,
+  rodDiameterM: number = DEFAULT_ELECTRODE_DIAMETER_M,
 ): Record<DriveMethod, DriveabilityResult> {
   const methods: DriveMethod[] = ['handslag', 'sds', 'pneumatisch', 'voorboren'];
   return Object.fromEntries(
-    methods.map(m => [m, calcZMax(samples, m, zReq)])
+    methods.map(m => [m, calcZMax(samples, m, zReq, rodDiameterM)])
   ) as Record<DriveMethod, DriveabilityResult>;
 }
 

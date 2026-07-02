@@ -59,9 +59,25 @@ waarde voor 300 mA bij 50 V — niet een zelfstandige NEN-norm.
   "ph": 7.0,
   "electrodeType": "pen",
   "lithoClass": 3,
-  "drijfmethode": null
+  "drijfmethode": null,
+  "electrodeDiameterMm": 14
 }
 ```
+
+**Elektrodediameter (`electrodeDiameterMm`):**
+- Eenheid: millimeter (mm). Default **14** (= gangbare ⌀ 5/8" grondpen).
+- Alleen de **geslagen elektrode** telt — niet de aansluitdraad naar boven.
+- Gebruikt in Dwight (`ln(4L/d)`) én indrijfmodel (`calcZMax`). Materiaal (Cu vs. staal) zit **niet** in de weerstandsformules.
+- Presets: 14, 16, 19, 5.6 (Cu 25 mm²), 6.7 (Cu 35 mm²), 8.0 (Cu 50 mm²), of custom 4–50 mm.
+- Bij afwezigheid in legacy data: behandel als 14 mm (backwards compatible).
+
+**Veldmeting `pendiepte_metingen`:**
+| Kolom | Type | Waarden |
+|-------|------|---------|
+| `elektrode_diameter_mm` | numeric | default 14 |
+| `stopreden` | text | `doel_bereikt` \| `vastgelopen` \| `materiaal_op` \| `onbekend` |
+
+Stopreden scheidt bodemgedrag ("doel bereikt") van materieel-limiet ("vastgelopen" / "materiaal op") voor ρ-inversie en `calcZMax`-kalibratie.
 
 **Veld-structuur `result` (diepte-tool):**
 ```json

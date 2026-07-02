@@ -38,8 +38,7 @@ import {
   computeParallelLayout,
   type ParallelLayout,
 } from './parallel-policy';
-
-const ROD_DIAMETER = 0.014;
+import { mmToRodDiameterM } from '@/lib/electrode-diameter';
 
 /** @deprecated Use ParallelLayout from parallel-policy.ts — kept for API compat. */
 export type ParallelAdvice = ParallelLayout & {
@@ -65,6 +64,8 @@ export interface KernelResult {
   parallelAdvice: ParallelAdvice | null;
   /** Optioneel: gebruiker vroeg parallelschakeling op Dwight-diepte. */
   parallelOption: ParallelLayout | null;
+  /** Diameter used in kernel (m). */
+  rodDiameterM: number;
   effectiveRho?:      number;
   dominantLithoClass?: number;
   rhoModel?:          RhoModel;
@@ -90,7 +91,11 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
   const { rho, targetResistance, groundwaterDepth, ph, electrodeType,
           lintBurialDepth, lintConductorDiameter,
           lithoClass, rhoDryOverride,
-          drijfmethode, soilSamples, parallelRequested } = input;
+          drijfmethode, soilSamples, parallelRequested, electrodeDiameterMm } = input;
+
+  const rodDiameterM = electrodeType === 'pen'
+    ? mmToRodDiameterM(electrodeDiameterMm)
+    : mmToRodDiameterM(14);
 
   const dominantLitho = resolveDominantLithoClass(soilSamples, lithoClass);
   const lithoForModel = dominantLitho ?? lithoClass;
@@ -116,15 +121,15 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
     };
   } else if (layeredSamples) {
     scenarios = {
-      gunstig:   calcDiepteWithNlLayered({ targetResistance, gwDepth: gwGunstig,   soilSamples: layeredSamples }),
-      gemiddeld: calcDiepteWithNlLayered({ targetResistance, gwDepth: gwGemiddeld, soilSamples: layeredSamples }),
-      ongunstig: calcDiepteWithNlLayered({ targetResistance, gwDepth: gwOngunstig, soilSamples: layeredSamples }),
+      gunstig:   calcDiepteWithNlLayered({ targetResistance, rodDiameter: rodDiameterM, gwDepth: gwGunstig,   soilSamples: layeredSamples }),
+      gemiddeld: calcDiepteWithNlLayered({ targetResistance, rodDiameter: rodDiameterM, gwDepth: gwGemiddeld, soilSamples: layeredSamples }),
+      ongunstig: calcDiepteWithNlLayered({ targetResistance, rodDiameter: rodDiameterM, gwDepth: gwOngunstig, soilSamples: layeredSamples }),
     };
   } else {
     scenarios = {
-      gunstig:   calcDiepte({ rho: rhoSanitized, targetResistance, gwDepth: gwGunstig,   rhoDry, rhoWet }),
-      gemiddeld: calcDiepte({ rho: rhoSanitized, targetResistance, gwDepth: gwGemiddeld, rhoDry, rhoWet }),
-      ongunstig: calcDiepte({ rho: rhoSanitized, targetResistance, gwDepth: gwOngunstig, rhoDry, rhoWet }),
+      gunstig:   calcDiepte({ rho: rhoSanitized, targetResistance, rodDiameter: rodDiameterM, gwDepth: gwGunstig,   rhoDry, rhoWet }),
+      gemiddeld: calcDiepte({ rho: rhoSanitized, targetResistance, rodDiameter: rodDiameterM, gwDepth: gwGemiddeld, rhoDry, rhoWet }),
+      ongunstig: calcDiepte({ rho: rhoSanitized, targetResistance, rodDiameter: rodDiameterM, gwDepth: gwOngunstig, rhoDry, rhoWet }),
     };
   }
 
@@ -140,7 +145,7 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
       ? soilSamples
       : (lithoForModel ? [{ depth: primaryDim * 0.5, lithoClass: lithoForModel }] : []);
 
-    const drive = calcZMax(samples, drijfmethode, primaryDim);
+    const drive = calcZMax(samples, drijfmethode, primaryDim, rodDiameterM);
     driveabilityInfo = {
       method: drijfmethode,
       zMax: drive.zMax,
@@ -152,7 +157,7 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
     if (drive.requiresParallel) {
       const zCapped = drive.zMax.typical;
       const rhoEff  = rhoEffTwoLayer(rhoDry, rhoWet, gwGemiddeld, zCapped);
-      const layout  = computeParallelLayout(rhoEff, zCapped, targetResistance, ROD_DIAMETER, 'driveability');
+      const layout  = computeParallelLayout(rhoEff, zCapped, targetResistance, rodDiameterM, 'driveability');
 
       if (layout && layout.aantalPennen > 1) {
         parallelAdvice = {
@@ -178,7 +183,7 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
       rhoEffDwight,
       primaryDim,
       targetResistance,
-      ROD_DIAMETER,
+      rodDiameterM,
       'requested',
     );
   }
@@ -210,6 +215,7 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
   return {
     scenarios, electrodeType, rhoDry, rhoWet, gwGunstig, gwGemiddeld, gwOngunstig,
     riskClass, corrosionClass, parallelAdvice, parallelOption, driveability: driveabilityInfo,
+    rodDiameterM,
     effectiveRho, dominantLithoClass: lithoForModel, rhoModel,
   };
 }

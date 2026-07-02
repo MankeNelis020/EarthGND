@@ -7,6 +7,7 @@
  *   J measurement_quality | K notes
  *   L–U R_3m … R_30m (kolommen 12–21)
  *   V status | W Supabase meting_id
+ *   X elektrode_diameter_mm (optioneel, default 14) | Y stopreden (optioneel)
  *
  * Setup:
  *   1. Plak in Extensions → Apps Script
@@ -205,6 +206,8 @@ function importNewRows() {
       bro_gw_depth: parseNumber(row[8]),
       measurement_quality: String(row[9] || 'goed').trim() || 'goed',
       notes: String(row[10] || '').trim() || null,
+      elektrode_diameter_mm: parseNumber(row[23]) || 14,
+      stopreden: String(row[24] || 'onbekend').trim() || 'onbekend',
       depthCurve: depthCurve
     };
 

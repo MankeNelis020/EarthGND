@@ -11,20 +11,26 @@
 
 import { LITERATURE_PRIOR, CLASS_LOG_SIGMA } from './priors';
 import type { AnalyzedDepthPoint, ClassDistribution } from './types';
-
-const ROD_DIAMETER = 0.014; // m — identiek aan kernel-adapter.ts ROD_DIAMETER
+import {
+  DEFAULT_ELECTRODE_DIAMETER_M,
+  mmToRodDiameterM,
+  normalizeElectrodeDiameterMm,
+} from '@/lib/electrode-diameter';
 
 /**
  * Berekent schijnbare bodemweerstand (ρ_apparent) uit gemeten staafweerstand R op diepte L.
  *
  * Dwight-inversie ZONDER −1 term (kernel-consistent).
- * De ~4% afwijking t.o.v. exacte Dwight-formule zit in alle residuen — wordt niet gecorrigeerd.
  *
  * ρ_apparent = R × 2πL / ln(4L/d)
  */
-export function deriveRhoApparent(rMeasured: number, depthM: number): number {
-  if (rMeasured <= 0 || depthM <= 0) return NaN;
-  return (rMeasured * 2 * Math.PI * depthM) / Math.log((4 * depthM) / ROD_DIAMETER);
+export function deriveRhoApparent(
+  rMeasured: number,
+  depthM: number,
+  rodDiameterM: number = DEFAULT_ELECTRODE_DIAMETER_M,
+): number {
+  if (rMeasured <= 0 || depthM <= 0 || rodDiameterM <= 0) return NaN;
+  return (rMeasured * 2 * Math.PI * depthM) / Math.log((4 * depthM) / rodDiameterM);
 }
 
 /**
@@ -114,8 +120,9 @@ function dominantClassFromDist(dist: ClassDistribution): { k: number; label: str
 export function analyzeDepthSegments(
   depthCurve: Array<{ depth: number; ra: number }>,
   gwDepthM: number,
+  electrodeDiameterMm?: number,
 ): DepthSegmentAnalysis[] {
-  const points = analyzeDepthCurve(depthCurve, gwDepthM);
+  const points = analyzeDepthCurve(depthCurve, gwDepthM, electrodeDiameterMm);
   if (points.length < 2) return [];
 
   const segments: DepthSegmentAnalysis[] = [];
@@ -149,11 +156,13 @@ export function analyzeDepthSegments(
 export function analyzeDepthCurve(
   depthCurve: Array<{ depth: number; ra: number }>,
   gwDepthM: number,
+  electrodeDiameterMm: number = normalizeElectrodeDiameterMm(undefined),
 ): AnalyzedDepthPoint[] {
+  const rodDiameterM = mmToRodDiameterM(normalizeElectrodeDiameterMm(electrodeDiameterMm));
   return depthCurve
     .filter(pt => pt.depth > 0 && pt.ra > 0 && isFinite(pt.depth) && isFinite(pt.ra))
     .map(pt => {
-      const rhoApparent = deriveRhoApparent(pt.ra, pt.depth);
+      const rhoApparent = deriveRhoApparent(pt.ra, pt.depth, rodDiameterM);
       return {
         depthM: pt.depth,
         rhoApparent,

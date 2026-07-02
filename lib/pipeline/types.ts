@@ -36,6 +36,8 @@ export interface RawDiepteInput {
   confirmed?: boolean;
   /** Optioneel: parallelschakeling op Dwight-diepte uitrekenen (niet auto-adviseren). */
   parallelRequested?: unknown;
+  /** Elektrodediameter in mm — default 14 (5/8" grondpen). */
+  electrodeDiameterMm?: unknown;
 }
 
 // ─── Validated/canonicalized input — guaranteed safe for the kernel ───────────
@@ -66,6 +68,8 @@ export interface ValidatedDiepteInput {
   boringAfstand?: number;  // km
   boringJaar?:    number;
   parallelRequested?: boolean;
+  /** Geslagen elektrodediameter in mm (default 14). */
+  electrodeDiameterMm: number;
 }
 
 // ─── Data source & confidence ─────────────────────────────────────────────────

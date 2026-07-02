@@ -6,6 +6,7 @@
 
 import type { RawDiepteInput, ValidatedDiepteInput, ElectrodeType, DataSource, SoilSample } from './types';
 import type { DriveMethod } from './driveability';
+import { normalizeElectrodeDiameterMm } from '@/lib/electrode-diameter';
 export type { ValidatedDiepteInput } from './types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -76,6 +77,7 @@ export interface ParsedDiepteInput {
   boringJaar:            number | null;
   confirmed:             boolean;
   parallelRequested:     boolean;
+  electrodeDiameterMm:   number | null;
 }
 
 // ─── Main parse function ──────────────────────────────────────────────────────
@@ -101,6 +103,7 @@ export function parseDiepteInput(raw: RawDiepteInput): ParsedDiepteInput {
     boringJaar:            parseNumber(raw.boringJaar),
     confirmed:             parseBoolean(raw.confirmed),
     parallelRequested:     parseBoolean(raw.parallelRequested),
+    electrodeDiameterMm:   parseNumber(raw.electrodeDiameterMm),
   };
 }
 
@@ -125,5 +128,6 @@ export function buildValidated(p: ParsedDiepteInput): ValidatedDiepteInput {
     boringAfstand:         p.boringAfstand ?? undefined,
     boringJaar:            p.boringJaar ?? undefined,
     parallelRequested:     p.parallelRequested,
+    electrodeDiameterMm:   normalizeElectrodeDiameterMm(p.electrodeDiameterMm),
   };
 }

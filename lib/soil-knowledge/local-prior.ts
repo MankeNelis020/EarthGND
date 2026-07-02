@@ -27,6 +27,7 @@ export interface NearbyMetingRow {
   depth_curve: Array<{ depth: number; ra: number }> | null;
   field_gw_depth: number | null;
   bro_gw_depth: number | null;
+  elektrode_diameter_mm: number | null;
 }
 
 export interface LocalDepthHint {
@@ -71,7 +72,7 @@ function medianWetRho(m: NearbyMetingRow): number | null {
   const curve = m.depth_curve ?? [];
   if (!curve.length) return null;
   const gw = m.field_gw_depth ?? m.bro_gw_depth ?? 2.0;
-  const analyzed = analyzeDepthCurve(curve, gw);
+  const analyzed = analyzeDepthCurve(curve, gw, m.elektrode_diameter_mm ?? undefined);
   const wet = analyzed.filter(p => p.zone === 'wet').map(p => p.rhoApparent).filter(r => r > 0);
   if (!wet.length) {
     const last = analyzed[analyzed.length - 1]?.rhoApparent;
@@ -92,7 +93,7 @@ export async function fetchNearbyMetingen(
 
   const { data, error } = await supabase
     .from('pendiepte_metingen')
-    .select('id, lat, lon, postcode, huisnummer, installed_depth, depth_curve, field_gw_depth, bro_gw_depth')
+    .select('id, lat, lon, postcode, huisnummer, installed_depth, depth_curve, field_gw_depth, bro_gw_depth, elektrode_diameter_mm')
     .eq('status', 'confirmed')
     .neq('measurement_quality', 'onbruikbaar')
     .gte('lat', box.minLat)
