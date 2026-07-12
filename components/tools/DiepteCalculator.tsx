@@ -50,6 +50,9 @@ interface CalcResult {
     refusalLayer: RefusalLayer | null;
     isLimited:    boolean;
   };
+  // Calibrated model outputs (P1)
+  effectiveRho?:       number;       // ρ effectief gemiddeld scenario — input voor riskClass
+  dominantLithoClass?: number | null;
   // Pipeline enrichment (present when pipeline is active)
   confidence?:        { level: 'hoog' | 'midden' | 'laag'; label: string; icon: string; showBROBadge: boolean };
   warnings?:          string[];
@@ -878,6 +881,9 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               droog: {calcResult?.rhoDry ?? '—'} Ω·m
               <span className="inline-block h-2 w-3 rounded-sm bg-[#1A3A5C]/90" />
               verzadigd: {calcResult?.rhoWet ?? '—'} Ω·m
+              {calcResult?.effectiveRho != null && (
+                <><span className="text-white/30">·</span> effectief: {Math.round(calcResult.effectiveRho)} Ω·m</>
+              )}
             </div>
           )}
         </div>
@@ -1011,6 +1017,11 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                       <span className="inline-block h-2.5 w-4 rounded-sm bg-[#1A3A5C]/90" />
                       Verzadigde zone — ρ ≈ {calcResult.rhoWet} Ω·m
                     </span>
+                    {calcResult.effectiveRho != null && (
+                      <span className="flex items-center gap-1.5 text-white/80">
+                        Effectief (gemiddeld) — ρ ≈ {Math.round(calcResult.effectiveRho)} Ω·m
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
