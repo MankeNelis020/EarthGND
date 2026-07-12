@@ -51,15 +51,19 @@ export interface KernelResult {
     gemiddeld: DiepteResult | LintResult;
     ongunstig: DiepteResult | LintResult;
   };
-  electrodeType:  'pen' | 'lint';
-  rhoDry:         number;
-  rhoWet:         number;
-  gwGunstig:      number;
-  gwGemiddeld:    number;
-  gwOngunstig:    number;
-  riskClass:      RiskClassResult;
-  corrosionClass: CorrosionClass;
-  parallelAdvice: ParallelAdvice | null;
+  electrodeType:        'pen' | 'lint';
+  rhoDry:               number;
+  rhoWet:               number;
+  // Effective ρ at the gemiddeld-scenario electrode depth — what the electrode "feels".
+  // Used as input to riskClass (not the raw user-supplied rho).
+  effectiveRho:         number;
+  dominantLithoClass:   number | null;
+  gwGunstig:            number;
+  gwGemiddeld:          number;
+  gwOngunstig:          number;
+  riskClass:            RiskClassResult;
+  corrosionClass:       CorrosionClass;
+  parallelAdvice:       ParallelAdvice | null;
   driveability?: {
     method:           DriveMethod;
     zMax:             ZMaxBand;
@@ -188,13 +192,25 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
     };
   }
 
-  // ─── Risk class — uses combined Ra when driveability forces multiple rods ─
+  // ─── Effective ρ at gemiddeld scenario depth ─────────────────────────────
+  // This is the ρ the electrode actually experiences (weighted dry/wet ratio).
+  // Used for riskClass and UI display — NOT the raw user-supplied rho.
+  const effectiveRho = calcRhoEffective(rhoDry, rhoWet, gwGemiddeld, primaryDim);
+
+  // Dominant lithoClass: deepest sample (most relevant for the electrode base),
+  // falling back to input lithoClass or null if no soil data is available.
+  const dominantLithoClass: number | null =
+    soilSamples && soilSamples.length > 0
+      ? soilSamples[soilSamples.length - 1].lithoClass
+      : lithoClass ?? null;
+
+  // ─── Risk class — uses effectiveRho (not raw rho) and driveability depth ─
   const effectiveDepth = (parallelAdvice?.reason === 'driveability')
     ? (parallelAdvice.zMax?.typical ?? primaryDim)
     : primaryDim;
-  const riskClass = calcDiepteRiskClass({ rho, groundwaterDepth, ph, depth: effectiveDepth });
+  const riskClass = calcDiepteRiskClass({ rho: effectiveRho, groundwaterDepth, ph, depth: effectiveDepth });
 
   const corrosionClass = calcCorrosionClass(ph);
 
-  return { scenarios, electrodeType, rhoDry, rhoWet, gwGunstig, gwGemiddeld, gwOngunstig, riskClass, corrosionClass, parallelAdvice, driveability: driveabilityInfo };
+  return { scenarios, electrodeType, rhoDry, rhoWet, effectiveRho, dominantLithoClass, gwGunstig, gwGemiddeld, gwOngunstig, riskClass, corrosionClass, parallelAdvice, driveability: driveabilityInfo };
 }

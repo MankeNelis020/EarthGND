@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       achievedResistance:  gemiddeld.achievedResistance,
       aantalPennen,
     },
+    risicoklasse: kernelResult.riskClass.label,
   }).select('id').single();
 
   // Shadow mode logging — fire-and-forget, blokkeert de response niet.
