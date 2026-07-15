@@ -11,6 +11,7 @@ import { useCalculator } from '@/lib/context/CalculatorContext';
 import { calcRhoEffective, lithoClassToRhoDry } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
 import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
+import { RodCurveChart } from './RodCurveChart';
 import { buildSoilRhoPreview } from '@/lib/pipeline/effective-rho';
 import { FieldLabel } from '@/components/ui/FieldLabel';
 import { HeroMetric, ScenarioMetric } from '@/components/ui/instrument';
@@ -61,6 +62,9 @@ interface CalcResult {
     isLimited:    boolean;
     requiresParallel?: boolean;
   };
+  // Calibrated model outputs (P1)
+  effectiveRho?:       number;       // ρ effectief gemiddeld scenario — input voor riskClass
+  dominantLithoClass?: number | null;
   // Pipeline enrichment (present when pipeline is active)
   confidence?:        { level: 'hoog' | 'midden' | 'laag'; label: string; icon: string; showBROBadge: boolean };
   warnings?:          string[];
@@ -781,7 +785,10 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       }
       if (!res.ok) { setError(data.error ?? 'Berekening mislukt'); return; }
       setCalcResult(data);
-      if (profile) setProfile(p => p ? { ...p, credits_left: data.creditsRemaining } : p);
+      if (profile) {
+        setProfile(p => p ? { ...p, credits_left: data.creditsRemaining } : p);
+        window.dispatchEvent(new CustomEvent('earthgnd:credits-updated', { detail: { credits: data.creditsRemaining } }));
+      }
     } catch {
       setError('Verbindingsfout — probeer opnieuw.');
     } finally {
@@ -1132,6 +1139,9 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               droog: {calcResult?.rhoDry ?? soilPreview?.rhoDry ?? '—'} Ω·m
               <span className="inline-block h-2 w-3 rounded-sm bg-[#1A3A5C]/90" />
               verzadigd: {calcResult?.rhoWet ?? soilPreview?.rhoWet ?? '—'} Ω·m
+              {calcResult?.effectiveRho != null && (
+                <><span className="text-white/30">·</span> effectief: {Math.round(calcResult.effectiveRho)} Ω·m</>
+              )}
             </div>
           )}
         </div>
@@ -1279,10 +1289,30 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                       <span className="inline-block h-2.5 w-4 rounded-sm bg-[#1A3A5C]/90" />
                       Verzadigde zone — ρ ≈ {calcResult.rhoWet} Ω·m
                     </span>
+                    {calcResult.effectiveRho != null && (
+                      <span className="flex items-center gap-1.5 text-white/80">
+                        Effectief (gemiddeld) — ρ ≈ {Math.round(calcResult.effectiveRho)} Ω·m
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
             </div>
+          )}
+
+          {/* R vs. diepte — interactieve scrubber (pen only, na berekening) */}
+          {calcResult.electrodeType === 'pen' &&
+           calcResult.rhoDry != null && calcResult.rhoWet != null &&
+           calcResult.gwGemiddeld != null && dwightDepth > 0 && (
+            <RodCurveChart
+              targetResistance={targetResistance}
+              rhoDry={calcResult.rhoDry}
+              rhoWet={calcResult.rhoWet}
+              gwGunstig={calcResult.gwGunstig  ?? groundwaterDepth}
+              gwGemiddeld={calcResult.gwGemiddeld}
+              gwOngunstig={calcResult.gwOngunstig ?? groundwaterDepth + 3}
+              computedDepth={dwightDepth}
+            />
           )}
 
           {/* Pipeline warnings (one source of truth when pipeline is active) */}

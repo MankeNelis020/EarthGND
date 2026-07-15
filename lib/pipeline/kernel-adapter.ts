@@ -66,9 +66,9 @@ export interface KernelResult {
   parallelOption: ParallelLayout | null;
   /** Diameter used in kernel (m). */
   rodDiameterM: number;
-  effectiveRho?:      number;
+  effectiveRho?:       number;
   dominantLithoClass?: number;
-  rhoModel?:          RhoModel;
+  rhoModel?:           RhoModel;
   driveability?: {
     method:           DriveMethod;
     zMax:             ZMaxBand;
