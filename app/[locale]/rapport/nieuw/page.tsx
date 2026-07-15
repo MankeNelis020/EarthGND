@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
-import type { Systeemtype } from '@/lib/types/rapport';
+import type { ScanContext, Systeemtype } from '@/lib/types/rapport';
 import { getScanContext } from '@/lib/scan-context';
 
 type SearchParams = Promise<{
@@ -21,7 +21,7 @@ export default async function NieuwRapportPage({ searchParams }: { searchParams:
   const params = await searchParams;
   const calculationId = params.scan ?? null;
 
-  let scanContext: Record<string, unknown> | null = null;
+  let scanContext: ScanContext | null = null;
   const systeemtype: Systeemtype | null = (params.systeemtype as Systeemtype) ?? null;
   let locatie: string | null = params.locatie ?? null;
 
@@ -29,7 +29,7 @@ export default async function NieuwRapportPage({ searchParams }: { searchParams:
   if (calculationId) {
     const { data: calc } = await supabase
       .from('calculations')
-      .select('postcode, input_values, result, created_at')
+      .select('postcode, input_values, result, risicoklasse, created_at')
       .eq('id', calculationId)
       .eq('user_id', user.id)
       .single();
@@ -40,17 +40,26 @@ export default async function NieuwRapportPage({ searchParams }: { searchParams:
     }
   }
 
+  const { data: userProfile } = await supabase
+    .from('profiles')
+    .select('installateur_naam, installateur_erkenning')
+    .eq('id', user.id)
+    .single();
+
   const { data: report, error } = await supabase
     .from('inspection_reports')
     .insert({
-      user_id:        user.id,
-      status:         'concept',
-      versie:         1,
-      calculation_id: calculationId,
-      scan_context:   scanContext,
-      systeemtype:    systeemtype,
-      locatie:        locatie,
-      audit_trail:    [],
+      user_id:              user.id,
+      status:               'concept',
+      versie:               1,
+      calculation_id:       calculationId,
+      scan_context:         scanContext,
+      systeemtype:          systeemtype,
+      locatie:              locatie,
+      uitvoerder_naam:      userProfile?.installateur_naam ?? null,
+      uitvoerder_erkenning: userProfile?.installateur_erkenning ?? null,
+      consent_kalibratie:   true,
+      audit_trail:          [],
     })
     .select('id')
     .single();
@@ -58,7 +67,7 @@ export default async function NieuwRapportPage({ searchParams }: { searchParams:
   if (error || !report) {
     // Fallback: show an error rather than a blank crash
     return (
-      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
         <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-8 text-center max-w-sm">
           <p className="text-sm font-semibold text-red-400 mb-2">Aanmaken mislukt</p>
           <p className="text-xs text-white/40">{error?.message ?? 'Onbekende fout'}</p>

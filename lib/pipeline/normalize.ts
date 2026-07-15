@@ -36,5 +36,6 @@ export function normalizeDiepteInput(input: ValidatedDiepteInput): ValidatedDiep
     boringAfstand: input.boringAfstand != null
       ? roundNoise(input.boringAfstand, 3)
       : undefined,
+    electrodeDiameterMm: roundNoise(input.electrodeDiameterMm, 1),
   };
 }

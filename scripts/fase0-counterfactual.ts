@@ -225,8 +225,7 @@ async function main() {
     generatedAt: new Date().toISOString(),
     note:
       'Fase 0 counterfactual: BRO prediction vs field measurement residuals. ' +
-      'Field data from EarthGND-veldmetingen.xlsx PDF snapshot — R(L) values are ' +
-      'approximate placeholders. Replace with exact Excel values before Fase 1.',
+      'Field data from lib/calibration/field-data.ts (EarthGND-veldmetingen.xlsx, 2026-06-26).',
     locations,
   };
 

@@ -17,6 +17,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { wgs84ToRd } from '@/lib/rd';
 import { analyzeDepthCurve } from './reverse-engine';
 import { isLearningBlocked } from './bayesian-posterior';
+import { backfillShadowFromMeting } from './shadow-logger';
 import { LITERATURE_PRIOR } from './priors';
 import { NL_RHO_WET_PRIOR } from '@/lib/pipeline/rho-priors';
 import type { SoilEvidenceRow, WelfordState } from './types';
@@ -108,6 +109,8 @@ export async function processMeting(
     return { pointsProcessed: 0, evidenceInserted: 0 };
   }
 
+  const alreadyProcessed = meting.knowledge_processed_at != null;
+
   const depthCurve: Array<{ depth: number; ra: number }> = meting.depth_curve ?? [];
   if (!depthCurve.length) return { pointsProcessed: 0, evidenceInserted: 0 };
 
@@ -115,7 +118,11 @@ export async function processMeting(
   const gwDepth: number = meting.field_gw_depth ?? meting.bro_gw_depth ?? 2.0;
 
   // ── 3. Analyseer dieptecurve ────────────────────────────────────────────
-  const analyzed = analyzeDepthCurve(depthCurve, gwDepth);
+  const analyzed = analyzeDepthCurve(
+    depthCurve,
+    gwDepth,
+    meting.elektrode_diameter_mm ?? undefined,
+  );
   if (!analyzed.length) return { pointsProcessed: 0, evidenceInserted: 0 };
 
   const broLithoClass: number | null = meting.bro_litho_class ?? null;
@@ -158,7 +165,14 @@ export async function processMeting(
 
   if (evidenceError) throw new Error(`soil_evidence insert fout: ${evidenceError.message}`);
 
-  // ── 5. Accumuleer natte punten naar L2/L3 ───────────────────────────────
+  // ── 5. Accumuleer natte punten naar L2/L3 (skip bij herverwerking) ───────
+  if (alreadyProcessed) {
+    return {
+      pointsProcessed: analyzed.length,
+      evidenceInserted: evidenceRows.length,
+    };
+  }
+
   // Alleen natte punten (onder GWT) voor rhoWet kennisbank.
   const wetPoints = analyzed.filter(pt => pt.zone === 'wet');
 
@@ -219,6 +233,25 @@ export async function processMeting(
 
         if (regionalError) throw new Error(`regional_prior upsert fout (grid=${gridX},${gridY} litho=${k}): ${regionalError.message}`);
       }
+    }
+  }
+
+  // ── Markeer als verwerkt (idempotent Welford) ─────────────────────────────
+  await supabase
+    .from('pendiepte_metingen')
+    .update({ knowledge_processed_at: new Date().toISOString() })
+    .eq('id', metingId);
+
+  // ── 6. Shadow ground truth (Poort 2) ─────────────────────────────────────
+  if (meting.calculation_id) {
+    const wetRhos = analyzed.filter(pt => pt.zone === 'wet').map(pt => pt.rhoApparent).filter(r => r > 0);
+    const actualRho = wetRhos.length
+      ? wetRhos.sort((a, b) => a - b)[Math.floor(wetRhos.length / 2)]
+      : analyzed[analyzed.length - 1]?.rhoApparent;
+    if (actualRho && actualRho > 0) {
+      await backfillShadowFromMeting(meting.calculation_id, metingId, actualRho, supabase).catch(e =>
+        console.error('[processMeting/backfillShadow]', e),
+      );
     }
   }
 

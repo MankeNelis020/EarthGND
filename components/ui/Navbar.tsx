@@ -72,14 +72,14 @@ export function Navbar() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/8 bg-[#111]/95 backdrop-blur-md">
+    <nav className="sticky top-0 z-50 border-b border-white/8 bg-surface/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-0">
 
         {/* Logo */}
         <Link href="/" className="flex items-center gap-0 py-4 select-none">
           <span className="font-condensed text-xl font-bold tracking-tight text-white">Earth</span>
-          <span className="font-condensed text-xl font-bold tracking-tight text-[#E8761A]">GND</span>
-          <span className="ml-1.5 mt-0.5 text-[11px] font-semibold text-[#E8761A]/60 tracking-widest uppercase">Aarding</span>
+          <span className="font-condensed text-xl font-bold tracking-tight text-brand">GND</span>
+          <span className="ml-1.5 mt-0.5 text-[11px] font-medium text-brand/55">Aarding</span>
         </Link>
 
         {/* Centre nav */}

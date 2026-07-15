@@ -4,19 +4,13 @@
  * Pattern:
  *   1. reserveCredit()  → atomically deducts 1 credit, returns a reservation handle
  *   2. reservation.capture() → no-op (already deducted); marks captured for idempotency
- *   3. reservation.release() → refunds 1 credit via addCredits(); marks released
+ *   3. reservation.release() → refunds 1 credit to the same pool (subscription vs purchased)
  *
- * Atomicity: the actual debit is in the DB-level RPC (deduct_credit / add_credits),
- * which runs in a transaction. The reservation object prevents double-release within
- * a single request via the `released` flag.
- *
- * Note: across requests, idempotency relies on the caller not calling release twice.
- * A full credit_reservations DB table (for cross-request idempotency) is
- * a future improvement aligned with Doc 2 storage work.
+ * Deduction order: subscription credits first, then purchased credits.
  */
 
 import { randomUUID } from 'crypto';
-import { deductCredit, addCredits } from '@/lib/credits';
+import { deductCredit, releaseCredit } from '@/lib/credits';
 import type { CreditReservation } from './types';
 
 export type ReserveResult =
@@ -24,7 +18,7 @@ export type ReserveResult =
   | { ok: false; message: string; remaining: number };
 
 export async function reserveCredit(userId: string): Promise<ReserveResult> {
-  const { ok, remaining } = await deductCredit(userId);
+  const { ok, remaining, fromPurchased } = await deductCredit(userId);
 
   if (!ok) {
     return {
@@ -45,14 +39,18 @@ export async function reserveCredit(userId: string): Promise<ReserveResult> {
 
     async capture() {
       if (released) throw new Error(`Reservation ${id} already released; cannot capture.`);
-      captured = true; // no-op on DB; credit already deducted in reserve
+      captured = true;
     },
 
     async release() {
       if (captured) throw new Error(`Reservation ${id} already captured; cannot release.`);
-      if (released) return; // idempotent: releasing twice is safe
+      if (released) return;
       released = true;
-      await addCredits(userId, 1, `credit-released:${id} — berekening niet geslaagd`);
+      await releaseCredit(
+        userId,
+        fromPurchased,
+        `credit-released:${id} — berekening niet geslaagd`,
+      );
     },
   };
 

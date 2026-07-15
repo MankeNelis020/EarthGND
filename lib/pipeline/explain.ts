@@ -11,8 +11,9 @@
  */
 
 import type { KernelResult } from './kernel-adapter';
-import type { SourceConfidence, PlausibilityFlag, UncertaintyBand } from './types';
+import type { SourceConfidence, PlausibilityFlag, UncertaintyBand, LocalDepthHintEnrichment } from './types';
 import { confidenceSummary } from './confidence';
+import { formatElectrodeDiameterLabel, isNonStandardElectrodeDiameterMm } from '@/lib/electrode-diameter';
 
 export interface UIExplanation {
   warnings:   string[];   // Actionable warnings shown in a yellow box
@@ -28,6 +29,9 @@ export function buildExplanation(
   plausFlags:  PlausibilityFlag[],
   band:        UncertaintyBand,
   targetResistance: number,
+  localDepthHint?: LocalDepthHintEnrichment | null,
+  rhoWetSource?: string,
+  electrodeDiameterMm?: number,
 ): UIExplanation {
   const warnings: string[] = [];
   const info:     string[] = [];
@@ -65,6 +69,29 @@ export function buildExplanation(
   // variants are SEASONAL ESTIMATES, not measured values.
   const gwLabel = 'GHG (hoogste grondwaterstand, natte periode)';
 
+  // ─── Empirische kennis (L2/L3/L4) ─────────────────────────────────────────
+  if (rhoWetSource && rhoWetSource !== 'l1_literature') {
+    const srcLabel: Record<string, string> = {
+      l4_local:             'lokale veldmetingen (≤500 m)',
+      l3_regional_agnostic: 'regionale veldmetingen (5×5 km)',
+      l3_regional:          'regionale klassekennis',
+      l2_global:            'Nederlandse veldmetingen (per grondtype)',
+    };
+    info.push(
+      `Natte bodemweerstand verfijnd via ${srcLabel[rhoWetSource] ?? rhoWetSource}.`,
+    );
+  }
+
+  if (localDepthHint && localDepthHint.n >= 1) {
+    const locLabel = localDepthHint.source === 'exact_address'
+      ? 'op dit adres'
+      : `binnen ${localDepthHint.maxDistanceM} m`;
+    info.push(
+      `Lokale referentie ${locLabel}: ${localDepthHint.n} eerdere meting${localDepthHint.n > 1 ? 'en' : ''}, ` +
+      `gemiddeld ~${localDepthHint.medianDepthM.toFixed(1)} m diepte.`,
+    );
+  }
+
   // ─── Non-convergence warning ──────────────────────────────────────────────
   const ongunstig = result.scenarios.ongunstig as { converged?: boolean };
   if ('converged' in ongunstig && ongunstig.converged === false) {
@@ -79,6 +106,16 @@ export function buildExplanation(
   const bandLine =
     `Verwacht bereik ρ-bandbreedte (gemiddeld scenario): ${band.low.toFixed(1)}–${band.high.toFixed(1)} ${unit} ` +
     `(ρ × ${band.rhoFactorLow}–${band.rhoFactorHigh})`;
+
+  // ─── Electrode diameter ───────────────────────────────────────────────────
+  if (result.electrodeType === 'pen' && electrodeDiameterMm != null) {
+    info.push(`Elektrodediameter: ${formatElectrodeDiameterLabel(electrodeDiameterMm)}.`);
+    if (isNonStandardElectrodeDiameterMm(electrodeDiameterMm)) {
+      info.push(
+        'Niet-standaard diameter: elektrische weerstand en haalbare indrijfdiepte wijken af van een ⌀ 14 mm grondpen.',
+      );
+    }
+  }
 
   // ─── Methodology reminder ─────────────────────────────────────────────────
   info.push('Meet altijd ter plaatse na installatie conform NEN 3140.');

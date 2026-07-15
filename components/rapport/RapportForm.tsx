@@ -331,14 +331,13 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
   const [signErk, setSignErk] = useState('');
   const [signAkkoord, setSignAkkoord] = useState(false);
   const [signConsentDelen, setSignConsentDelen] = useState(false);
-  const [signConsentKalib, setSignConsentKalib] = useState(false);
   const [deelEmail, setDeelEmail] = useState(report.deel_ontvanger_email ?? '');
   const [deelNaam, setDeelNaam] = useState(report.deel_ontvanger_naam ?? '');
 
   async function handleSign() {
     setError('');
-    if (!signNaam.trim() || !signErk.trim() || !signAkkoord) {
-      setError('Vul naam, erkenning in en zet een vinkje bij de verklaring.');
+    if (!signNaam.trim() || !signAkkoord) {
+      setError('Vul uw naam in en zet een vinkje bij de conformiteitsverklaring.');
       return;
     }
     setSigning(true);
@@ -348,10 +347,10 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           naam:               signNaam.trim(),
-          erkenning:          signErk.trim(),
+          erkenning:          signErk.trim() || undefined,
           akkoord:            true,
           consent_delen:      signConsentDelen,
-          consent_kalibratie: signConsentKalib,
+          consent_kalibratie: true,
           deel_ontvanger_email: signConsentDelen && deelEmail ? deelEmail : undefined,
           deel_ontvanger_naam:  signConsentDelen && deelNaam ? deelNaam : undefined,
           deel_pdf:             report.deel_pdf ?? true,
@@ -457,17 +456,27 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
           {Object.keys(scanCtx).length > 0 && (
             <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-blue-400">
-                Scan-context — indicatief, o.b.v. BRO-bodemdata (postcodeniveau)
+                {(scanCtx as Record<string, unknown>).gemeten_ra_ohm
+                  ? 'Pendiepte + veldmeting — vooringevuld'
+                  : 'Scan-context — indicatief, o.b.v. BRO-bodemdata (postcodeniveau)'}
               </p>
               <p className="mb-3 text-[10px] text-white/70">
-                Lokale bodem kan afwijken. Definitieve aardingsweerstand wordt op locatie gemeten.
+                {(scanCtx as Record<string, unknown>).gemeten_ra_ohm
+                  ? 'Gemeten waarden komen uit de bevestigde EarthGND veldmeting.'
+                  : 'Lokale bodem kan afwijken. Definitieve aardingsweerstand wordt op locatie gemeten.'}
               </p>
               <div className="grid grid-cols-2 gap-2 text-xs">
+                {!!(scanCtx as Record<string, unknown>).gemeten_ra_ohm && (
+                  <><span className="text-white/60">Ra gemeten</span><span className="text-green-400 font-semibold">{String((scanCtx as Record<string, unknown>).gemeten_ra_ohm)} Ω</span></>
+                )}
+                {!!(scanCtx as Record<string, unknown>).gemeten_diepte_m && (
+                  <><span className="text-white/60">Diepte gemeten</span><span className="text-green-400 font-semibold">{String((scanCtx as Record<string, unknown>).gemeten_diepte_m)} m</span></>
+                )}
                 {!!(scanCtx as Record<string, unknown>).rho && (
                   <><span className="text-white/60">Bodemweerstand ρ</span><span className="text-white font-semibold">{String((scanCtx as Record<string, unknown>).rho)} Ω·m</span></>
                 )}
                 {!!(scanCtx as Record<string, unknown>).voorspeld_diepte_m && (
-                  <><span className="text-white/60">Richtdiepte (indicatief)</span><span className="text-white font-semibold">{String((scanCtx as Record<string, unknown>).voorspeld_diepte_m)} m</span></>
+                  <><span className="text-white/60">Richtdiepte (berekend)</span><span className="text-white font-semibold">{String((scanCtx as Record<string, unknown>).voorspeld_diepte_m)} m</span></>
                 )}
                 {!!(scanCtx as Record<string, unknown>).risicoklasse && (
                   <><span className="text-white/60">Risicoklasse</span><span className="text-white font-semibold">Klasse {String((scanCtx as Record<string, unknown>).risicoklasse)}</span></>
@@ -584,7 +593,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
             <Field label="Naam installateur" required>
               <Input value={report.uitvoerder_naam ?? ''} onChange={v => patch({ uitvoerder_naam: v })} placeholder="Voor- en achternaam" disabled={locked} />
             </Field>
-            <Field label="Erkenning / certificaatnummer" required>
+            <Field label="Erkenning / certificaatnummer" hint="Optioneel — NEN 1010 erkenningsnummer installateur">
               <Input value={report.uitvoerder_erkenning ?? ''} onChange={v => patch({ uitvoerder_erkenning: v })} placeholder="Bijv. E-12345" disabled={locked} />
             </Field>
             <Field label="Datum uitvoering" required>
@@ -705,24 +714,6 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
             </Field>
           </SectionCard>
 
-          <SectionCard title="Toestemming voor modelleren (AVG)">
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                id="consent_kalibratie"
-                checked={report.consent_kalibratie ?? false}
-                onChange={e => patch({ consent_kalibratie: e.target.checked })}
-                disabled={locked}
-                className="mt-1 h-4 w-4 accent-[#E8761A]"
-              />
-              <label htmlFor="consent_kalibratie" className="text-sm text-white/70">
-                Ik geef toestemming voor het geanonimiseerd gebruik van de meetdata
-                (gemeten Ra vs. voorspelde richtdiepte) ter verbetering van het EarthGND-model.
-                Er worden geen persoonsgegevens of klantgegevens opgenomen in de dataset.
-              </label>
-            </div>
-          </SectionCard>
-
           <button
             onClick={() => setStap('ondertekening')}
             className="w-full rounded-2xl bg-[#E8761A] py-4 text-sm font-bold text-white hover:bg-[#d06510] transition-colors"
@@ -772,7 +763,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
                 <Field label="Naam installateur" required>
                   <Input value={signNaam} onChange={setSignNaam} placeholder="Volledige naam" />
                 </Field>
-                <Field label="Erkenning / certificaatnummer" required>
+                <Field label="Erkenning / certificaatnummer" hint="Optioneel">
                   <Input value={signErk} onChange={setSignErk} placeholder="Bijv. E-12345" />
                 </Field>
               </SectionCard>
@@ -812,23 +803,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
                 )}
               </SectionCard>
 
-              <SectionCard title="Kalibratie (optioneel)">
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    id="consentKalib"
-                    checked={signConsentKalib}
-                    onChange={e => setSignConsentKalib(e.target.checked)}
-                    className="mt-1 h-4 w-4 accent-[#E8761A]"
-                  />
-                  <label htmlFor="consentKalib" className="text-sm text-white/70">
-                    Ik geef toestemming voor geanonimiseerd hergebruik van meetdata ter verbetering van EarthGND. Geen persoonsgegevens.
-                  </label>
-                </div>
-              </SectionCard>
-
-              {/* Conformiteitsverklaring */}
-              <div className="rounded-2xl border border-[#E8761A]/30 bg-[#E8761A]/5 p-5">
+              <SectionCard title="Conformiteitsverklaring">
                 <div className="flex items-start gap-3">
                   <input
                     type="checkbox"
@@ -844,7 +819,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
                     gestelde eisen conform NEN 1010 deel 6. Ik neem hiervoor volledige verantwoordelijkheid.
                   </label>
                 </div>
-              </div>
+              </SectionCard>
 
               {error && (
                 <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</div>
@@ -852,7 +827,7 @@ export function RapportForm({ initialReport, initialMetingen }: Props) {
 
               <button
                 onClick={handleSign}
-                disabled={signing || !signAkkoord || !signNaam.trim() || !signErk.trim()}
+                disabled={signing || !signAkkoord || !signNaam.trim()}
                 className="w-full rounded-2xl bg-[#E8761A] py-4 text-sm font-bold text-white hover:bg-[#d06510] disabled:opacity-30 transition-colors"
               >
                 {signing ? 'Ondertekenen…' : 'Rapport ondertekenen & vergrendelen'}

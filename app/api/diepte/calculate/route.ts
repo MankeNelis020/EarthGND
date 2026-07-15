@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { runGroundingAssessment } from '@/lib/pipeline';
 import { logShadowPrediction } from '@/lib/soil-knowledge/shadow-logger';
+import { persistCalculation } from '@/lib/persist-calculation';
 import type { RawDiepteInput } from '@/lib/pipeline/types';
 
 export const runtime = 'nodejs';
@@ -41,13 +42,16 @@ export async function POST(request: NextRequest) {
   const gemiddeld = kernelResult.scenarios.gemiddeld as { depth?: number; length?: number; achievedResistance: number };
   const primaryDimension = gemiddeld.depth ?? gemiddeld.length ?? 0;
 
-  const aantalPennen = kernelResult.parallelAdvice?.aantalPennen ?? 1;
+  const aantalPennen = (kernelResult.parallelAdvice?.reason === 'driveability' && (kernelResult.parallelAdvice?.aantalPennen ?? 1) > 1)
+    ? kernelResult.parallelAdvice!.aantalPennen
+    : 1;
 
   // Log to DB — await to capture the UUID for the monteur flow
-  const { data: calcRow } = await supabase.from('calculations').insert({
-    user_id:         user.id,
-    tool:            'diepte',
-    postcode:        typeof body.postcode === 'string' ? body.postcode : null,
+  const persist = await persistCalculation(supabase, {
+    user_id:      user.id,
+    tool:         'diepte',
+    postcode:     typeof body.postcode === 'string' ? body.postcode : null,
+    risicoklasse: kernelResult.riskClass.riskClass,
     input_values: {
       rho:              body.rho,
       targetResistance: body.targetResistance,
@@ -56,18 +60,17 @@ export async function POST(request: NextRequest) {
       electrodeType:    body.electrodeType ?? 'pen',
       lithoClass:       body.lithoClass,
       drijfmethode:     body.drijfmethode,
+      electrodeDiameterMm: body.electrodeDiameterMm ?? 14,
     },
     result: {
-      dimension:           primaryDimension,
-      achievedResistance:  gemiddeld.achievedResistance,
+      dimension:          primaryDimension,
+      achievedResistance: gemiddeld.achievedResistance,
       aantalPennen,
     },
-    risicoklasse: kernelResult.riskClass.label,
-  }).select('id').single();
+  });
 
-  // Shadow mode logging — fire-and-forget, blokkeert de response niet.
-  if (calcRow?.id) {
-    logShadowPrediction(calcRow.id, typeof body.lithoClass === 'number' ? body.lithoClass : null).catch(e =>
+  if (persist.id) {
+    logShadowPrediction(persist.id, typeof body.lithoClass === 'number' ? body.lithoClass : null).catch(e =>
       console.error('[diepte/calculate] shadow log mislukt:', e),
     );
   }
@@ -77,6 +80,7 @@ export async function POST(request: NextRequest) {
     ...kernelResult,  // scenarios, electrodeType, rhoDry, rhoWet, gwGunstig/Gemiddeld/Ongunstig, riskClass, corrosionClass, parallelAdvice
     ...enrichment,    // confidence, plausibilityFlags, warnings, uncertaintyBand, resultValidation
     creditsRemaining,
-    calculationId: calcRow?.id ?? null,  // UUID voor monteur-flow
+    calculationId: persist.id,
+    persistWarning: persist.id ? undefined : persist.error,
   });
 }

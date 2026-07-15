@@ -96,27 +96,38 @@ export async function runGroundingAssessment(
   //
   // Alle stappen zijn niet-kritiek: als ze mislukken, blijft de berekening intact.
   let rhoWetSource: ActivePriorSource = 'l1_literature';
+  let localDepthHint = null as import('./types').LocalDepthHintEnrichment | null;
 
-  // Stap 1: RD-coördinaten via postcode-geocoding (server-side, gecached)
+  // Stap 1: RD + WGS84 via postcode-geocoding (server-side, gecached)
   let rdX: number | null = null;
   let rdY: number | null = null;
+  let lat: number | null = null;
+  let lon: number | null = null;
+  const huisnummer = input.huisnummer;
+
   if (input.postcode) {
     try {
-      const geo = await lookupPostcode(input.postcode);
+      const geo = await lookupPostcode(input.postcode, huisnummer);
       rdX = Math.round(geo.rdX);
       rdY = Math.round(geo.rdY);
+      lat = geo.lat;
+      lon = geo.lon;
     } catch {
-      // Geocoding mislukt → door zonder coördinaten (L3 niet beschikbaar)
+      // Geocoding mislukt → door zonder coördinaten (L3/L4 niet beschikbaar)
     }
   }
 
-  // Stap 2-5: Active prior lookup
+  // Stap 2-6: Active prior lookup (L4 → L3 → L2 → L1)
   try {
-    const active = await resolveActivePrior(input.lithoClass, input.rho, rdX, rdY);
+    const active = await resolveActivePrior(
+      input.lithoClass, input.rho, rdX, rdY, lat, lon,
+      input.postcode, huisnummer,
+    );
     if (active.source !== 'l1_literature') {
       (input as { rhoWetOverride?: number }).rhoWetOverride = active.rhoWet;
     }
     rhoWetSource = active.source;
+    localDepthHint = active.localDepthHint ?? null;
   } catch (e) {
     console.warn('[pipeline/active-prior] lookup mislukt, gebruik L1:', e);
   }
@@ -147,6 +158,9 @@ export async function runGroundingAssessment(
       plausibility.flags,
       band,
       input.targetResistance,
+      localDepthHint,
+      rhoWetSource,
+      input.electrodeDiameterMm,
     );
 
     // ── Capture credit ────────────────────────────────────────────────────────
@@ -155,10 +169,11 @@ export async function runGroundingAssessment(
     const enrichment: PipelineEnrichment = {
       confidence,
       plausibilityFlags: plausibility.flags,
-      warnings:          explanation.warnings,
+      warnings:          [...explanation.warnings, ...explanation.info],
       uncertaintyBand:   band,
       resultValidation:  resultCheck.validation,
       rhoWetSource,
+      localDepthHint,
     };
 
     return {

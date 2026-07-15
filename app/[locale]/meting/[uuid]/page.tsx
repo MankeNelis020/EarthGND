@@ -75,11 +75,16 @@ export default async function MetingPage({ params }: Ctx) {
     .single();
 
   const resultaat = calc?.result       as { dimension?: number; achievedResistance?: number; aantalPennen?: number } | null;
-  const input     = calc?.input_values as { electrodeType?: string; targetResistance?: number; drijfmethode?: string } | null;
+  const input     = calc?.input_values as {
+    electrodeType?: string;
+    targetResistance?: number;
+    drijfmethode?: string;
+    electrodeDiameterMm?: number;
+  } | null;
   const isSubmitted = meting.status === 'submitted';
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
+    <div className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-6">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">EarthGND</p>
@@ -144,6 +149,9 @@ export default async function MetingPage({ params }: Ctx) {
             expectedDepth={resultaat?.dimension}
             recommendedAantalPennen={resultaat?.aantalPennen ?? 1}
             recommendedDrijfmethode={input?.drijfmethode}
+            initialElectrodeDiameterMm={
+              typeof input?.electrodeDiameterMm === 'number' ? input.electrodeDiameterMm : undefined
+            }
             savedMeting={meting as SavedMeting}
           />
         )}

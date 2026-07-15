@@ -7,6 +7,10 @@
 import type { ParsedDiepteInput, ValidatedDiepteInput } from './parse';
 import type { PipelineError } from './types';
 import { buildValidated } from './parse';
+import {
+  ELECTRODE_DIAMETER_MAX_MM,
+  ELECTRODE_DIAMETER_MIN_MM,
+} from '@/lib/electrode-diameter';
 
 type ValidationOk   = { ok: true;  input: ValidatedDiepteInput };
 type ValidationFail = { ok: false; error: PipelineError };
@@ -57,6 +61,18 @@ export function validateDiepteInput(p: ParsedDiepteInput): ValidationResult {
   if (p.rhoDryOverride != null) {
     if (!Number.isFinite(p.rhoDryOverride) || p.rhoDryOverride <= 0) {
       return err('rhoDryOverride', 'Droge-zone ρ overschrijving bevat een ongeldige waarde.');
+    }
+  }
+
+  if (p.electrodeType === 'pen' && p.electrodeDiameterMm != null) {
+    if (!Number.isFinite(p.electrodeDiameterMm)) {
+      return err('electrodeDiameterMm', 'Elektrodediameter bevat een ongeldige waarde.');
+    }
+    if (p.electrodeDiameterMm < ELECTRODE_DIAMETER_MIN_MM || p.electrodeDiameterMm > ELECTRODE_DIAMETER_MAX_MM) {
+      return err(
+        'electrodeDiameterMm',
+        `Elektrodediameter moet tussen ${ELECTRODE_DIAMETER_MIN_MM} en ${ELECTRODE_DIAMETER_MAX_MM} mm liggen.`,
+      );
     }
   }
 

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Canonical contract only — see docs/contracts.md §B. Legacy JSON keys handled inside getScanContext().
     const { data: calc } = await supabase
       .from('calculations')
-      .select('postcode, input_values, result, created_at')
+      .select('postcode, input_values, result, risicoklasse, created_at')
       .eq('id', body.calculation_id)
       .eq('user_id', user.id)
       .single();

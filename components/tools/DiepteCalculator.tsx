@@ -12,6 +12,20 @@ import { calcRhoEffective, lithoClassToRhoDry } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
 import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
 import { RodCurveChart } from './RodCurveChart';
+import { buildSoilRhoPreview } from '@/lib/pipeline/effective-rho';
+import { FieldLabel } from '@/components/ui/FieldLabel';
+import { HeroMetric, ScenarioMetric } from '@/components/ui/instrument';
+import { IconAlert, IconCheck, IconMail, IconX } from '@/components/ui/icons';
+import type { SavedColleague } from '@/lib/colleagues';
+import { colleagueDisplayLabel, normalizeColleagueEmail } from '@/lib/colleagues';
+import type { ParallelLayout } from '@/lib/pipeline/parallel-policy';
+import {
+  DEFAULT_ELECTRODE_DIAMETER_MM,
+  ELECTRODE_DIAMETER_PRESETS,
+  type ElectrodeDiameterPresetId,
+  mmToRodDiameterM,
+  formatElectrodeDiameterLabel,
+} from '@/lib/electrode-diameter';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,16 +34,10 @@ type ElectrodeType = 'pen' | 'lint';
 interface PenScenarios  { gunstig: DiepteResult; gemiddeld: DiepteResult; ongunstig: DiepteResult }
 interface LintScenarios { gunstig: LintResult;   gemiddeld: LintResult;   ongunstig: LintResult   }
 
-interface ParallelAdvice {
-  aantalPennen: number;
-  minAfstand:   number;
-  rParallel:    number;
-  rSingle:      number;
-  reason?:      'resistance' | 'driveability';
+type ParallelAdvice = ParallelLayout & {
   zMax?:        ZMaxBand;
   refusalLayer?: RefusalLayer | null;
-  targetUnreachable?: boolean;
-}
+};
 
 interface CalcResult {
   scenarios: PenScenarios | LintScenarios;
@@ -37,8 +45,10 @@ interface CalcResult {
   riskClass: RiskClassResult;
   corrosionClass: CorrosionClass;
   parallelAdvice: ParallelAdvice | null;
+  parallelOption?: ParallelLayout | null;
   creditsRemaining: number;
   calculationId?: string | null;
+  persistWarning?: string;
   rhoDry?: number;
   rhoWet?: number;
   gwGunstig?: number;
@@ -50,6 +60,7 @@ interface CalcResult {
     zMax:         ZMaxBand;
     refusalLayer: RefusalLayer | null;
     isLimited:    boolean;
+    requiresParallel?: boolean;
   };
   // Calibrated model outputs (P1)
   effectiveRho?:       number;       // ρ effectief gemiddeld scenario — input voor riskClass
@@ -59,9 +70,14 @@ interface CalcResult {
   warnings?:          string[];
   uncertaintyBand?:   { typical: number; low: number; high: number; rhoFactorLow: number; rhoFactorHigh: number };
   plausibilityFlags?: { field: string; value: number | string; message: string; severity: 'light' | 'heavy' }[];
+  rhoWetSource?:      'l4_local' | 'l3_regional_agnostic' | 'l3_regional' | 'l2_global' | 'l1_literature';
+  localDepthHint?:    { medianDepthM: number; n: number; maxDistanceM: number; source: string; confidence: number };
+  effectiveRho?:       number;
+  dominantLithoClass?: number;
+  rhoModel?:           'layered-nl' | 'two-layer' | 'single';
 }
 
-interface Profile { plan: string; credits_left: number; credits_reset: string | null }
+interface Profile { plan: string; credits_left: number; credits_purchased: number; credits_reset: string | null }
 
 // ─── Presets ──────────────────────────────────────────────────────────────────
 
@@ -96,6 +112,45 @@ const PRESET_GROUPS = [
 
 const ZONDER_AARDLEK_VALUES = new Set([1.00, 0.625, 0.40, 0.3125, 0.25]);
 
+type TargetMode = 'rcd' | 'breaker' | 'other' | 'manual';
+
+const TARGET_TABS: { id: TargetMode; label: string; shortLabel: string }[] = [
+  { id: 'rcd',     label: 'Met aardlek',    shortLabel: 'Aardlek' },
+  { id: 'breaker', label: 'Zonder aardlek', shortLabel: 'Automaat' },
+  { id: 'other',   label: 'Overig',         shortLabel: 'Overig' },
+  { id: 'manual',  label: 'Handmatig',      shortLabel: 'Handmatig' },
+];
+
+function presetGroupForMode(mode: Exclude<TargetMode, 'manual'>) {
+  if (mode === 'rcd') return PRESET_GROUPS[0];
+  if (mode === 'breaker') return PRESET_GROUPS[1];
+  return PRESET_GROUPS[2];
+}
+
+function resolveTargetMode(value: number, label?: string): TargetMode {
+  if (ZONDER_AARDLEK_VALUES.has(value)) return 'breaker';
+  if (PRESET_GROUPS[0].items.some(p => p.value === value)) return 'rcd';
+  if (PRESET_GROUPS[2].items.some(p => p.value === value)) return 'other';
+  const l = (label ?? '').toLowerCase();
+  if (l.includes('62305') || l.includes('bliksem')) return 'other';
+  if (l.includes('50522') || l.includes('utiliteit')) return 'other';
+  if (l.includes('mA') || l.includes('aardlek')) return 'rcd';
+  if (/^[BC]\d/i.test(label ?? '')) return 'breaker';
+  return 'manual';
+}
+
+function findPreset(mode: TargetMode, value: number) {
+  if (mode === 'manual') return null;
+  return presetGroupForMode(mode).items.find(p => p.value === value) ?? null;
+}
+
+function formatTargetSummary(mode: TargetMode, value: number): string {
+  if (mode === 'manual') return `Gekozen: ${fmt(value)} Ω (handmatig)`;
+  const preset = findPreset(mode, value);
+  if (preset) return `Gekozen: ${preset.label} → ${preset.sublabel}`;
+  return `Gekozen: ${fmt(value)} Ω (handmatig)`;
+}
+
 // ─── Ra haalbaarheidscheck limits ─────────────────────────────────────────────
 
 const RA_CHECK = [
@@ -118,12 +173,6 @@ function fmt(v: number) {
   if (v < 10) return v.toFixed(2);
   return v.toFixed(1);
 }
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/70">{children}</p>;
-}
-
-// ─── Soil Cross-Section Visualization ────────────────────────────────────────
 
 function SoilCrossSection({
   rodLength,
@@ -257,25 +306,25 @@ function RvsDiepteGraph({
   gwDepth,
   targetResistance,
   achievedDepth,
+  rodDiameterM,
 }: {
   rhoDry: number;
   rhoWet: number;
   gwDepth: number;
   targetResistance: number;
   achievedDepth: number;
+  rodDiameterM: number;
 }) {
   const maxDepth = Math.max(achievedDepth * 1.3, 6);
-  const d = 0.014;
-
   const points = useMemo(() => {
     const pts: { depth: number; R: number }[] = [];
     for (let L = 0.5; L <= maxDepth + 0.01; L += 0.25) {
       const rhoEff = calcRhoEffective(rhoDry, rhoWet, gwDepth, L);
-      const R = (rhoEff / (2 * Math.PI * L)) * Math.log((4 * L) / d);
+      const R = (rhoEff / (2 * Math.PI * L)) * Math.log((4 * L) / rodDiameterM);
       pts.push({ depth: L, R: Math.round(R * 100) / 100 });
     }
     return pts;
-  }, [rhoDry, rhoWet, gwDepth, maxDepth]);
+  }, [rhoDry, rhoWet, gwDepth, maxDepth, rodDiameterM]);
 
   const maxR = Math.min(points[0]?.R ?? 500, 500);
   const W = 300;
@@ -392,12 +441,14 @@ function LoginGate() {
   );
 }
 
-function CreditsGate({ plan }: { plan: string }) {
+function CreditsGate({ plan, hasPurchasedCredits }: { plan: string; hasPurchasedCredits?: boolean }) {
   return (
     <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-8 text-center">
       <h3 className="mb-2 font-condensed text-xl font-bold text-white">Geen credits</h3>
       <p className="mb-5 text-sm text-white/70">
-        {plan === 'gratis' ? 'De Pendiepte Calculator vereist een abonnement of losse credits.' : 'Je credits zijn op.'}
+        {plan === 'gratis' && !hasPurchasedCredits
+          ? 'De Pendiepte Calculator vereist een abonnement of losse credits.'
+          : 'Je credits zijn op. Koop credits bij of neem een abonnement.'}
       </p>
       <Link href="/pricing" className="rounded-lg bg-[#E8761A] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#d06510] transition-colors">
         {plan === 'gratis' ? 'Bekijk tarieven' : 'Credits bijkopen'}
@@ -410,23 +461,23 @@ function ScenarioCard({ label, sublabel, dimension, dimensionUnit, resistance, d
   label: string; sublabel: string; dimension: number; dimensionUnit: string; resistance: number; dimmed?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border p-4 transition-opacity ${dimmed ? 'border-white/5 opacity-50' : 'border-white/10'}`}>
-      <p className="mb-0.5 text-xs font-semibold text-white/60">{label}</p>
-      <p className="mb-3 text-[11px] text-white/70">{sublabel}</p>
-      <div className="flex items-baseline gap-1 mb-1">
-        <span className="font-condensed text-3xl font-black text-white">{dimension.toFixed(2)}</span>
-        <span className="text-sm text-white/60">{dimensionUnit}</span>
-      </div>
-      <div className="text-xs text-white/60">{resistance.toFixed(2)} Ω berekend</div>
-    </div>
+    <ScenarioMetric
+      label={label}
+      sublabel={sublabel}
+      value={dimension.toFixed(2)}
+      unit={dimensionUnit}
+      secondary={`${resistance.toFixed(2)} Ω berekend`}
+      dimmed={dimmed}
+      highlight={label === 'Gemiddeld'}
+    />
   );
 }
 
 function RaHaalbaarheidsCheck({ raGemiddeld, raOngunstig }: { raGemiddeld: number; raOngunstig: number }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
+    <div className="panel overflow-hidden">
       <div className="border-b border-white/6 px-5 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Ra-haalbaarheidscheck</p>
+        <p className="text-xs font-medium text-white/50">Ra-haalbaarheidscheck</p>
         <p className="mt-0.5 text-xs text-white/70">
           Welke beveiligingen zijn haalbaar met Ra ≈ {fmt(raOngunstig)} Ω (ongunstig scenario)?
         </p>
@@ -442,10 +493,8 @@ function RaHaalbaarheidsCheck({ raGemiddeld, raOngunstig }: { raGemiddeld: numbe
               status === 'conditional' ? 'bg-yellow-500/3' :
                                          'bg-red-500/3'
             }`}>
-              <span className={`shrink-0 text-sm font-bold ${
-                status === 'pass' ? 'text-green-400' : status === 'conditional' ? 'text-yellow-400' : 'text-red-400'
-              }`}>
-                {status === 'pass' ? '✓' : status === 'conditional' ? '⚠' : '✗'}
+              <span className={`shrink-0 ${status === 'pass' ? 'text-emerald-400' : status === 'conditional' ? 'text-amber-400' : 'text-red-400'}`}>
+                {status === 'pass' ? <IconCheck /> : status === 'conditional' ? <IconAlert /> : <IconX />}
               </span>
               <div className="min-w-0 flex-1">
                 <span className="text-xs text-white/70">{label}</span>
@@ -478,19 +527,21 @@ function DriveabilityBlock({
   isLimited,
   soilSamples,
   zReq,
+  rodDiameterM,
 }: {
   method:       DriveMethod;
   refusalLayer: RefusalLayer | null;
   isLimited:    boolean;
   soilSamples:  ReadonlyArray<{ depth: number; lithoClass: number }>;
   zReq:         number;
+  rodDiameterM: number;
 }) {
-  const allMethods = calcAllMethods(soilSamples, zReq);
+  const allMethods = calcAllMethods(soilSamples, zReq, rodDiameterM);
   const methods = Object.keys(DRIVE_METHOD_LABELS) as DriveMethod[];
   return (
-    <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
+    <div className="panel overflow-hidden">
       <div className="border-b border-white/6 px-5 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Drijfbaarheid &amp; weigering</p>
+        <p className="text-xs font-medium text-white/50">Drijfbaarheid &amp; weigering</p>
         <p className="mt-0.5 text-xs text-white/70">
           {isLimited
             ? refusalLayer
@@ -547,14 +598,14 @@ function CorrosieKaart({ cc }: { cc: CorrosionClass }) {
   }[cc.color];
 
   return (
-    <div className={`rounded-2xl border ${colors.border} ${colors.bg} p-4`}>
+    <div className={`rounded-panel border p-4 ${colors.border} ${colors.bg}`}>
       <div className="mb-2 flex items-center gap-2">
-        <p className={`text-xs font-semibold uppercase tracking-wider ${colors.text}`}>
+        <p className={`type-label ${colors.text}`}>
           Corrosieclassificatie — {cc.label}
         </p>
-        <span className="ml-auto text-[10px] text-white/70">{cc.lifetimeYears}</span>
+        <span className="type-caption ml-auto tabular-nums">{cc.lifetimeYears}</span>
       </div>
-      <p className="text-xs text-white/72 leading-relaxed">{cc.advies}</p>
+      <p className="type-caption leading-relaxed text-muted">{cc.advies}</p>
     </div>
   );
 }
@@ -567,16 +618,28 @@ interface DiepteCalculatorProps {
 }
 
 export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculatorProps) {
-  const { soilData, postcode } = useCalculator();
+  const { soilData, postcode, huisnummer } = useCalculator();
 
   const [user, setUser]       = useState<User | null | 'loading'>('loading');
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const [electrodeType, setElectrodeType] = useState<ElectrodeType>('pen');
   const [drijfmethode, setDrijfmethode]   = useState<DriveMethod>('sds');
+  const [diameterPreset, setDiameterPreset] = useState<ElectrodeDiameterPresetId>('pen_14');
+  const [customDiameterMm, setCustomDiameterMm] = useState(DEFAULT_ELECTRODE_DIAMETER_MM);
+  const [parallelRequested, setParallelRequested] = useState(false);
+
+  const electrodeDiameterMm = useMemo(() => {
+    if (diameterPreset === 'custom') return customDiameterMm;
+    return ELECTRODE_DIAMETER_PRESETS.find(p => p.id === diameterPreset)?.mm ?? DEFAULT_ELECTRODE_DIAMETER_MM;
+  }, [diameterPreset, customDiameterMm]);
+  const rodDiameterM = useMemo(() => mmToRodDiameterM(electrodeDiameterMm), [electrodeDiameterMm]);
 
   const [rho, setRho]                   = useState(125);
   const [targetResistance, setTarget]   = useState(initialTarget ?? 10);
+  const [targetMode, setTargetMode]     = useState<TargetMode>(() =>
+    resolveTargetMode(initialTarget ?? 10, initialLabel),
+  );
   const [groundwaterDepth, setGw]       = useState(3);
   const [ph, setPh]                     = useState(6.5);
 
@@ -595,34 +658,84 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   const [monteurError, setMonteurError]     = useState('');
   const [showMonteurModal, setShowMonteurModal] = useState(false);
   const [uuidCopied, setUuidCopied]         = useState(false);
+  const [colleagues, setColleagues]         = useState<SavedColleague[]>([]);
+  const [colleaguesLoading, setColleaguesLoading] = useState(false);
+  const [selectedColleagueId, setSelectedColleagueId] = useState('');
+  const [saveAsColleague, setSaveAsColleague] = useState(false);
+  const [colleagueNameDraft, setColleagueNameDraft] = useState('');
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
       setUser(data.user);
       if (data.user) {
-        supabase.from('profiles').select('plan, credits_left, credits_reset').eq('id', data.user.id).single()
+        supabase.from('profiles').select('plan, credits_left, credits_purchased, credits_reset').eq('id', data.user.id).single()
           .then(({ data: p }: { data: Profile | null }) => { if (p) setProfile(p); });
       }
     });
   }, []);
 
-  useEffect(() => { if (soilData?.dominantRho) setRho(soilData.dominantRho); }, [soilData]);
+  useEffect(() => {
+    if (!showMonteurModal) return;
+    setColleaguesLoading(true);
+    fetch('/api/colleagues')
+      .then(r => r.json())
+      .then(data => setColleagues(data.colleagues ?? []))
+      .catch(() => setColleagues([]))
+      .finally(() => setColleaguesLoading(false));
+  }, [showMonteurModal]);
+
+  useEffect(() => {
+    if (!soilData) return;
+    const preview = buildSoilRhoPreview({
+      samples: soilData.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })),
+      gwDepth: soilData.groundwaterDepth,
+      dominantLithoClass: soilData.dominantLithoClass,
+      dominantRho: soilData.dominantRho,
+      dataSource: soilData.dataSource,
+    });
+    setRho(preview.pipelineRho);
+  }, [soilData]);
   useEffect(() => { if (soilData?.groundwaterDepth != null) setGw(soilData.groundwaterDepth); }, [soilData]);
+
+  const soilPreview = useMemo(() => {
+    if (!soilData) return null;
+    return buildSoilRhoPreview({
+      samples: soilData.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })),
+      gwDepth: groundwaterDepth,
+      dominantLithoClass: soilData.dominantLithoClass,
+      dominantRho: soilData.dominantRho,
+      dataSource: soilData.dataSource,
+    });
+  }, [soilData, groundwaterDepth]);
 
   if (user === 'loading') return <div className="h-64 animate-pulse rounded-2xl border border-white/8 bg-white/3" />;
   if (!user) return <LoginGate />;
-  if (profile && profile.credits_left <= 0) return <CreditsGate plan={profile.plan} />;
+  if (profile && profile.credits_left <= 0) {
+    return <CreditsGate plan={profile.plan} hasPurchasedCredits={(profile.credits_purchased ?? 0) > 0} />;
+  }
 
   // Profile is fetched async after auth — treat null (still loading) as non-pro
-  // to avoid showing pro UI before we know the plan. plan 'gratis' is the free tier.
+  // Pro features require active subscription; purchased-only users on gratis keep basic calculator access.
   const isPro = profile !== null && profile.plan !== 'gratis';
 
-  const isZonderAardlek = ZONDER_AARDLEK_VALUES.has(targetResistance);
+  function handleTargetModeChange(mode: TargetMode) {
+    setTargetMode(mode);
+    setCalcResult(null);
+    if (mode === 'manual') return;
+    const group = presetGroupForMode(mode);
+    if (!group.items.some(p => p.value === targetResistance)) {
+      setTarget(group.items[0].value);
+    }
+  }
 
-  // ─── Step 1: ρ-koppeling fix ──────────────────────────────────────────────
-  // lithoClass for the legacy legend trigger (kept as-is to avoid UI regressions).
-  const lithoClass = soilData?.samples?.[0]?.lithoClass ?? null;
+  function selectPreset(value: number) {
+    setTarget(value);
+    setCalcResult(null);
+  }
+
+  // Dominante lithoClass + droge zone (P1 leidingwerk)
+  const lithoClass = soilPreview?.lithoClass ?? soilData?.dominantLithoClass ?? null;
   // Dry-zone ρ: average lithoClassToRhoDry of BRO samples shallower than GHG.
   // Uses the DRY table (not the GENERAL table) for physically correct dry-zone ρ.
   // When no samples are above GHG, fall back to null (API uses ratio fallback).
@@ -646,6 +759,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           groundwaterDepth,
           ph,
           postcode: postcode || undefined,
+          huisnummer: huisnummer.trim() || undefined,
           electrodeType,
           lithoClass: lithoClass ?? undefined,
           rhoDryOverride: rhoDryProfile ?? undefined,
@@ -654,6 +768,8 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           lintConductorDiameter: electrodeType === 'lint' ? lintDiameter : undefined,
           // Driveability
           drijfmethode: electrodeType === 'pen' ? drijfmethode : undefined,
+          electrodeDiameterMm: electrodeType === 'pen' ? electrodeDiameterMm : undefined,
+          parallelRequested: electrodeType === 'pen' && parallelRequested ? true : undefined,
           soilSamples:  soilData?.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })) ?? [],
           // Source metadata for pipeline confidence scoring
           dataSource:   soilData?.dataSource,
@@ -682,27 +798,54 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
   async function handleSendMonteur() {
     if (!calcResult?.calculationId) return;
-    if (!monteurEmail || !monteurEmail.includes('@')) { setMonteurError('Voer een geldig e-mailadres in.'); return; }
+    const email = normalizeColleagueEmail(monteurEmail);
+    if (!email || !email.includes('@')) { setMonteurError('Voer een geldig e-mailadres in.'); return; }
     setMonteurSending(true);
     setMonteurError('');
     try {
-      // Ensure draft record exists and rapport_naam is set before sending invite
       await fetch(`/api/calculations/${calcResult.calculationId}/draft`, { method: 'POST' });
 
       const res = await fetch(`/api/calculations/${calcResult.calculationId}/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ monteurEmail }),
+        body: JSON.stringify({
+          monteurEmail: email,
+          colleagueId: selectedColleagueId || undefined,
+          saveColleague: saveAsColleague && !selectedColleagueId ? { name: colleagueNameDraft.trim() } : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setMonteurError(data.error ?? 'Verzenden mislukt'); return; }
       setMonteurSent(true);
       setShowMonteurModal(false);
+      setSelectedColleagueId('');
+      setSaveAsColleague(false);
+      setColleagueNameDraft('');
     } catch {
       setMonteurError('Verbindingsfout — probeer opnieuw.');
     } finally {
       setMonteurSending(false);
     }
+  }
+
+  function openMonteurModal() {
+    setShowMonteurModal(true);
+    setMonteurError('');
+    setMonteurSent(false);
+    setSelectedColleagueId('');
+    setMonteurEmail('');
+    setSaveAsColleague(false);
+    setColleagueNameDraft('');
+  }
+
+  function selectColleague(id: string) {
+    setSelectedColleagueId(id);
+    if (!id) {
+      setMonteurEmail('');
+      return;
+    }
+    const c = colleagues.find(x => x.id === id);
+    if (c) setMonteurEmail(c.email);
   }
 
   function scenarioDim(s: DiepteResult | LintResult): number {
@@ -722,16 +865,19 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
   // Determine visualization params for result
   const gemiddeldResult = calcResult?.scenarios?.gemiddeld as DiepteResult | undefined;
   const dwightDepth = gemiddeldResult?.depth ?? 0;
-  // When driveability limits, cap visual rod length at z_max.typical
-  const isDriveabilityLimited = calcResult?.parallelAdvice?.reason === 'driveability';
-  const rodLength  = isDriveabilityLimited
-    ? (calcResult?.parallelAdvice?.zMax?.typical ?? dwightDepth)
+  const drive = calcResult?.driveability;
+  const parallelForced = calcResult?.parallelAdvice?.reason === 'driveability'
+    && (calcResult.parallelAdvice.aantalPennen ?? 1) > 1;
+  const driveDepthCapped = drive?.requiresParallel === true && dwightDepth > 0;
+  const rodLength = driveDepthCapped
+    ? (calcResult?.parallelAdvice?.zMax?.typical ?? drive?.zMax.typical ?? dwightDepth)
     : dwightDepth;
-  const numRods    = calcResult?.parallelAdvice?.aantalPennen ?? 1;
-  const rodSpacing = calcResult?.parallelAdvice?.minAfstand ?? 0;
+  const numRods = parallelForced ? calcResult!.parallelAdvice!.aantalPennen : 1;
+  const rodSpacing = parallelForced ? (calcResult?.parallelAdvice?.minAfstand ?? 0) : 0;
+  const parallelOption = calcResult?.parallelOption ?? null;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-section">
       {/* Soil / postcode lookup */}
       <PostcodeInput onRhoChange={setRho} onGroundwaterChange={d => d != null && setGw(d)} isPro={isPro} />
 
@@ -747,11 +893,11 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       )}
 
       {/* Parameters */}
-      <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+      <div className="panel p-5">
 
         {/* Electrode type toggle */}
         <div className="mb-5">
-          <SectionLabel>Elektrode type</SectionLabel>
+          <FieldLabel>Elektrode type</FieldLabel>
           <div className="grid grid-cols-2 gap-2">
             {(['pen', 'lint'] as const).map(t => (
               <button
@@ -785,6 +931,52 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   </button>
                 ))}
               </div>
+              <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-white/8 bg-white/3 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={parallelRequested}
+                  onChange={(e) => { setParallelRequested(e.target.checked); setCalcResult(null); }}
+                  className="mt-0.5 accent-[#E8761A]"
+                />
+                <span className="text-xs text-white/70">
+                  <span className="font-medium text-white/90">Parallelschakeling uitrekenen</span>
+                  {' '}— optioneel; standaard adviseren we één pen tenzij indrijfbaarheid het onmogelijk maakt.
+                </span>
+              </label>
+              <div className="mt-3">
+                <p className="mb-1.5 text-xs text-white/70">Elektrodediameter</p>
+                <select
+                  value={diameterPreset}
+                  onChange={(e) => {
+                    setDiameterPreset(e.target.value as ElectrodeDiameterPresetId);
+                    setCalcResult(null);
+                  }}
+                  className="mb-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A]/50 focus:outline-none"
+                >
+                  {ELECTRODE_DIAMETER_PRESETS.map(p => (
+                    <option key={p.id} value={p.id} className="bg-[#111]">
+                      {p.label}{p.id !== 'custom' ? ` — ${p.mm} mm` : ''}
+                    </option>
+                  ))}
+                </select>
+                {diameterPreset === 'custom' && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={4}
+                      max={50}
+                      step={0.1}
+                      value={customDiameterMm}
+                      onChange={(e) => { setCustomDiameterMm(Number(e.target.value)); setCalcResult(null); }}
+                      className="w-24 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A]/50 focus:outline-none"
+                    />
+                    <span className="text-xs text-white/50">mm</span>
+                  </div>
+                )}
+                <p className="mt-1.5 text-[10px] text-white/35">
+                  Diameter van de geslagen elektrode (niet de aansluitdraad). Standaard: {formatElectrodeDiameterLabel(14)}.
+                </p>
+              </div>
             </div>
           )}
 
@@ -812,60 +1004,122 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           )}
         </div>
 
-        {/* Target resistance — grouped presets */}
+        {/* Target resistance — tabbed presets (one choice) */}
         <div className="mb-5">
-          <SectionLabel>Doelweerstand</SectionLabel>
+          <FieldLabel>Doelweerstand</FieldLabel>
+          <p className="mb-3 text-xs text-white/50">
+            Selecteer één doelweerstand — niet per categorie.
+          </p>
+
+          <div className="mb-3 rounded-lg border border-[#E8761A]/30 bg-[#E8761A]/8 px-3 py-2.5 text-sm font-semibold text-[#E8761A]">
+            {formatTargetSummary(targetMode, targetResistance)}
+          </div>
+
           {initialTarget !== undefined && (
-            <div className="mb-3 rounded-lg border border-[#E8761A]/30 bg-[#E8761A]/8 px-3 py-2 text-xs text-[#E8761A]">
+            <div className="mb-3 rounded-lg border border-[#E8761A]/20 bg-[#E8761A]/5 px-3 py-2 text-xs text-[#E8761A]/90">
               Vooringevuld vanuit Weerstand Calculator{initialLabel ? ` (${initialLabel})` : ''}: Ra ≤ {initialTarget} Ω
             </div>
           )}
 
-          {PRESET_GROUPS.map(group => (
-            <div key={group.label} className="mb-3">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/60">{group.label}</p>
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                {group.items.map(p => (
-                  <button
-                    key={`${p.label}-${p.value}`}
-                    onClick={() => { setTarget(p.value); setCalcResult(null); }}
-                    className={`rounded-lg border px-2 py-2 text-left text-xs transition-all ${
-                      targetResistance === p.value
-                        ? 'border-[#E8761A] bg-[#E8761A]/10 text-[#E8761A]'
-                        : 'border-white/8 bg-white/3 text-white/60 hover:border-white/15 hover:text-white'
-                    }`}
-                  >
-                    <span className="block font-semibold">{p.label}</span>
-                    <span className="block text-[10px] text-white/70 mt-0.5">{p.sublabel}</span>
-                  </button>
-                ))}
+          <div
+            className="mb-3 flex gap-1 overflow-x-auto pb-1 scrollbar-thin"
+            role="tablist"
+            aria-label="Type doelweerstand"
+          >
+            {TARGET_TABS.map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={targetMode === tab.id}
+                onClick={() => handleTargetModeChange(tab.id)}
+                className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold transition-all sm:px-4 ${
+                  targetMode === tab.id
+                    ? 'border-[#E8761A] bg-[#E8761A]/15 text-[#E8761A]'
+                    : 'border-white/8 bg-white/3 text-white/60 hover:border-white/15 hover:text-white'
+                }`}
+              >
+                <span className="sm:hidden">{tab.shortLabel}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {targetMode === 'manual' ? (
+            <div
+              role="tabpanel"
+              className="rounded-xl border border-white/8 bg-white/3 p-4"
+            >
+              <p className="mb-3 text-xs text-white/60 leading-relaxed">
+                Voer uw eigen Ra-doel in (Ω), bijvoorbeeld uit een meting of projecteis.
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={targetResistance}
+                  onChange={e => { setTarget(Number(e.target.value)); setCalcResult(null); }}
+                  className="w-28 rounded-lg border border-[#E8761A]/40 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                  aria-label="Doelweerstand handmatig in ohm"
+                />
+                <span className="text-sm text-white/60">Ω</span>
               </div>
             </div>
-          ))}
-
-          {isZonderAardlek && (
-            <div className="mb-3 rounded-lg border border-orange-500/25 bg-orange-500/5 px-3 py-2.5 text-xs text-orange-300 leading-relaxed">
-              <strong className="font-semibold">TT zonder aardlekschakelaar</strong> — automaat als enige beveiliging
-              stelt zeer strenge eisen (&lt; 1 Ω). In de meeste Nederlandse grond is dit niet haalbaar
-              met één verticale pen. De calculator toont de theoretisch benodigde diepte en alternatieven.
+          ) : (
+            <div role="tabpanel" className="rounded-xl border border-white/8 bg-white/3 p-3">
+              {targetMode === 'breaker' && (
+                <div className="mb-3 rounded-lg border border-orange-500/25 bg-orange-500/5 px-3 py-2.5 text-xs text-orange-300 leading-relaxed">
+                  <strong className="font-semibold">TT zonder aardlekschakelaar</strong> — automaat als enige beveiliging
+                  stelt zeer strenge eisen (&lt; 1 Ω). In de meeste Nederlandse grond is dit niet haalbaar
+                  met één verticale pen. De calculator toont de theoretisch benodigde diepte en alternatieven.
+                </div>
+              )}
+              <div className={`grid gap-1.5 ${
+                targetMode === 'breaker' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
+              }`}>
+                {presetGroupForMode(targetMode).items.map(p => {
+                  const selected = targetResistance === p.value;
+                  return (
+                    <button
+                      key={`${p.label}-${p.value}`}
+                      type="button"
+                      onClick={() => selectPreset(p.value)}
+                      className={`rounded-lg border px-2 py-2.5 text-left text-xs transition-all ${
+                        selected
+                          ? 'border-[#E8761A] bg-[#E8761A]/10 text-[#E8761A] ring-1 ring-[#E8761A]/30'
+                          : 'border-white/8 bg-white/5 text-white/60 hover:border-white/15 hover:text-white'
+                      }`}
+                    >
+                      <span className="flex items-start justify-between gap-1">
+                        <span>
+                          <span className="block font-semibold">{p.label}</span>
+                          <span className="block text-[10px] text-white/70 mt-0.5">{p.sublabel}</span>
+                        </span>
+                        {selected && (
+                          <span className="shrink-0 text-[#E8761A]" aria-hidden="true">✓</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
-
-          <div className="flex items-center gap-2 mt-1">
-            <input
-              type="number" min="0.1" step="0.1" value={targetResistance}
-              onChange={e => { setTarget(Number(e.target.value)); setCalcResult(null); }}
-              className="w-28 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
-            />
-            <span className="text-sm text-white/60">Ω — handmatig</span>
-          </div>
         </div>
 
         {/* ρ slider */}
         <div className="mb-4">
           <p className="mb-2 text-xs text-white/70">
             Bodemweerstand ρ
-            {soilData && <span className="ml-2 text-green-400">← BRO: {soilData.dominantRho} Ω·m</span>}
+            {soilPreview && soilData && (
+              <span className="ml-2 text-green-400">
+                ← effectief {soilPreview.effectiveRho} Ω·m
+                {soilPreview.model === 'layered-nl' && ' (gelaagd NL)'}
+                {soilPreview.model === 'two-layer' && ' (droog/nat)'}
+                {soilData.dataSource && ` · ${soilData.dataSource}`}
+              </span>
+            )}
           </p>
           <div className="flex items-center gap-3">
             <input type="range" min="10" max="5000" step="10" value={rho}
@@ -882,9 +1136,9 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           {lithoClass && (
             <div className="mt-2 flex items-center gap-3 text-[10px] text-white/70">
               <span className="inline-block h-2 w-3 rounded-sm bg-[#78491A]/70" />
-              droog: {calcResult?.rhoDry ?? '—'} Ω·m
+              droog: {calcResult?.rhoDry ?? soilPreview?.rhoDry ?? '—'} Ω·m
               <span className="inline-block h-2 w-3 rounded-sm bg-[#1A3A5C]/90" />
-              verzadigd: {calcResult?.rhoWet ?? '—'} Ω·m
+              verzadigd: {calcResult?.rhoWet ?? soilPreview?.rhoWet ?? '—'} Ω·m
               {calcResult?.effectiveRho != null && (
                 <><span className="text-white/30">·</span> effectief: {Math.round(calcResult.effectiveRho)} Ω·m</>
               )}
@@ -958,7 +1212,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       <button
         onClick={() => handleCalculate()}
         disabled={loading}
-        className="rounded-2xl bg-[#E8761A] py-4 text-sm font-bold text-white transition-opacity hover:bg-[#d06510] disabled:opacity-50"
+        className="btn-primary"
       >
         {loading ? 'Berekening...' : `Bereken ${electrodeType === 'pen' ? 'pendiepte' : 'lintlengte'} — 1 credit`}
       </button>
@@ -969,24 +1223,38 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
 
       {/* Results */}
       {calcResult && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-section result-block">
+          {(() => {
+            const gem = calcResult.scenarios.gemiddeld as DiepteResult | LintResult;
+            const heroDim = scenarioDim(gem);
+            const heroUnit = calcResult.electrodeType === 'pen' ? 'm diep' : 'm lint';
+            return (
+              <HeroMetric
+                label={calcResult.electrodeType === 'pen' ? 'Benodigde pendiepte (gemiddeld)' : 'Benodigde lintlengte (gemiddeld)'}
+                value={heroDim.toFixed(2)}
+                unit={heroUnit}
+                context={`doel ≤ ${fmt(targetResistance)} Ω · GHG ${groundwaterDepth} m`}
+                pulseKey={`${heroDim}-${targetResistance}`}
+              />
+            );
+          })()}
 
           {/* Soil cross-section + aanbevolen config */}
           {calcResult.electrodeType === 'pen' && rodLength > 0 && (
-            <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
+            <div className="panel overflow-hidden">
               <div className="border-b border-white/6 px-5 py-3 flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">
+                <p className="text-xs font-medium text-white/50">
                   Aanbevolen configuratie
                 </p>
                 <p className="text-xs font-bold text-white">
-                  {numRods > 1 && isDriveabilityLimited
+                  {parallelForced
                     ? `${numRods} pennen × ${rodLength.toFixed(1)} m — ${calcResult.parallelAdvice?.refusalLayer?.soil ?? 'bodem'} begrenst diepte`
-                    : numRods > 1
-                    ? `${numRods} pennen — elk ${rodLength.toFixed(2)} m, ${rodSpacing} m uit elkaar`
+                    : driveDepthCapped && rodLength < dwightDepth - 0.05
+                    ? `1 pen — ${rodLength.toFixed(1)} m (indrijfbaarheid; Dwight ${dwightDepth.toFixed(1)} m)`
                     : `1 pen — ${rodLength.toFixed(2)} m diep`}
                 </p>
               </div>
-              {isDriveabilityLimited && calcResult.parallelAdvice?.targetUnreachable && (
+              {parallelForced && calcResult.parallelAdvice?.targetUnreachable && (
                 <div className="border-b border-red-500/20 bg-red-500/5 px-5 py-2.5 text-xs text-red-300">
                   Doelweerstand niet haalbaar met verticale pennen in deze grond. Overweeg horizontaal lint of aardmat.
                 </div>
@@ -1069,9 +1337,9 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
           )}
 
           {/* Three scenarios */}
-          <div className="rounded-2xl border border-white/10 p-5">
+          <div className="surface-panel p-gutter">
             <div className="mb-4 flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">
+              <span className="type-label text-brand">
                 Drie scenario&apos;s
               </span>
               <div className="flex flex-col items-end gap-0.5">
@@ -1126,17 +1394,20 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               </div>
             )}
 
-            {/* Parallel rod advice */}
-            {calcResult.parallelAdvice && (
-              <div className={`mt-4 rounded-xl border p-4 ${
-                isDriveabilityLimited
-                  ? 'border-red-500/25 bg-red-500/5'
-                  : 'border-orange-500/25 bg-orange-500/5'
-              }`}>
-                <p className={`mb-2 text-sm font-semibold ${isDriveabilityLimited ? 'text-red-400' : 'text-orange-400'}`}>
-                  {isDriveabilityLimited
-                    ? `${calcResult.parallelAdvice.aantalPennen} pennen nodig — indrijfweerstand begrenst diepte`
-                    : `Parallelschakeling aanbevolen — ${calcResult.parallelAdvice.aantalPennen} pennen`}
+            {calcResult.localDepthHint && calcResult.localDepthHint.n >= 1 && (
+              <div className="mt-2 rounded-lg border border-[#E8761A]/20 bg-[#E8761A]/5 px-4 py-2.5 text-xs text-[#F5EFE6]/80">
+                Lokale veldmetingen
+                {calcResult.localDepthHint.source === 'exact_address' ? ' op dit adres' : ` binnen ${calcResult.localDepthHint.maxDistanceM} m`}:
+                {' '}gemiddeld ~{calcResult.localDepthHint.medianDepthM.toFixed(1)} m diepte
+                ({calcResult.localDepthHint.n} eerdere meting{calcResult.localDepthHint.n > 1 ? 'en' : ''}).
+              </div>
+            )}
+
+            {/* Verplicht parallel (indrijfbaarheid) */}
+            {parallelForced && calcResult.parallelAdvice && (
+              <div className="mt-4 rounded-xl border border-red-500/25 bg-red-500/5 p-4">
+                <p className="mb-2 text-sm font-semibold text-red-400">
+                  {calcResult.parallelAdvice.aantalPennen} pennen nodig — indrijfweerstand begrenst diepte
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-xs text-white/60">
                   <div>
@@ -1158,12 +1429,41 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 </div>
               </div>
             )}
+
+            {/* Optioneel parallel (gebruiker vroeg expliciet) */}
+            {parallelRequested && parallelOption && !parallelForced && (
+              <div className="mt-4 rounded-xl border border-orange-500/25 bg-orange-500/5 p-4">
+                <p className="mb-2 text-sm font-semibold text-orange-400">
+                  {parallelOption.aantalPennen === 1
+                    ? 'Parallelschakeling niet nodig — één pen haalt het doel op Dwight-diepte'
+                    : `Parallelschakeling op Dwight-diepte — ${parallelOption.aantalPennen} pennen`}
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-xs text-white/60">
+                  <div>
+                    <span className="text-white/70">Diepte per pen</span>
+                    <p className="font-semibold text-white">{dwightDepth.toFixed(1)} m</p>
+                  </div>
+                  <div>
+                    <span className="text-white/70">Min. onderlinge afstand</span>
+                    <p className="font-semibold text-white">{parallelOption.minAfstand} m</p>
+                  </div>
+                  <div>
+                    <span className="text-white/70">Ra enkelvoudig @ {dwightDepth.toFixed(0)} m</span>
+                    <p className="font-semibold text-white">{parallelOption.rSingle} Ω</p>
+                  </div>
+                  <div>
+                    <span className="text-white/70">Ra parallel (incl. koppeling)</span>
+                    <p className="font-semibold text-[#E8761A]">{parallelOption.rParallel} Ω</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Resistance vs depth graph (pen only, with two-layer data) */}
           {calcResult.electrodeType === 'pen' && calcResult.rhoDry && calcResult.rhoWet && (
-            <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
+            <div className="panel p-5">
+              <p className="mb-3 text-xs font-medium text-white/50">
                 Weerstand vs. diepte (gemiddeld scenario)
               </p>
               <RvsDiepteGraph
@@ -1172,6 +1472,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 gwDepth={calcResult.gwGemiddeld ?? groundwaterDepth + 1.5}
                 targetResistance={targetResistance}
                 achievedDepth={scenarioDim(calcResult.scenarios.gemiddeld as DiepteResult)}
+                rodDiameterM={rodDiameterM}
               />
             </div>
           )}
@@ -1184,18 +1485,19 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               isLimited={calcResult.driveability.isLimited}
               soilSamples={soilData?.samples?.map(s => ({ depth: Math.abs(s.depth), lithoClass: s.lithoClass })) ?? []}
               zReq={dwightDepth}
+              rodDiameterM={rodDiameterM}
             />
           )}
 
           {/* Ra-haalbaarheidscheck — uses combined Ra when driveability forces multiple rods */}
           <RaHaalbaarheidsCheck
             raGemiddeld={
-              isDriveabilityLimited && calcResult.parallelAdvice?.rParallel != null
+              parallelForced && calcResult.parallelAdvice?.rParallel != null
                 ? calcResult.parallelAdvice.rParallel
                 : (calcResult.scenarios.gemiddeld as DiepteResult | LintResult).achievedResistance
             }
             raOngunstig={
-              isDriveabilityLimited && calcResult.parallelAdvice?.rParallel != null
+              parallelForced && calcResult.parallelAdvice?.rParallel != null
                 ? calcResult.parallelAdvice.rParallel
                 : (calcResult.scenarios.ongunstig as DiepteResult | LintResult).achievedResistance
             }
@@ -1229,75 +1531,96 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
             en droge (+3,0 m) periode. Meet altijd ter plaatse na installatie conform NEN 3140.
           </p>
 
-          {/* CTAs + UUID */}
-          {calcResult.calculationId && (
-            <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <EmailRapportButton
-                  tool="diepte"
-                  inputValues={{
-                    ...(postcode ? { 'Postcode': postcode } : {}),
-                    'Elektrodetype': calcResult.electrodeType === 'pen' ? 'Verticale pen / staaf' : 'Horizontaal lint',
-                    'Bodemweerstand ρ': `${rho} Ω·m`,
-                    'Grondwaterstand (GHG)': `${groundwaterDepth} m`,
-                    'pH bodem': ph,
-                  }}
-                  results={
-                    calcResult.electrodeType === 'pen'
-                      ? {
-                          'Gunstig scenario (GHG)': `${((calcResult.scenarios as { gunstig: { depth: number } }).gunstig.depth).toFixed(2)} m`,
-                          'Gemiddeld scenario': `${((calcResult.scenarios as { gemiddeld: { depth: number } }).gemiddeld.depth).toFixed(2)} m`,
-                          'Ongunstig scenario (GLG)': `${((calcResult.scenarios as { ongunstig: { depth: number } }).ongunstig.depth).toFixed(2)} m`,
-                          'Risicoklasse': calcResult.riskClass.label,
-                          'Corrosieklasse': calcResult.corrosionClass.label,
-                        }
-                      : {
-                          'Gunstig scenario (GHG)': `${((calcResult.scenarios as { gunstig: { length: number } }).gunstig.length).toFixed(1)} m`,
-                          'Gemiddeld scenario': `${((calcResult.scenarios as { gemiddeld: { length: number } }).gemiddeld.length).toFixed(1)} m`,
-                          'Ongunstig scenario (GLG)': `${((calcResult.scenarios as { ongunstig: { length: number } }).ongunstig.length).toFixed(1)} m`,
-                          'Risicoklasse': calcResult.riskClass.label,
-                          'Corrosieklasse': calcResult.corrosionClass.label,
-                        }
-                  }
-                  diepteCalcResult={{
-                    postcode: postcode || undefined,
-                    electrodeType: calcResult.electrodeType,
-                    rho: rho,
-                    groundwaterDepth,
-                    ph,
-                    targetResistance,
-                    rhoDry:      calcResult.rhoDry,
-                    rhoWet:      calcResult.rhoWet,
-                    gwGunstig:   calcResult.gwGunstig,
-                    gwGemiddeld: calcResult.gwGemiddeld,
-                    gwOngunstig: calcResult.gwOngunstig,
-                    scenarios:   calcResult.scenarios as DiepteRapportProps['scenarios'],
-                    parallelAdvice: calcResult.parallelAdvice,
-                    riskClass:      calcResult.riskClass,
-                    corrosionClass: calcResult.corrosionClass,
-                  }}
-                  calculationId={calcResult.calculationId}
-                  className="flex flex-col"
-                />
+          {/* CTAs + UUID — always visible after a successful calculation */}
+          <div className="flex flex-col gap-2">
+            {!calcResult.calculationId && (
+              <div className="rounded-lg border border-yellow-500/25 bg-yellow-500/5 px-3 py-2.5 text-xs text-yellow-300 leading-relaxed">
+                Monteur-koppeling en berekening-ID zijn niet opgeslagen.
+                {calcResult.persistWarning?.includes('schema cache')
+                  ? ' Databasekolommen ontbreken of zijn verouderd — voer supabase/ensure_calculations_canonical.sql uit en herlaad het API-schema.'
+                  : calcResult.persistWarning
+                  ? ` (${calcResult.persistWarning})`
+                  : ''}
+                {' '}U kunt het rapport wel per e-mail ontvangen.
+              </div>
+            )}
 
-                {monteurSent ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <EmailRapportButton
+                tool="diepte"
+                inputValues={{
+                  ...(postcode ? { 'Postcode': postcode } : {}),
+                  'Elektrodetype': calcResult.electrodeType === 'pen' ? 'Verticale pen / staaf' : 'Horizontaal lint',
+                  'Bodemweerstand ρ': `${rho} Ω·m`,
+                  'Grondwaterstand (GHG)': `${groundwaterDepth} m`,
+                  'pH bodem': ph,
+                }}
+                results={
+                  calcResult.electrodeType === 'pen'
+                    ? {
+                        'Gunstig scenario (GHG)': `${((calcResult.scenarios as { gunstig: { depth: number } }).gunstig.depth).toFixed(2)} m`,
+                        'Gemiddeld scenario': `${((calcResult.scenarios as { gemiddeld: { depth: number } }).gemiddeld.depth).toFixed(2)} m`,
+                        'Ongunstig scenario (GLG)': `${((calcResult.scenarios as { ongunstig: { depth: number } }).ongunstig.depth).toFixed(2)} m`,
+                        'Risicoklasse': calcResult.riskClass.label,
+                        'Corrosieklasse': calcResult.corrosionClass.label,
+                      }
+                    : {
+                        'Gunstig scenario (GHG)': `${((calcResult.scenarios as { gunstig: { length: number } }).gunstig.length).toFixed(1)} m`,
+                        'Gemiddeld scenario': `${((calcResult.scenarios as { gemiddeld: { length: number } }).gemiddeld.length).toFixed(1)} m`,
+                        'Ongunstig scenario (GLG)': `${((calcResult.scenarios as { ongunstig: { length: number } }).ongunstig.length).toFixed(1)} m`,
+                        'Risicoklasse': calcResult.riskClass.label,
+                        'Corrosieklasse': calcResult.corrosionClass.label,
+                      }
+                }
+                diepteCalcResult={{
+                  postcode: postcode || undefined,
+                  electrodeType: calcResult.electrodeType,
+                  rho: rho,
+                  groundwaterDepth,
+                  ph,
+                  targetResistance,
+                  rhoDry:      calcResult.rhoDry,
+                  rhoWet:      calcResult.rhoWet,
+                  gwGunstig:   calcResult.gwGunstig,
+                  gwGemiddeld: calcResult.gwGemiddeld,
+                  gwOngunstig: calcResult.gwOngunstig,
+                  scenarios:   calcResult.scenarios as DiepteRapportProps['scenarios'],
+                  parallelAdvice: calcResult.parallelAdvice,
+                  riskClass:      calcResult.riskClass,
+                  corrosionClass: calcResult.corrosionClass,
+                }}
+                calculationId={calcResult.calculationId}
+                className="flex flex-col"
+              />
+
+              {calcResult.calculationId ? (
+                monteurSent ? (
                   <div className="flex items-center justify-center rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3">
                     <span className="text-sm font-semibold text-green-400">✓ Uitnodiging verstuurd</span>
                   </div>
                 ) : (
                   <button
-                    onClick={() => { setShowMonteurModal(true); setMonteurError(''); setMonteurSent(false); }}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-[#E8761A]/30 bg-[#E8761A]/10 px-4 py-3 text-sm font-semibold text-[#E8761A] hover:bg-[#E8761A]/20 transition-colors"
+                    onClick={openMonteurModal}
+                    className="flex items-center justify-center gap-2 rounded-md border border-brand/30 bg-brand-muted px-4 py-3 text-sm font-semibold text-brand hover:bg-brand/20 transition-colors"
                   >
-                    ✉ Mail monteur
+                    <IconMail className="h-4 w-4" />
+                    Uitnodigen installateur
                   </button>
-                )}
-              </div>
+                )
+              ) : (
+                <div
+                  className="flex items-center justify-center rounded-xl border border-white/8 bg-white/3 px-4 py-3 text-sm text-white/40"
+                  title="Berekening niet opgeslagen — veldmeting niet beschikbaar"
+                >
+                  ✉ Uitnodigen installateur (niet beschikbaar)
+                </div>
+              )}
+            </div>
 
-              {/* UUID — copyable chip */}
+            {calcResult.calculationId && (
               <div className="flex items-center justify-between rounded-xl border border-white/8 bg-white/3 px-3 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-widest text-white/30">Berekening ID</p>
+                  <p className="text-[10px] font-medium text-white/35">Berekening ID</p>
                   <p className="truncate font-mono text-xs text-white/40">{calcResult.calculationId}</p>
                 </div>
                 <button
@@ -1311,8 +1634,8 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                   {uuidCopied ? '✓ Gekopieerd' : 'Kopieer'}
                 </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Monteur invite modal */}
           {showMonteurModal && (
@@ -1321,18 +1644,69 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
                 <h2 className="mb-1 text-base font-bold text-white">Monteur uitnodigen</h2>
                 <p className="mb-4 text-xs text-white/60 leading-relaxed">
-                  De monteur ontvangt een e-mail met de verwachte meetwaarden en een directe inloglink naar het meetformulier.
+                  Kies een opgeslagen collega of voer een e-mailadres in. Per berekening gaat één uitnodiging naar één installateur.
                 </p>
-                <label className="mb-1 block text-xs text-white/70">E-mailadres monteur</label>
+
+                {colleaguesLoading ? (
+                  <p className="mb-3 text-xs text-white/40">Collega&apos;s laden…</p>
+                ) : colleagues.length > 0 ? (
+                  <div className="mb-3">
+                    <label className="mb-1 block text-xs text-white/70">Kies collega</label>
+                    <select
+                      value={selectedColleagueId}
+                      onChange={e => selectColleague(e.target.value)}
+                      className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-brand/50 focus:outline-none"
+                    >
+                      <option value="">— Handmatig e-mailadres —</option>
+                      {colleagues.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {colleagueDisplayLabel(c)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <p className="mb-3 text-xs text-white/45">
+                    Voeg vaste contactpersonen toe via Dashboard → Mijn collega&apos;s.
+                  </p>
+                )}
+
+                <label className="mb-1 block text-xs text-white/70">E-mailadres installateur</label>
                 <input
                   type="email"
                   value={monteurEmail}
-                  onChange={e => setMonteurEmail(e.target.value)}
+                  onChange={e => {
+                    setMonteurEmail(e.target.value);
+                    setSelectedColleagueId('');
+                  }}
                   placeholder="monteur@bedrijf.nl"
-                  className="mb-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                  className="mb-3 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-brand/50 focus:outline-none"
                   onKeyDown={e => e.key === 'Enter' && handleSendMonteur()}
-                  autoFocus
+                  autoFocus={colleagues.length === 0}
                 />
+
+                {!selectedColleagueId && monteurEmail.includes('@') && (
+                  <label className="mb-3 flex cursor-pointer items-start gap-2 rounded-md border border-white/8 bg-white/3 px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={saveAsColleague}
+                      onChange={e => setSaveAsColleague(e.target.checked)}
+                      className="mt-0.5 accent-brand"
+                    />
+                    <span className="text-xs text-white/65">
+                      <span className="font-medium text-white/85">Onthouden als collega</span>
+                      {saveAsColleague && (
+                        <input
+                          type="text"
+                          value={colleagueNameDraft}
+                          onChange={e => setColleagueNameDraft(e.target.value)}
+                          placeholder="Naam (optioneel)"
+                          className="mt-2 block w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white placeholder-white/25 focus:border-brand/50 focus:outline-none"
+                        />
+                      )}
+                    </span>
+                  </label>
+                )}
                 {monteurError && <p className="mb-2 text-xs text-red-400">{monteurError}</p>}
                 <div className="flex gap-2">
                   <button

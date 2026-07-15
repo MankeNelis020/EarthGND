@@ -15,6 +15,8 @@ import type { ValidatedDiepteInput } from './parse';
 import type { UncertaintyBand, ConfidenceLevel } from './types';
 import { UNCERTAINTY_FACTORS } from './config';
 import { resolveRhoWet } from './rho-priors';
+import { calcDiepteWithNlLayered, resolveDominantLithoClass, sanitizePipelineRho } from './effective-rho';
+import { mmToRodDiameterM } from '@/lib/electrode-diameter';
 
 function primaryDim(s: { depth?: number; length?: number }): number {
   return s.depth ?? s.length ?? 0;
@@ -28,45 +30,57 @@ export function computeUncertaintyBand(
   const { factorLow, factorHigh } = factors;
 
   const { rho, targetResistance, groundwaterDepth, electrodeType,
-          lintBurialDepth, lintConductorDiameter } = input;
+          lintBurialDepth, lintConductorDiameter, electrodeDiameterMm } = input;
+
+  const rodDiameterM = electrodeType === 'pen' ? mmToRodDiameterM(electrodeDiameterMm) : undefined;
 
   const gwMid = groundwaterDepth + 1.5; // gemiddeld scenario GWT
 
-  // Resolve base rhoWet once (same NL priors as kernel-adapter) then scale proportionally.
-  const rhoWetBase = resolveRhoWet(input.lithoClass, rho);
+  const dominantLitho = resolveDominantLithoClass(input.soilSamples, input.lithoClass);
+  const rhoBase = sanitizePipelineRho(rho, dominantLitho ?? input.lithoClass);
+  const rhoWetBase = resolveRhoWet(dominantLitho ?? input.lithoClass, rhoBase);
 
   function runWithRho(rhoFactor: number): number {
-    const rhoScaled    = rho * rhoFactor;
+    const rhoScaled    = rhoBase * rhoFactor;
     const rhoWetScaled = rhoWetBase * rhoFactor;
 
     if (electrodeType === 'lint') {
       const burial      = lintBurialDepth;
       const rhoDryScaled = input.rhoDryOverride != null
         ? input.rhoDryOverride * rhoFactor
-        : input.lithoClass
-          ? lithoClassToRhoDry(input.lithoClass) * rhoFactor
+        : (dominantLitho ?? input.lithoClass)
+          ? lithoClassToRhoDry((dominantLitho ?? input.lithoClass)!) * rhoFactor
           : Math.round(rhoScaled * 2.2);
       const rhoEff = burial < gwMid ? rhoWetScaled : rhoDryScaled;
       const result = calcLint({ rho: rhoEff, targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter });
       return primaryDim(result);
     }
 
+    if (input.soilSamples && input.soilSamples.length > 0) {
+      const result = calcDiepteWithNlLayered({
+        targetResistance,
+        rodDiameter: rodDiameterM,
+        gwDepth: gwMid,
+        soilSamples: input.soilSamples,
+        rhoScale: rhoFactor,
+      });
+      return primaryDim(result);
+    }
+
     // Pen: scale both dry and wet layers proportionally.
     const rhoDryScaled = input.rhoDryOverride != null
       ? input.rhoDryOverride * rhoFactor
-      : input.lithoClass
-        ? lithoClassToRhoDry(input.lithoClass) * rhoFactor
+      : (dominantLitho ?? input.lithoClass)
+        ? lithoClassToRhoDry((dominantLitho ?? input.lithoClass)!) * rhoFactor
         : Math.round(rhoScaled * 2.2);
-    // rhoWetScaled computed in outer scope via resolveRhoWet (NL empirische priors)
 
     const result = calcDiepte({
       rho: rhoScaled,
       targetResistance,
+      rodDiameter: rodDiameterM,
       gwDepth: gwMid,
       rhoDry: rhoDryScaled,
       rhoWet: rhoWetScaled,
-      soilSamples: input.soilSamples,
-      rhoScale: rhoFactor,
     });
     return primaryDim(result);
   }

@@ -5,20 +5,16 @@
  * from lib/calculations.ts. The kernel is a pure function and receives ONLY a
  * ValidatedDiepteInput — no UI, credit, fallback, or confidence logic.
  *
- * This file is the single place that knows how to translate ValidatedDiepteInput
- * into kernel calls. The kernel itself is never modified.
- *
- * Driveability integration (2026-06):
- *   After computing z_req (Dwight solver), the adapter checks z_max for the chosen
- *   drijfmethode. If z_max.typical < z_req, rods are capped at z_max.typical and
- *   n parallel rods are computed to still reach targetResistance.
- *   parallelAdvice.reason distinguishes 'driveability' from 'resistance' triggers.
+ * Parallel-rod policy (see parallel-policy.ts):
+ *   - Default recommendation: 1 pen at Dwight depth (scenarios.gemiddeld).
+ *   - parallelAdvice: ONLY when driveability caps depth AND n>1 rods are required.
+ *   - parallelOption: ONLY when parallelRequested=true (user opt-in exploration).
+ *   Never auto-suggest parallel based on depth alone.
  */
 
 import {
   calcDiepte,
   calcLint,
-  calcParallelRa,
   calcCorrosionClass,
   calcDiepteRiskClass,
   lithoClassToRhoDry,
@@ -31,19 +27,24 @@ import {
 import type { ValidatedDiepteInput } from './parse';
 import { calcZMax, type DriveMethod, type ZMaxBand, type RefusalLayer } from './driveability';
 import { resolveRhoWet } from './rho-priors';
+import {
+  calcDiepteWithNlLayered,
+  effectiveRhoAtDepth,
+  resolveDominantLithoClass,
+  sanitizePipelineRho,
+  type RhoModel,
+} from './effective-rho';
+import {
+  computeParallelLayout,
+  type ParallelLayout,
+} from './parallel-policy';
+import { mmToRodDiameterM } from '@/lib/electrode-diameter';
 
-const ROD_DIAMETER = 0.014;
-
-export interface ParallelAdvice {
-  aantalPennen:     number;
-  minAfstand:       number;
-  rParallel:        number;
-  rSingle:          number;
-  reason:           'resistance' | 'driveability';
+/** @deprecated Use ParallelLayout from parallel-policy.ts — kept for API compat. */
+export type ParallelAdvice = ParallelLayout & {
   zMax?:            ZMaxBand;
   refusalLayer?:    RefusalLayer | null;
-  targetUnreachable?: boolean;
-}
+};
 
 export interface KernelResult {
   scenarios: {
@@ -51,19 +52,23 @@ export interface KernelResult {
     gemiddeld: DiepteResult | LintResult;
     ongunstig: DiepteResult | LintResult;
   };
-  electrodeType:        'pen' | 'lint';
-  rhoDry:               number;
-  rhoWet:               number;
-  // Effective ρ at the gemiddeld-scenario electrode depth — what the electrode "feels".
-  // Used as input to riskClass (not the raw user-supplied rho).
-  effectiveRho:         number;
-  dominantLithoClass:   number | null;
-  gwGunstig:            number;
-  gwGemiddeld:          number;
-  gwOngunstig:          number;
-  riskClass:            RiskClassResult;
-  corrosionClass:       CorrosionClass;
-  parallelAdvice:       ParallelAdvice | null;
+  electrodeType:  'pen' | 'lint';
+  rhoDry:         number;
+  rhoWet:         number;
+  gwGunstig:      number;
+  gwGemiddeld:    number;
+  gwOngunstig:    number;
+  riskClass:      RiskClassResult;
+  corrosionClass: CorrosionClass;
+  /** Verplicht parallel-advies (indrijfbaarheid, n>1). Null = één pen volstaat. */
+  parallelAdvice: ParallelAdvice | null;
+  /** Optioneel: gebruiker vroeg parallelschakeling op Dwight-diepte. */
+  parallelOption: ParallelLayout | null;
+  /** Diameter used in kernel (m). */
+  rodDiameterM: number;
+  effectiveRho?:       number;
+  dominantLithoClass?: number;
+  rhoModel?:           RhoModel;
   driveability?: {
     method:           DriveMethod;
     zMax:             ZMaxBand;
@@ -73,57 +78,38 @@ export interface KernelResult {
   };
 }
 
-/** Iteratively find the minimum number of parallel rods at z_max that achieve targetR. */
-function solveNRods(
-  rhoEff:      number,
-  zMax:        number,
-  target:      number,
-  diameter:    number,
-  rhoDry:      number,
-  rhoWet:      number,
-  gwGemiddeld: number,
-): { n: number; rParallel: number; rSingle: number; targetUnreachable: boolean } {
-  // If 1 rod at Dwight-optimal depth (using two-layer ρ at gwGemiddeld) fits within zMax, use it.
-  const single = calcDiepte({ rho: rhoEff, targetResistance: target, gwDepth: gwGemiddeld, rhoDry, rhoWet });
-  if (single.depth <= zMax && single.achievedResistance <= target) {
-    return { n: 1, rParallel: single.achievedResistance, rSingle: single.achievedResistance, targetUnreachable: false };
-  }
-
-  // Optimal depth exceeds zMax — compute resistance of 1 rod at exactly zMax.
-  const rSingle = calcParallelRa(rhoEff, zMax, diameter, 1).rParallel;
-  if (rSingle <= target) return { n: 1, rParallel: rSingle, rSingle, targetUnreachable: false };
-
-  for (let n = 2; n <= 6; n++) {
-    const pa = calcParallelRa(rhoEff, zMax, diameter, n);
-    if (pa.rParallel <= target) {
-      return { n, rParallel: pa.rParallel, rSingle, targetUnreachable: false };
-    }
-    if (n === 6) {
-      return { n: 6, rParallel: pa.rParallel, rSingle, targetUnreachable: true };
-    }
-  }
-  return { n: 1, rParallel: rSingle, rSingle, targetUnreachable: true };
+function rhoEffTwoLayer(
+  rhoDry: number,
+  rhoWet: number,
+  gw: number,
+  depth: number,
+): number {
+  return calcRhoEffective(rhoDry, rhoWet, gw, depth);
 }
 
 export function runKernel(input: ValidatedDiepteInput): KernelResult {
   const { rho, targetResistance, groundwaterDepth, ph, electrodeType,
           lintBurialDepth, lintConductorDiameter,
           lithoClass, rhoDryOverride,
-          drijfmethode, soilSamples } = input;
+          drijfmethode, soilSamples, parallelRequested, electrodeDiameterMm } = input;
 
-  // ─── Layered/two-layer ρ ──────────────────────────────────────────────────
-  const rhoDry = rhoDryOverride ?? (lithoClass ? lithoClassToRhoDry(lithoClass) : Math.round(rho * 2.2));
-  // rhoWetOverride is set by the empirical-prior stage (L2/L3 posterior).
-  // Falls back to static NL_RHO_WET_PRIOR via resolveRhoWet when absent.
-  const rhoWet = input.rhoWetOverride ?? resolveRhoWet(lithoClass, rho);
+  const rodDiameterM = electrodeType === 'pen'
+    ? mmToRodDiameterM(electrodeDiameterMm)
+    : mmToRodDiameterM(14);
+
+  const dominantLitho = resolveDominantLithoClass(soilSamples, lithoClass);
+  const lithoForModel = dominantLitho ?? lithoClass;
+  const rhoSanitized = sanitizePipelineRho(rho, lithoForModel);
   const layeredSamples = soilSamples && soilSamples.length > 0 ? soilSamples : undefined;
+  const rhoModel: RhoModel = layeredSamples ? 'layered-nl' : lithoForModel ? 'two-layer' : 'single';
 
-  // ─── Seasonal GWT offsets ─────────────────────────────────────────────────
+  const rhoDry = rhoDryOverride ?? (lithoForModel ? lithoClassToRhoDry(lithoForModel) : Math.round(rhoSanitized * 2.2));
+  const rhoWet = input.rhoWetOverride ?? resolveRhoWet(lithoForModel, rhoSanitized);
+
   const gwGunstig   = groundwaterDepth;
   const gwGemiddeld = groundwaterDepth + 1.5;
   const gwOngunstig = groundwaterDepth + 3.0;
 
-  // ─── Scenarios (uncapped — based purely on Dwight) ────────────────────────
   let scenarios: KernelResult['scenarios'];
 
   if (electrodeType === 'lint') {
@@ -133,84 +119,103 @@ export function runKernel(input: ValidatedDiepteInput): KernelResult {
       gemiddeld: calcLint({ rho: burial < gwGemiddeld ? rhoWet : rhoDry, targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter }),
       ongunstig: calcLint({ rho: burial < gwOngunstig ? rhoWet : rhoDry, targetResistance, burialDepth: lintBurialDepth, conductorDiameter: lintConductorDiameter }),
     };
+  } else if (layeredSamples) {
+    scenarios = {
+      gunstig:   calcDiepteWithNlLayered({ targetResistance, rodDiameter: rodDiameterM, gwDepth: gwGunstig,   soilSamples: layeredSamples }),
+      gemiddeld: calcDiepteWithNlLayered({ targetResistance, rodDiameter: rodDiameterM, gwDepth: gwGemiddeld, soilSamples: layeredSamples }),
+      ongunstig: calcDiepteWithNlLayered({ targetResistance, rodDiameter: rodDiameterM, gwDepth: gwOngunstig, soilSamples: layeredSamples }),
+    };
   } else {
     scenarios = {
-      gunstig:   calcDiepte({ rho, targetResistance, gwDepth: gwGunstig,   rhoDry, rhoWet, soilSamples: layeredSamples }),
-      gemiddeld: calcDiepte({ rho, targetResistance, gwDepth: gwGemiddeld, rhoDry, rhoWet, soilSamples: layeredSamples }),
-      ongunstig: calcDiepte({ rho, targetResistance, gwDepth: gwOngunstig, rhoDry, rhoWet, soilSamples: layeredSamples }),
+      gunstig:   calcDiepte({ rho: rhoSanitized, targetResistance, rodDiameter: rodDiameterM, gwDepth: gwGunstig,   rhoDry, rhoWet }),
+      gemiddeld: calcDiepte({ rho: rhoSanitized, targetResistance, rodDiameter: rodDiameterM, gwDepth: gwGemiddeld, rhoDry, rhoWet }),
+      ongunstig: calcDiepte({ rho: rhoSanitized, targetResistance, rodDiameter: rodDiameterM, gwDepth: gwOngunstig, rhoDry, rhoWet }),
     };
   }
 
   const gemiddeld  = scenarios.gemiddeld as { depth?: number; length?: number; achievedResistance: number };
   const primaryDim = gemiddeld.depth ?? gemiddeld.length ?? 0;
 
-  // ─── Driveability check (pen only, when method is known) ─────────────────
   let parallelAdvice: ParallelAdvice | null = null;
+  let parallelOption: ParallelLayout | null = null;
   let driveabilityInfo: KernelResult['driveability'] = undefined;
 
   if (electrodeType === 'pen' && drijfmethode) {
     const samples = (soilSamples && soilSamples.length > 0)
       ? soilSamples
-      : (lithoClass ? [{ depth: primaryDim * 0.5, lithoClass }] : []);
+      : (lithoForModel ? [{ depth: primaryDim * 0.5, lithoClass: lithoForModel }] : []);
 
-    const drive = calcZMax(samples, drijfmethode, primaryDim);
-    driveabilityInfo = { method: drijfmethode, zMax: drive.zMax, refusalLayer: drive.refusalLayer, isLimited: drive.isLimited, requiresParallel: drive.requiresParallel };
+    const drive = calcZMax(samples, drijfmethode, primaryDim, rodDiameterM);
+    driveabilityInfo = {
+      method: drijfmethode,
+      zMax: drive.zMax,
+      refusalLayer: drive.refusalLayer,
+      isLimited: drive.isLimited,
+      requiresParallel: drive.requiresParallel,
+    };
 
     if (drive.requiresParallel) {
-      // Only cap and go parallel when even zMax.high is insufficient.
-      // When isLimited but !requiresParallel, pushing deeper (typical→high) suffices.
-      const zCapped  = drive.zMax.typical;
-      const rhoEff   = calcRhoEffective(rhoDry, rhoWet, gwGemiddeld, zCapped);
-      const solved   = solveNRods(rhoEff, zCapped, targetResistance, ROD_DIAMETER, rhoDry, rhoWet, gwGemiddeld);
-      const pa       = calcParallelRa(rhoEff, zCapped, ROD_DIAMETER, solved.n);
+      const zCapped = drive.zMax.typical;
+      const rhoEff  = rhoEffTwoLayer(rhoDry, rhoWet, gwGemiddeld, zCapped);
+      const layout  = computeParallelLayout(rhoEff, zCapped, targetResistance, rodDiameterM, 'driveability');
 
-      parallelAdvice = {
-        aantalPennen:     solved.n,
-        minAfstand:       pa.spacingMin,
-        rParallel:        Math.round(pa.rParallel * 100) / 100,
-        rSingle:          Math.round(solved.rSingle * 100) / 100,
-        reason:           'driveability',
-        zMax:             drive.zMax,
-        refusalLayer:     drive.refusalLayer,
-        targetUnreachable: solved.targetUnreachable,
-      };
+      if (layout && layout.aantalPennen > 1) {
+        parallelAdvice = {
+          ...layout,
+          zMax: drive.zMax,
+          refusalLayer: drive.refusalLayer,
+        };
+      }
     }
   }
 
-  // ─── Resistance-based parallel advice (fallback when no driveability method,
-  //     or as secondary check when driveability didn't trigger) ──────────────
-  if (!parallelAdvice && electrodeType === 'pen' && primaryDim > 12) {
-    const n      = primaryDim > 20 ? 3 : 2;
-    const rhoEff = calcRhoEffective(rhoDry, rhoWet, gwGemiddeld, primaryDim);
-    const pa     = calcParallelRa(rhoEff, primaryDim, ROD_DIAMETER, n);
-    parallelAdvice = {
-      aantalPennen: n,
-      minAfstand:   pa.spacingMin,
-      rParallel:    Math.round(pa.rParallel * 100) / 100,
-      rSingle:      Math.round(pa.rSingle   * 100) / 100,
-      reason:       'resistance',
-    };
+  if (parallelRequested && electrodeType === 'pen' && primaryDim > 0) {
+    const rhoEffDwight = effectiveRhoAtDepth({
+      soilSamples: layeredSamples,
+      gwDepth: gwGemiddeld,
+      rodLength: primaryDim,
+      lithoClass: lithoForModel,
+      rhoDry,
+      rhoWet,
+      rhoFallback: rhoSanitized,
+    });
+    parallelOption = computeParallelLayout(
+      rhoEffDwight,
+      primaryDim,
+      targetResistance,
+      rodDiameterM,
+      'requested',
+    );
   }
 
-  // ─── Effective ρ at gemiddeld scenario depth ─────────────────────────────
-  // This is the ρ the electrode actually experiences (weighted dry/wet ratio).
-  // Used for riskClass and UI display — NOT the raw user-supplied rho.
-  const effectiveRho = calcRhoEffective(rhoDry, rhoWet, gwGemiddeld, primaryDim);
-
-  // Dominant lithoClass: deepest sample (most relevant for the electrode base),
-  // falling back to input lithoClass or null if no soil data is available.
-  const dominantLithoClass: number | null =
-    soilSamples && soilSamples.length > 0
-      ? soilSamples[soilSamples.length - 1].lithoClass
-      : lithoClass ?? null;
-
-  // ─── Risk class — uses effectiveRho (not raw rho) and driveability depth ─
-  const effectiveDepth = (parallelAdvice?.reason === 'driveability')
-    ? (parallelAdvice.zMax?.typical ?? primaryDim)
+  const driveCapped = driveabilityInfo?.requiresParallel === true;
+  const recommendedDepth = driveCapped
+    ? (parallelAdvice?.zMax?.typical ?? driveabilityInfo!.zMax.typical)
     : primaryDim;
-  const riskClass = calcDiepteRiskClass({ rho: effectiveRho, groundwaterDepth, ph, depth: effectiveDepth });
+
+  const effectiveRho = effectiveRhoAtDepth({
+    soilSamples: layeredSamples,
+    gwDepth: gwGemiddeld,
+    rodLength: recommendedDepth,
+    lithoClass: lithoForModel,
+    rhoDry,
+    rhoWet,
+    rhoFallback: rhoSanitized,
+  });
+
+  const riskClass = calcDiepteRiskClass({
+    rho: effectiveRho,
+    groundwaterDepth,
+    ph,
+    depth: recommendedDepth,
+  });
 
   const corrosionClass = calcCorrosionClass(ph);
 
-  return { scenarios, electrodeType, rhoDry, rhoWet, effectiveRho, dominantLithoClass, gwGunstig, gwGemiddeld, gwOngunstig, riskClass, corrosionClass, parallelAdvice, driveability: driveabilityInfo };
+  return {
+    scenarios, electrodeType, rhoDry, rhoWet, gwGunstig, gwGemiddeld, gwOngunstig,
+    riskClass, corrosionClass, parallelAdvice, parallelOption, driveability: driveabilityInfo,
+    rodDiameterM,
+    effectiveRho, dominantLithoClass: lithoForModel, rhoModel,
+  };
 }

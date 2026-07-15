@@ -1,5 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { PLANS, LOSSE_CREDITS } from '@/lib/plans';
+import { formatPriceCompact } from '@/lib/pricing';
 
 function Check() {
   return (
@@ -14,12 +16,14 @@ type Props = { params: Promise<{ locale: string }> };
 export default async function HomePage({ params }: Props) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'home' });
+  const starterPrice = formatPriceCompact(PLANS.starter.prijs, locale);
+  const singlePrice  = formatPriceCompact(LOSSE_CREDITS.single.prijs, locale);
 
   const featuresFree = [t('featuresFree.f1'), t('featuresFree.f2'), t('featuresFree.f3'), t('featuresFree.f4')];
   const featuresPaid = [t('featuresPaid.f1'), t('featuresPaid.f2'), t('featuresPaid.f3'), t('featuresPaid.f4'), t('featuresPaid.f5')];
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
+    <div className="min-h-screen bg-canvas">
       <section className="relative overflow-hidden px-4 pb-24 pt-20">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(232,118,26,0.12),transparent)]" />
         <div className="relative mx-auto max-w-4xl text-center">
@@ -67,9 +71,9 @@ export default async function HomePage({ params }: Props) {
           <div className="flex flex-col rounded-2xl border border-[#E8761A]/25 bg-gradient-to-b from-[#E8761A]/8 to-[#111] p-7">
             <div className="mb-5 flex items-center justify-between">
               <span className="rounded-full border border-[#E8761A]/30 bg-[#E8761A]/10 px-2.5 py-1 text-xs font-semibold text-[#E8761A]">
-                {t('card2Label')}
+                {t('card2Label', { price: starterPrice })}
               </span>
-              <span className="text-xs text-white/30">{t('card2PriceNote')}</span>
+              <span className="text-xs text-white/30">{t('card2PriceNote', { price: singlePrice })}</span>
             </div>
             <h2 className="font-condensed mb-2 text-2xl font-black text-white">{t('card2Title')}</h2>
             <p className="mb-6 text-sm leading-relaxed text-white/55">{t('card2Desc')}</p>

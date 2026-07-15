@@ -59,9 +59,25 @@ waarde voor 300 mA bij 50 V — niet een zelfstandige NEN-norm.
   "ph": 7.0,
   "electrodeType": "pen",
   "lithoClass": 3,
-  "drijfmethode": null
+  "drijfmethode": null,
+  "electrodeDiameterMm": 14
 }
 ```
+
+**Elektrodediameter (`electrodeDiameterMm`):**
+- Eenheid: millimeter (mm). Default **14** (= gangbare ⌀ 5/8" grondpen).
+- Alleen de **geslagen elektrode** telt — niet de aansluitdraad naar boven.
+- Gebruikt in Dwight (`ln(4L/d)`) én indrijfmodel (`calcZMax`). Materiaal (Cu vs. staal) zit **niet** in de weerstandsformules.
+- Presets: 14, 16, 19, 5.6 (Cu 25 mm²), 6.7 (Cu 35 mm²), 8.0 (Cu 50 mm²), of custom 4–50 mm.
+- Bij afwezigheid in legacy data: behandel als 14 mm (backwards compatible).
+
+**Veldmeting `pendiepte_metingen`:**
+| Kolom | Type | Waarden |
+|-------|------|---------|
+| `elektrode_diameter_mm` | numeric | default 14 |
+| `stopreden` | text | `doel_bereikt` \| `vastgelopen` \| `materiaal_op` \| `onbekend` |
+
+Stopreden scheidt bodemgedrag ("doel bereikt") van materieel-limiet ("vastgelopen" / "materiaal op") voor ρ-inversie en `calcZMax`-kalibratie.
 
 **Veld-structuur `result` (diepte-tool):**
 ```json
@@ -83,9 +99,26 @@ uit vóór gebruik van `getScanContext()`.
 - De `calculations`-tabel bevat ook rijen van de ohm-tool (via `/api/pdf/route.ts`);
   `result.dimension` bestaat daar niet — `getScanContext()` geeft voor die rijen `undefined`
   terug voor `voorspeld_diepte_m`.
-- `risicoklasse` wordt nog niet geschreven door `/api/diepte/calculate/route.ts` — de
-  risicoklasse zit in `result.riskClass` (binnen de API-response) maar wordt niet gepersisteerd.
-  Dit is een bekende gap; `getScanContext()` geeft `undefined` terug voor `risicoklasse`.
+- `risicoklasse` wordt geschreven door `/api/diepte/calculate/route.ts` als `kernelResult.riskClass.riskClass` (`'I'`–`'IV'`). `getScanContext()` leest deze kolom voor rapport-voorvulling.
+
+---
+
+## D. Parallelschakeling-beleid
+
+**Canonieke bron:** `lib/pipeline/parallel-policy.ts` + `runKernel()` in `kernel-adapter.ts`.
+
+**Standaard aanbeveling:** één pen op Dwight-diepte (`scenarios.gemiddeld.depth`).
+
+| Output | Wanneer |
+|--------|---------|
+| `parallelAdvice` | Alleen bij `driveability.requiresParallel` **én** `aantalPennen > 1` na cap op `z_max.typical` |
+| `parallelOption` | Alleen wanneer client `parallelRequested: true` stuurt (UI-checkbox) |
+| `result.aantalPennen` | Alleen `> 1` bij verplicht `parallelAdvice` (monteur/DB) |
+
+**Niet doen:** parallelschakeling auto-adviseren op basis van diepte alleen (verwijderde `primaryDim > 12` heuristiek).
+
+**Onbevestigde aannames:**
+- Optionele parallel-berekening gebruikt Dwight-diepte, niet de indrijf-cap — monteur beslist of die diepte haalbaar is.
 
 ---
 
@@ -96,16 +129,17 @@ uit vóór gebruik van `getScanContext()`.
 | Naam | Waarde | Bron | Wanneer |
 |------|--------|------|---------|
 | `LITHO_CLASS_TO_RHO[5]` (GENERAL) | 2000 Ω·m | kernel enkelvoudig (bevroren) | legacy enkelvoudig pad, BRO `dominantRho` display — **niet** actieve productie-ρ |
-| `LITHO_CLASS_TO_RHO_WET[5]` | 20 Ω·m | kernel WET-tabel (bevroren) | gelaagd model (`calcLayeredRhoEffective`, soilSamples aanwezig) |
-| `resolveRhoWet(5, …)` | 10 Ω·m | `NL_RHO_WET_PRIOR[5]` | twee-laag pipeline zonder soilSamples (huidige productiewaarheid) |
+| `LITHO_CLASS_TO_RHO_WET[5]` | 20 Ω·m | kernel WET-tabel (bevroren) | kernel `calcLayeredRhoEffective` — **niet** het actieve productiepad |
+| `resolveRhoWet(5, …)` | 10 Ω·m | `NL_RHO_WET_PRIOR[5]` | twee-laag én **gelaagd NL-adapterpad** (`calcLayeredRhoEffectiveNl`) |
 | `NL_RHO_WET_PRIOR[5]` | 10 Ω·m | NL veldkalibratie 2026-06 | zelfde als resolveRhoWet; L2/L3 pas actief met `SOIL_KNOWLEDGE_ACTIVE=true` |
 
 **Geldende prioriteit** (fijnste niveau wint bij gelaagd model):
 
 ```
 soilSamples (BRO CPT/boring aanwezig)
-  → calcLayeredRhoEffective() gebruikt BRO-lithologie per laag
-  → rhoWet per laag = LITHO_CLASS_TO_RHO_WET[klasse]   ← kernel-tabel (20 voor veen)
+  → adapter calcLayeredRhoEffectiveNl() + calcDiepteWithNlLayered()
+  → rhoWet per laag = resolveRhoWet(klasse) = NL_RHO_WET_PRIOR (10 voor veen)
+  → kernel calcLayeredRhoEffective() blijft ongewijzigd (20 voor veen) — alleen tests/legacy
 
 Geen soilSamples, wel gwDepth/rhoDry/rhoWet opgegeven
   → calcRhoEffective() gebruikt twee-laag harmonisch gemiddelde
@@ -124,11 +158,11 @@ Geen gwDepth → enkelvoudig model
 - golden-set §8 (resolveRhoWet(5,...)) pinned = **10** — NL prior heeft prioriteit
 
 **`dominantRho`-veld:**
-`dominantRho` is een kernel-outputveld dat de meest dominante effectieve ρ toont (enkelvoudig of gewogen over het profiel). Het is een presentatieveld — niet de ρ die de berekening aanstuurt. De UI mag `dominantRho` tonen als indicatie, maar nooit als de gezaghebbende ρ gebruiken voor risicoklasse-bepaling.
+`dominantRho` is een BRO-presentatieveld (GENERAL-tabel, veen=2000). De pipeline gebruikt `buildSoilRhoPreview()` / `sanitizePipelineRho()` om effectieve ρ en `pipelineRho` af te leiden. UI en risicoklasse mogen `dominantRho` tonen als bronindicatie, maar nooit als gezaghebbende ρ.
 
 **Onbevestigde aannames:**
 - De grens tussen gelaagd model en twee-laag model hangt af van of `soilSamples` aanwezig is.
   Als BRO geen CPT/boring vindt, valt de pipeline terug op het twee-laag model — dit kan een
   stap in de gelaagde ρ veroorzaken als de gebruiker handmatig een hogere ρ invoert dan de prior.
 - `SOIL_KNOWLEDGE_ACTIVE` is bewust uitgeschakeld totdat out-of-sample validatie is gedaan
-  (zie Poort 3 in het gefaseerde plan).
+  (zie Poort 3 in `docs/phased-gates.md`).

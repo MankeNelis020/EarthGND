@@ -7,6 +7,7 @@ import {
 } from '../lib/calculations';
 import { runKernel } from '../lib/pipeline/kernel-adapter';
 import { resolveRhoWet } from '../lib/pipeline/rho-priors';
+import { calcLayeredRhoEffectiveNl } from '../lib/pipeline/effective-rho';
 
 function approx(actual: number, expected: number, tolerance: number, label: string) {
   assert.ok(
@@ -31,6 +32,7 @@ const broPeat = runKernel({
   lithoClass: 5,
   hasBroProfile: true,
   dataSource: 'bhrgt',
+  electrodeDiameterMm: 14,
 });
 
 // Without soilSamples, resolveRhoWet(5) uses NL_RHO_WET_PRIOR[5] = 10 (not kernel table 20)
@@ -55,6 +57,19 @@ const layeredRho = calcLayeredRhoEffective(
 
 assert.ok(layeredRho > 20 && layeredRho < 300, `Layered rho should reflect both sand and peat, got ${layeredRho}`);
 
+const layeredRhoNl = calcLayeredRhoEffectiveNl(
+  [
+    { depth: 1, lithoClass: 3 },
+    { depth: 3, lithoClass: 5 },
+  ],
+  1,
+  4,
+);
+assert.ok(
+  layeredRhoNl < layeredRho,
+  `NL adapter wet prior (10) should yield lower effective rho than kernel-WET (20), got NL=${layeredRhoNl} kernel=${layeredRho}`,
+);
+
 const sandOnly = calcDiepte({
   rho: 125,
   targetResistance: 10,
@@ -76,5 +91,63 @@ assert.ok(
   `Wet peat layer should reduce required depth versus sand-only profile (${sandOverPeat.depth} >= ${sandOnly.depth})`,
 );
 approx(sandOverPeat.achievedResistance, 10, 1, 'Layered profile achieved resistance');
+
+const layeredPeat = runKernel({
+  rho: 125,
+  targetResistance: 10,
+  groundwaterDepth: 1,
+  ph: 6.5,
+  electrodeType: 'pen',
+  lintBurialDepth: 0.8,
+  lintConductorDiameter: 0.01,
+  lithoClass: 3,
+  hasBroProfile: true,
+  dataSource: 'bhrgt',
+  soilSamples: [
+    { depth: 1, lithoClass: 3 },
+    { depth: 3, lithoClass: 5 },
+  ],
+  electrodeDiameterMm: 14,
+});
+assert.equal(layeredPeat.rhoModel, 'layered-nl', 'soilSamples → NL layered adapter path');
+assert.ok(
+  layeredPeat.effectiveRho != null && layeredPeat.effectiveRho < layeredRho,
+  `adapter effectiveRho (${layeredPeat.effectiveRho}) should beat kernel-WET layered (${layeredRho})`,
+);
+assert.ok(
+  (layeredPeat.scenarios.gemiddeld as { depth: number }).depth < sandOverPeat.depth,
+  'NL layered adapter should require less depth than kernel calcDiepte with same soilSamples',
+);
+
+// Parallel policy — no auto-advice on depth alone (Orkaden-class: deep single pen, SDS, full BRO)
+const orkadenSamples = Array.from({ length: 20 }, (_, i) => ({ depth: i + 1, lithoClass: 3 }));
+const orkadenInput = {
+  rho: 74,
+  targetResistance: 2,
+  groundwaterDepth: 1.86,
+  ph: 6.5,
+  electrodeType: 'pen' as const,
+  lintBurialDepth: 0.8,
+  lintConductorDiameter: 0.01,
+  lithoClass: 3,
+  hasBroProfile: true,
+  drijfmethode: 'sds' as const,
+  soilSamples: orkadenSamples,
+  dataSource: 'cpt' as const,
+  electrodeDiameterMm: 14,
+};
+const orkaden = runKernel(orkadenInput);
+assert.equal(orkaden.parallelAdvice, null, 'Full BRO + achievable SDS depth → no mandatory parallel');
+assert.ok(
+  (orkaden.scenarios.gemiddeld as { depth: number }).depth >= 30,
+  'Deep target R should still yield Dwight depth without parallel',
+);
+const orkadenOpt = runKernel({ ...orkadenInput, parallelRequested: true });
+assert.ok(orkadenOpt.parallelOption != null, 'parallelRequested → parallelOption populated');
+assert.equal(
+  orkadenOpt.parallelOption?.reason,
+  'requested',
+  'Optional parallel uses requested reason, not driveability',
+);
 
 console.log('Pendiepte model checks passed');

@@ -18,9 +18,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 
   const body = await request.json() as SignPayload;
 
-  if (!body.akkoord || !body.naam || !body.erkenning) {
+  if (!body.akkoord || !body.naam) {
     return NextResponse.json(
-      { error: 'Naam, erkenning en akkoord zijn verplicht voor ondertekening.' },
+      { error: 'Naam en akkoord zijn verplicht voor ondertekening.' },
       { status: 400 },
     );
   }
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       versie:                  (report.versie ?? 1) + 1,
       conformiteit_akkoord:    true,
       conformiteit_naam:       body.naam,
-      conformiteit_erkenning:  body.erkenning,
+      conformiteit_erkenning:  body.erkenning ?? null,
       conformiteit_datum:      now,
       consent_delen:           body.consent_delen,
       consent_kalibratie:      body.consent_kalibratie,
@@ -81,8 +81,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 
   if (signError) return NextResponse.json({ error: signError.message }, { status: 500 });
 
-  // Generate calibration record if consent given
-  if (body.consent_kalibratie && report.scan_context) {
+  // Generate calibration record (implicit consent via account terms)
+  const consentKalibratie = body.consent_kalibratie !== false;
+  if (consentKalibratie && report.scan_context) {
     const ctx = report.scan_context as Record<string, unknown>;
     const raGemeten = (metingen ?? []).find((m: { type: string }) => m.type === 'ra');
 

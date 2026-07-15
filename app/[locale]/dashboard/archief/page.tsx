@@ -176,7 +176,7 @@ export default async function ArchiefPage({
   const archiveRapports = rapportItems.slice(3);
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
+    <div className="min-h-screen bg-canvas">
       <div className="mx-auto max-w-3xl px-4 py-8">
 
         <div className="mb-5">

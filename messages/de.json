@@ -19,7 +19,7 @@
     "card1Title": "Widerstandsrechner",
     "card1Desc": "Berechnen Sie den maximalen Erdungswiderstand gemäß NEN 1010. Wählen Sie Ihr Netz, den Installationstyp und den FI-Schutzschalter — erhalten Sie sofort vier Ausgabeschichten.",
     "card1Cta": "Rechner öffnen",
-    "card2Label": "Ab €10/Monat",
+    "card2Label": "Ab {price}/Monat",
     "card2Title": "Stabtiefe-Rechner",
     "card2Desc": "Postleitzahl eingeben. EarthGND ruft automatisch Bodenart, Grundwassertiefe und pH-Wert aus dem BRO ab — und berechnet die erforderliche Stabtiefe.",
     "card2Cta": "Preise ansehen",
@@ -42,7 +42,7 @@
       "f4": "PDF-Bericht",
       "f5": "Grundwasser- & pH-Korrekturen"
     },
-    "card2PriceNote": "oder €2,95 pro Berechnung"
+    "card2PriceNote": "oder {price} pro Berechnung"
   },
   "ohm": {
     "title": "Widerstandsrechner",
@@ -60,7 +60,7 @@
     "ctaTitle": "Wie tief muss der Stab?",
     "ctaDesc": "Der Stabtiefe-Rechner ermittelt die genaue Stablänge anhand Ihres Bodens, Grundwassers und pH-Werts.",
     "ctaPrimary": "Preise ansehen",
-    "ctaSecondary": "1 Credit kaufen — €2,95"
+    "ctaSecondary": "Credit-Pakete ansehen"
   },
   "diepte": {
     "title": "Stabtiefe-Rechner",

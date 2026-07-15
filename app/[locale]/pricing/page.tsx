@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { useLocale } from 'next-intl';
-import { PLANS, LOSSE_CREDITS } from '@/lib/plans';
+import { PLANS } from '@/lib/plans';
+import { formatPriceCompact } from '@/lib/pricing';
+import { CreditSliderPurchase } from '@/components/pricing/CreditSliderPurchase';
 import { createClient } from '@/utils/supabase/client';
 
 export const dynamic = 'force-dynamic';
@@ -81,7 +83,7 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d]">
+    <div className="min-h-screen bg-canvas">
       {checkoutError && (
         <div className="border-b border-red-500/20 bg-red-500/8 px-4 py-3 text-center">
           <p className="text-sm text-red-400">{checkoutError}</p>
@@ -131,7 +133,7 @@ export default function PricingPage() {
                       <span className="font-condensed text-3xl font-black text-[#E8761A]">Gratis</span>
                     ) : (
                       <>
-                        <span className="font-condensed text-3xl font-black text-[#E8761A]">€{plan.prijs}</span>
+                        <span className="font-condensed text-3xl font-black text-[#E8761A]">{formatPriceCompact(plan.prijs, locale)}</span>
                         <span className="text-sm text-white/35">/mnd</span>
                       </>
                     )}
@@ -178,38 +180,9 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* Losse credits */}
-        <div className="mb-12 rounded-2xl border border-white/8 bg-[#111] p-8">
-          <div className="mb-6 flex items-start justify-between">
-            <div>
-              <h2 className="font-condensed mb-1 text-2xl font-black text-white">Losse credits</h2>
-              <p className="text-sm text-white/50">Geen abonnement nodig. Credits vervallen niet.</p>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {([
-              { key: 'single', ...LOSSE_CREDITS.single, label: '1 credit', sub: 'Eenmalige berekening' },
-              { key: 'bundel', ...LOSSE_CREDITS.bundel, label: '10 credits bundel', sub: '€1,99 per berekening' },
-            ] as const).map((item) => (
-              <div key={item.key} className="flex items-center justify-between rounded-xl border border-white/8 bg-white/3 px-5 py-4">
-                <div>
-                  <p className="font-semibold text-white">{item.label}</p>
-                  <p className="text-xs text-white/40">{item.sub}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="font-condensed text-xl font-black text-[#E8761A]">€{item.prijs}</span>
-                  <button
-                    onClick={() => handleCheckout(item.key, 'payment')}
-                    disabled={!stripeReady || loading === item.key}
-                    title={!stripeReady ? 'Binnenkort beschikbaar' : undefined}
-                    className="rounded-lg border border-white/15 px-4 py-2 text-xs font-semibold text-white hover:border-[#E8761A]/50 hover:text-[#E8761A] transition-colors disabled:opacity-40"
-                  >
-                    {loading === item.key ? '...' : 'Kopen'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Losse credits — schuif met staffelkorting */}
+        <div className="mb-12">
+          <CreditSliderPurchase stripeReady={stripeReady} onError={setCheckoutError} />
         </div>
 
         {/* Enterprise */}

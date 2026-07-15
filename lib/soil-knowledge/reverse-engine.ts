@@ -11,20 +11,26 @@
 
 import { LITERATURE_PRIOR, CLASS_LOG_SIGMA } from './priors';
 import type { AnalyzedDepthPoint, ClassDistribution } from './types';
-
-const ROD_DIAMETER = 0.014; // m — identiek aan kernel-adapter.ts ROD_DIAMETER
+import {
+  DEFAULT_ELECTRODE_DIAMETER_M,
+  mmToRodDiameterM,
+  normalizeElectrodeDiameterMm,
+} from '@/lib/electrode-diameter';
 
 /**
  * Berekent schijnbare bodemweerstand (ρ_apparent) uit gemeten staafweerstand R op diepte L.
  *
  * Dwight-inversie ZONDER −1 term (kernel-consistent).
- * De ~4% afwijking t.o.v. exacte Dwight-formule zit in alle residuen — wordt niet gecorrigeerd.
  *
  * ρ_apparent = R × 2πL / ln(4L/d)
  */
-export function deriveRhoApparent(rMeasured: number, depthM: number): number {
-  if (rMeasured <= 0 || depthM <= 0) return NaN;
-  return (rMeasured * 2 * Math.PI * depthM) / Math.log((4 * depthM) / ROD_DIAMETER);
+export function deriveRhoApparent(
+  rMeasured: number,
+  depthM: number,
+  rodDiameterM: number = DEFAULT_ELECTRODE_DIAMETER_M,
+): number {
+  if (rMeasured <= 0 || depthM <= 0 || rodDiameterM <= 0) return NaN;
+  return (rMeasured * 2 * Math.PI * depthM) / Math.log((4 * depthM) / rodDiameterM);
 }
 
 /**
@@ -78,14 +84,85 @@ export function estimateClassDistribution(rhoApparent: number): ClassDistributio
  * @param depthCurve  [{depth, ra}] — diepte in m, weerstand in Ω
  * @param gwDepthM    grondwaterdiepte in m (gebruik field_gw_depth als beschikbaar)
  */
+
+/**
+ * Segment-analyse: Ω-daling per meter tussen opeenvolgende dieptepunten.
+ * Gebruikt voor bodeminterpretatie in opleverrapport.
+ */
+export interface DepthSegmentAnalysis {
+  fromDepthM:     number;
+  toDepthM:       number;
+  deltaRa:        number;
+  deltaDepthM:    number;
+  ohmPerMeter:    number;
+  rhoAtToDepth:   number;
+  dominantClass:  number;
+  dominantLabel:  string;
+  classDist:      ClassDistribution;
+}
+
+const LITHO_LABELS: Record<number, string> = {
+  1: 'klei', 2: 'leem', 3: 'zand', 4: 'grind', 5: 'veen',
+};
+
+function dominantClassFromDist(dist: ClassDistribution): { k: number; label: string } {
+  let bestK = 3;
+  let bestP = 0;
+  for (const [kStr, p] of Object.entries(dist)) {
+    if ((p ?? 0) > bestP) {
+      bestP = p ?? 0;
+      bestK = parseInt(kStr);
+    }
+  }
+  return { k: bestK, label: LITHO_LABELS[bestK] ?? 'onbekend' };
+}
+
+export function analyzeDepthSegments(
+  depthCurve: Array<{ depth: number; ra: number }>,
+  gwDepthM: number,
+  electrodeDiameterMm?: number,
+): DepthSegmentAnalysis[] {
+  const points = analyzeDepthCurve(depthCurve, gwDepthM, electrodeDiameterMm);
+  if (points.length < 2) return [];
+
+  const segments: DepthSegmentAnalysis[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const cur = points[i];
+    const deltaDepth = cur.depthM - prev.depthM;
+    if (deltaDepth <= 0) continue;
+
+    const prevRa = depthCurve.find(p => p.depth === prev.depthM)?.ra ?? 0;
+    const curRa = depthCurve.find(p => p.depth === cur.depthM)?.ra ?? 0;
+    const deltaRa = curRa - prevRa;
+    const ohmPerMeter = deltaRa / deltaDepth;
+    const dom = dominantClassFromDist(cur.classDist);
+
+    segments.push({
+      fromDepthM:    prev.depthM,
+      toDepthM:      cur.depthM,
+      deltaRa:       Math.round(deltaRa * 1000) / 1000,
+      deltaDepthM:   deltaDepth,
+      ohmPerMeter:   Math.round(ohmPerMeter * 1000) / 1000,
+      rhoAtToDepth:  Math.round(cur.rhoApparent * 10) / 10,
+      dominantClass: dom.k,
+      dominantLabel: dom.label,
+      classDist:     cur.classDist,
+    });
+  }
+  return segments;
+}
+
 export function analyzeDepthCurve(
   depthCurve: Array<{ depth: number; ra: number }>,
   gwDepthM: number,
+  electrodeDiameterMm: number = normalizeElectrodeDiameterMm(undefined),
 ): AnalyzedDepthPoint[] {
+  const rodDiameterM = mmToRodDiameterM(normalizeElectrodeDiameterMm(electrodeDiameterMm));
   return depthCurve
     .filter(pt => pt.depth > 0 && pt.ra > 0 && isFinite(pt.depth) && isFinite(pt.ra))
     .map(pt => {
-      const rhoApparent = deriveRhoApparent(pt.ra, pt.depth);
+      const rhoApparent = deriveRhoApparent(pt.ra, pt.depth, rodDiameterM);
       return {
         depthM: pt.depth,
         rhoApparent,
