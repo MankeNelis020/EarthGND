@@ -668,7 +668,10 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       }
       if (!res.ok) { setError(data.error ?? 'Berekening mislukt'); return; }
       setCalcResult(data);
-      if (profile) setProfile(p => p ? { ...p, credits_left: data.creditsRemaining } : p);
+      if (profile) {
+        setProfile(p => p ? { ...p, credits_left: data.creditsRemaining } : p);
+        window.dispatchEvent(new CustomEvent('earthgnd:credits-updated', { detail: { credits: data.creditsRemaining } }));
+      }
     } catch {
       setError('Verbindingsfout — probeer opnieuw.');
     } finally {

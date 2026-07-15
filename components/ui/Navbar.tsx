@@ -40,6 +40,16 @@ export function Navbar() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // Sync credits when any calculator deducts them (no global state needed)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const credits = (e as CustomEvent<{ credits: number }>).detail.credits;
+      setProfile(p => p ? { ...p, credits_left: credits } : p);
+    };
+    window.addEventListener('earthgnd:credits-updated', handler);
+    return () => window.removeEventListener('earthgnd:credits-updated', handler);
+  }, []);
+
   async function fetchProfile(userId: string, supabase: ReturnType<typeof createClient>) {
     const { data } = await supabase
       .from('profiles')
