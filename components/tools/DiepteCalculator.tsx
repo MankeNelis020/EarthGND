@@ -11,6 +11,7 @@ import { useCalculator } from '@/lib/context/CalculatorContext';
 import { calcRhoEffective, lithoClassToRhoDry } from '@/lib/calculations';
 import type { DiepteResult, LintResult, RiskClassResult, CorrosionClass } from '@/lib/calculations';
 import { calcAllMethods, DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod, type ZMaxBand, type RefusalLayer } from '@/lib/pipeline/driveability';
+import { RodCurveChart } from './RodCurveChart';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1029,6 +1030,21 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
                 )}
               </div>
             </div>
+          )}
+
+          {/* R vs. diepte — interactieve scrubber (pen only, na berekening) */}
+          {calcResult.electrodeType === 'pen' &&
+           calcResult.rhoDry != null && calcResult.rhoWet != null &&
+           calcResult.gwGemiddeld != null && dwightDepth > 0 && (
+            <RodCurveChart
+              targetResistance={targetResistance}
+              rhoDry={calcResult.rhoDry}
+              rhoWet={calcResult.rhoWet}
+              gwGunstig={calcResult.gwGunstig  ?? groundwaterDepth}
+              gwGemiddeld={calcResult.gwGemiddeld}
+              gwOngunstig={calcResult.gwOngunstig ?? groundwaterDepth + 3}
+              computedDepth={dwightDepth}
+            />
           )}
 
           {/* Pipeline warnings (one source of truth when pipeline is active) */}
