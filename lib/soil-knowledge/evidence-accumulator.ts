@@ -15,7 +15,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { wgs84ToRd } from '@/lib/rd';
-import { analyzeDepthCurve } from './reverse-engine';
+import { analyzeDepthCurve, detectGroundwaterBoundary } from './reverse-engine';
 import { isLearningBlocked } from './bayesian-posterior';
 import { backfillShadowFromMeting } from './shadow-logger';
 import { LITERATURE_PRIOR } from './priors';
@@ -114,15 +114,11 @@ export async function processMeting(
   const depthCurve: Array<{ depth: number; ra: number }> = meting.depth_curve ?? [];
   if (!depthCurve.length) return { pointsProcessed: 0, evidenceInserted: 0 };
 
-  // ── 2. Grondwaterdiepte (veldwaarneming heeft prioriteit) ───────────────
-  const gwDepth: number = meting.field_gw_depth ?? meting.bro_gw_depth ?? 2.0;
+  // ── 2. Grondwatergrens afleiden uit ρ-curve (nooit stil 2,0 m) ─────────
+  const boundary = detectGroundwaterBoundary(depthCurve, meting.bro_gw_depth ?? null);
 
-  // ── 3. Analyseer dieptecurve ────────────────────────────────────────────
-  const analyzed = analyzeDepthCurve(
-    depthCurve,
-    gwDepth,
-    meting.elektrode_diameter_mm ?? undefined,
-  );
+  // ── 3. Analyseer dieptecurve (vaste diameter — geen per-meting variabele) ─
+  const analyzed = analyzeDepthCurve(depthCurve, boundary.gwDepthM);
   if (!analyzed.length) return { pointsProcessed: 0, evidenceInserted: 0 };
 
   const broLithoClass: number | null = meting.bro_litho_class ?? null;
@@ -133,15 +129,18 @@ export async function processMeting(
     : null;
 
   // ── 4. Bouw soil_evidence rijen ─────────────────────────────────────────
+  const flaggedMonotoneSet = new Set(boundary.flaggedMonotoneDepths);
+
   const evidenceRows: SoilEvidenceRow[] = analyzed.map(pt => {
     const consistencyRatio = broRhoWet != null && pt.rhoApparent > 0
       ? pt.rhoApparent / broRhoWet
       : null;
+    const monotoneViolation = flaggedMonotoneSet.has(pt.depthM);
 
     return {
       meting_id: metingId,
       depth_m: pt.depthM,
-      rho_apparent: Math.round(pt.rhoApparent * 10) / 10, // 1 decimaal
+      rho_apparent: Math.round(pt.rhoApparent * 10) / 10,
       zone: pt.zone,
       derivation_method: 'dwight_no_minus1',
       p_klei:  Math.round((pt.classDist[1] ?? 0) * 10000) / 10000,
@@ -154,8 +153,9 @@ export async function processMeting(
       consistency_ratio: consistencyRatio != null
         ? Math.round(consistencyRatio * 1000) / 1000
         : null,
-      flagged_inconsistent: consistencyRatio != null
-        && (consistencyRatio > 3.0 || consistencyRatio < 0.30),
+      flagged_inconsistent: monotoneViolation || (
+        consistencyRatio != null && (consistencyRatio > 3.0 || consistencyRatio < 0.30)
+      ),
     };
   });
 
@@ -173,19 +173,29 @@ export async function processMeting(
     };
   }
 
-  // Alleen natte punten (onder GWT) voor rhoWet kennisbank.
-  const wetPoints = analyzed.filter(pt => pt.zone === 'wet');
+  // Accumuleer alleen 'zeker natte' punten: onder GWT, niet monotoon-gevlagd,
+  // en binnen plateau-band (als plateau bekend). Gewogen naar gw-confidence.
+  const confidenceMultiplier =
+    boundary.gw_confidence === 'high' ? 1.0 :
+    boundary.gw_confidence === 'medium' ? 0.5 : 0.25;
 
-  for (const pt of wetPoints) {
+  const accumulatablePoints = analyzed.filter(pt => {
+    if (pt.zone !== 'wet') return false;
+    if (!isFinite(pt.rhoApparent) || pt.rhoApparent <= 0) return false;
+    if (flaggedMonotoneSet.has(pt.depthM)) return false;
+    if (boundary.plateauRho != null && pt.rhoApparent > boundary.plateauRho * 1.30) return false;
+    return true;
+  });
+
+  for (const pt of accumulatablePoints) {
     const rho = pt.rhoApparent;
-    if (!isFinite(rho) || rho <= 0) continue;
 
     for (const [kStr, prob] of Object.entries(pt.classDist)) {
       const k = parseInt(kStr);
-      if (!prob || prob < 0.01) continue; // verwaarloosbare bijdrage overslaan
-      if (isLearningBlocked(k)) continue; // grind: bewijs opgeslagen, niet geaccumuleerd
+      if (!prob || prob < 0.01) continue;
+      if (isLearningBlocked(k)) continue;
 
-      const weight = prob;
+      const weight = prob * confidenceMultiplier;
 
       // L2: global_prior
       const currentGlobal = await fetchWelford(supabase, 'global_prior', { litho_class: k });
@@ -236,10 +246,15 @@ export async function processMeting(
     }
   }
 
-  // ── Markeer als verwerkt (idempotent Welford) ─────────────────────────────
+  // ── Markeer als verwerkt; persisteer afgeleide GWT-velden ────────────────
   await supabase
     .from('pendiepte_metingen')
-    .update({ knowledge_processed_at: new Date().toISOString() })
+    .update({
+      knowledge_processed_at: new Date().toISOString(),
+      gw_depth_derived:       boundary.gwDepthM,
+      gw_source:              boundary.gw_source,
+      gw_confidence:          boundary.gw_confidence,
+    })
     .eq('id', metingId);
 
   // ── 6. Shadow ground truth (Poort 2) ─────────────────────────────────────
