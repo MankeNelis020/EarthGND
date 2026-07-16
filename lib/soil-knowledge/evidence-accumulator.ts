@@ -115,7 +115,21 @@ export async function processMeting(
   if (!depthCurve.length) return { pointsProcessed: 0, evidenceInserted: 0 };
 
   // ── 2. Grondwatergrens afleiden uit ρ-curve (nooit stil 2,0 m) ─────────
-  const boundary = detectGroundwaterBoundary(depthCurve, meting.bro_gw_depth ?? null);
+  let boundary = detectGroundwaterBoundary(depthCurve, meting.bro_gw_depth ?? null);
+
+  // Monteur-oogmeting (field_gw_depth) overschrijft lage-confidence fallback,
+  // maar niet een curve-detectie met hoge zekerheid.
+  if (
+    meting.field_gw_depth != null &&
+    (boundary.gw_source !== 'curve' || boundary.gw_confidence !== 'high')
+  ) {
+    boundary = {
+      ...boundary,
+      gwDepthM:      meting.field_gw_depth,
+      gw_source:     'regional',  // 'regional' = buiten-curve; past in bestaand CHECK constraint
+      gw_confidence: 'medium',    // oogmeting > BRO-estimate, maar < curve-detectie
+    };
+  }
 
   // ── 3. Analyseer dieptecurve (vaste diameter — geen per-meting variabele) ─
   const analyzed = analyzeDepthCurve(depthCurve, boundary.gwDepthM);
