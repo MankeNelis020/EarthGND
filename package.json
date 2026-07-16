@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:pendiepte": "npx tsx --tsconfig tsconfig.json scripts/pendiepte-model-check.ts",
+    "validate:poort-a": "npx tsx --tsconfig tsconfig.json scripts/validate-poort-a-gw-detection.ts",
     "verify:geotop": "npx tsx --tsconfig tsconfig.json scripts/verify-geotop.ts",
     "calibrate:fase0": "npx tsx --tsconfig tsconfig.json scripts/fase0-counterfactual.ts",
     "calibrate:depth": "npx tsx --tsconfig tsconfig.json scripts/fase0-depth-verify.ts",
