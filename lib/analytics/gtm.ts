@@ -1,36 +1,18 @@
 /**
  * GTM DataLayer utility — consent-gated, anonymous user identity.
  *
- * Rules:
- *   • Events are dropped when the user has not granted consent.
- *   • user_id is a random UUID in localStorage — never an email or postcode.
- *   • All pushEvent() calls are fire-and-forget; failures are silent.
+ * Consent source of truth: ConsentManager (lib/consent).
+ * All pushEvent() calls are fire-and-forget; failures are silent.
  */
 
-const CONSENT_KEY = 'earthgnd_analytics_consent';
-const ANON_ID_KEY = 'earthgnd_anon_id';
-const SESSION_KEY = 'earthgnd_session_id';
+import { getConsentManager } from '@/lib/consent/ConsentManager';
 
 export type EarthGNDLocale = 'nl' | 'en';
 export type EarthGNDDevice = 'mobile' | 'desktop';
 export type EarthGNDEnv    = 'development' | 'staging' | 'production';
 
-// ── Consent ────────────────────────────────────────────────────────────────────
-
-export function hasAnalyticsConsent(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem(CONSENT_KEY) === 'true';
-}
-
-export function grantAnalyticsConsent(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(CONSENT_KEY, 'true');
-}
-
-export function revokeAnalyticsConsent(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(CONSENT_KEY, 'false');
-}
+const ANON_ID_KEY = 'earthgnd_anon_id';
+const SESSION_KEY = 'earthgnd_session_id';
 
 // ── Identity ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +65,12 @@ export function pushEvent(
   locale:    EarthGNDLocale = 'nl',
 ): void {
   if (typeof window === 'undefined') return;
-  if (!hasAnalyticsConsent()) return;
+
+  try {
+    if (!getConsentManager().hasConsent('analytics')) return;
+  } catch {
+    return; // manager not yet initialized — safe no-op
+  }
 
   try {
     window.dataLayer = window.dataLayer ?? [];

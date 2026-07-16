@@ -1,29 +1,32 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { grantAnalyticsConsent, revokeAnalyticsConsent } from '@/lib/analytics/gtm';
+import { getConsentManager } from '@/lib/consent/ConsentManager';
 
 export function CookieBanner() {
-  const [visible, setVisible] = useState(false);
+  const [shown, setShown] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (localStorage.getItem('earthgnd_analytics_consent') === null) {
-      setVisible(true);
+    // By the time effects run, Providers has initialized the ConsentManager.
+    if (!getConsentManager().consentBannerShown()) {
+      setShown(true);
     }
   }, []);
 
-  if (!visible) return null;
+  if (!shown) return null;
 
-  function accept() {
-    grantAnalyticsConsent();
-    window.dispatchEvent(new Event('earthgnd:consent-granted'));
-    setVisible(false);
+  async function accept() {
+    const manager = getConsentManager();
+    await manager.grantConsent('analytics');
+    manager.setConsentBannerShown();
+    setShown(false);
   }
 
-  function decline() {
-    revokeAnalyticsConsent();
-    setVisible(false);
+  async function decline() {
+    const manager = getConsentManager();
+    await manager.revokeConsent('analytics');
+    manager.setConsentBannerShown();
+    setShown(false);
   }
 
   return (
