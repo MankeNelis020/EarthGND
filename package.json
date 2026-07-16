@@ -18,7 +18,8 @@
     "gate:depth": "npx tsx --tsconfig tsconfig.json scripts/fase0-depth-verify.ts",
     "gate:poort2": "npx tsx --tsconfig tsconfig.json scripts/gate-poort2-shadow.ts",
     "i18n:check": "npx tsx scripts/check-i18n-keys.ts",
-    "test:import": "npx tsx --tsconfig tsconfig.json scripts/test-import-local.ts"
+    "test:import": "npx tsx --tsconfig tsconfig.json scripts/test-import-local.ts",
+    "validate:poort-c": "npx tsx --tsconfig tsconfig.json scripts/validate-poort-c-lolo.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
