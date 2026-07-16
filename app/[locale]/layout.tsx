@@ -5,6 +5,7 @@ import { routing } from '@/i18n/routing';
 import { Navbar } from '@/components/ui/Navbar';
 import { Footer } from '@/components/ui/Footer';
 import { Providers } from '@/components/Providers';
+import { CookieBanner } from '@/components/analytics/CookieBanner';
 
 export async function generateMetadata({
   params,
@@ -54,6 +55,7 @@ export default async function LocaleLayout({
             <Navbar />
             <main>{children}</main>
             <Footer />
+            <CookieBanner />
           </Providers>
         </NextIntlClientProvider>
       </body>

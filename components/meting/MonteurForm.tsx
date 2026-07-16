@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { pushEvent, type EarthGNDLocale } from '@/lib/analytics/gtm';
 import { reverseGeocode, forwardGeocode } from '@/lib/geocoding';
 import { DRIVE_METHOD_LABELS, ACTIVE_DRIVE_METHODS, type DriveMethod } from '@/lib/pipeline/driveability';
 import {
@@ -337,6 +338,7 @@ export function MonteurForm({
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Indienen mislukt'); return; }
+      pushEvent('veldmeting_submit_success', {}, locale as EarthGNDLocale);
       router.refresh();
     } catch {
       setError('Verbindingsfout — probeer opnieuw.');

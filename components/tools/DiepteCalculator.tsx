@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useLocale } from 'next-intl';
 import { Link } from '@/i18n/navigation';
+import { pushEvent, type EarthGNDLocale } from '@/lib/analytics/gtm';
 import { createClient } from '@/utils/supabase/client';
 import { EmailRapportButton } from './EmailRapportButton';
 import type { DiepteRapportProps } from '@/components/pdf/DiepteRapportTemplate';
@@ -75,6 +77,15 @@ interface CalcResult {
   effectiveRho?:       number;
   dominantLithoClass?: number;
   rhoModel?:           'layered-nl' | 'two-layer' | 'single';
+  empiricalBlend?: {
+    empiricalRho:    number;
+    l1Rho:           number;
+    blendedRho:      number;
+    empiricalWeight: number;
+    confidence:      number;
+    source:          string;
+    blendApplied:    boolean;
+  } | null;
 }
 
 interface Profile { plan: string; credits_left: number; credits_purchased: number; credits_reset: string | null }
@@ -618,6 +629,7 @@ interface DiepteCalculatorProps {
 }
 
 export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculatorProps) {
+  const locale = useLocale();
   const { soilData, postcode, huisnummer } = useCalculator();
 
   const [user, setUser]       = useState<User | null | 'loading'>('loading');
@@ -785,6 +797,15 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       }
       if (!res.ok) { setError(data.error ?? 'Berekening mislukt'); return; }
       setCalcResult(data);
+      pushEvent('pendiepte_result_generated', {
+        electrode_type:           data.electrodeType,
+        risk_class:               data.riskClass?.riskClass,
+        confidence_level:         data.confidence?.level,
+        rho_wet_source:           data.rhoWetSource,
+        empirical_blend_applied:  data.empiricalBlend?.blendApplied ?? false,
+        empirical_confidence:     data.empiricalBlend?.confidence ?? null,
+        empirical_source:         data.empiricalBlend?.source ?? null,
+      }, locale as EarthGNDLocale);
       if (profile) {
         setProfile(p => p ? { ...p, credits_left: data.creditsRemaining } : p);
         window.dispatchEvent(new CustomEvent('earthgnd:credits-updated', { detail: { credits: data.creditsRemaining } }));
@@ -817,6 +838,7 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
       const data = await res.json();
       if (!res.ok) { setMonteurError(data.error ?? 'Verzenden mislukt'); return; }
       setMonteurSent(true);
+      pushEvent('pendiepte_user_action', { action: 'send_to_monteur' }, locale as EarthGNDLocale);
       setShowMonteurModal(false);
       setSelectedColleagueId('');
       setSaveAsColleague(false);

@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Link } from '@/i18n/navigation';
+import { useLocale } from 'next-intl';
 import { EmailRapportButton } from './EmailRapportButton';
+import { pushEvent, type EarthGNDLocale } from '@/lib/analytics/gtm';
 import { FieldLabel } from '@/components/ui/FieldLabel';
 import { HeroMetric } from '@/components/ui/instrument';
 import {
@@ -300,6 +302,7 @@ function ResistanceOverview() {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function OhmCalculator() {
+  const locale = useLocale();
   const [view, setView] = useState<ViewMode>('wizard');
   const [state, setState] = useState<State>({
     stelsel: null,
@@ -366,6 +369,12 @@ export function OhmCalculator() {
         voltageLimit: state.voltageLimit,
       });
       setResult(res);
+      pushEvent('ohm_result_shown', {
+        installation_type: state.installationType,
+        stelsel:           isFixed ? 'TT' : state.stelsel,
+        max_ohm:           res.wettelijkMax,
+        result_label:      statusFromR(res.wettelijkMax).label,
+      }, locale as EarthGNDLocale);
     } catch {
       setError('Onvoldoende gegevens voor berekening. Controleer uw invoer.');
     }

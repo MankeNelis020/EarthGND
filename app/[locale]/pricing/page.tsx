@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { useLocale } from 'next-intl';
+import { pushEvent, type EarthGNDLocale } from '@/lib/analytics/gtm';
 import { PLANS } from '@/lib/plans';
 import { formatPriceCompact } from '@/lib/pricing';
 import { CreditSliderPurchase } from '@/components/pricing/CreditSliderPurchase';
@@ -68,6 +69,7 @@ export default function PricingPage() {
       });
       const data = await res.json() as { url?: string; error?: string };
       if (data.url) {
+        pushEvent('checkout_initiated', { plan_key: planKey, mode }, locale as EarthGNDLocale);
         window.location.href = data.url;
       } else {
         const errMsg = data.error ?? 'Onbekend fout';
