@@ -151,6 +151,17 @@ export interface LocalDepthHintEnrichment {
   confidence:     number;
 }
 
+/** Poort D: blend-metadata voor monitoring en transparantie naar monteurs. */
+export interface EmpiricalBlendInfo {
+  empiricalRho:    number;  // rhoWet uit empirisch model (L2/L3/L4)
+  l1Rho:          number;  // rhoWet uit literatuurprior (L1)
+  blendedRho:     number;  // werkelijk gebruikte rhoWet (= blend of L1)
+  empiricalWeight: number;  // gewicht van empirisch model in blend (0–1)
+  confidence:     number;  // confidence-score van de empirische bron (0–1)
+  source:         string;  // ActivePriorSource van empirisch model
+  blendApplied:   boolean; // true als blend daadwerkelijk is toegepast
+}
+
 export interface PipelineEnrichment {
   confidence:        SourceConfidence;
   plausibilityFlags: PlausibilityFlag[];
@@ -159,6 +170,7 @@ export interface PipelineEnrichment {
   resultValidation:  ResultValidation;
   rhoWetSource:      'l4_local' | 'l3_regional_agnostic' | 'l3_regional' | 'l2_global' | 'l1_literature';
   localDepthHint?:   LocalDepthHintEnrichment | null;
+  empiricalBlend?:   EmpiricalBlendInfo | null;
 }
 
 // PipelineResult wraps existing data + enrichment

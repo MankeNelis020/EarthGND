@@ -14,7 +14,7 @@
  * The kernel (lib/calculations.ts) is NEVER modified by this file.
  */
 
-import type { RawDiepteInput, PipelineResult, PipelineEnrichment } from './types';
+import type { RawDiepteInput, PipelineResult, PipelineEnrichment, EmpiricalBlendInfo } from './types';
 import { parseDiepteInput }     from './parse';
 import { validateDiepteInput }  from './validate';
 import { normalizeDiepteInput } from './normalize';
@@ -27,6 +27,14 @@ import { computeUncertaintyBand } from './uncertainty';
 import { buildExplanation }     from './explain';
 import { resolveActivePrior, type ActivePriorSource } from '@/lib/soil-knowledge/active-prior';
 import { lookupPostcode } from '@/lib/pdok';
+import { resolveRhoWet } from './rho-priors';
+import {
+  isEmergencyRollback,
+  getEmpiricalWeight,
+  getConfidenceThreshold,
+  isLithoClassEnabled,
+  sourceToConfidence,
+} from '@/lib/soil-knowledge/config';
 
 export type { KernelResult };
 
@@ -87,16 +95,17 @@ export async function runGroundingAssessment(
 
   // ── Stage 6.5: Actieve rhoWet prior (L2 globaal + L3 regionaal) ─────────
   //
-  // Volgorde:
-  //   1. Geocodeer postcode → RD-coördinaten (PDOK, gecached 24h, timeout 3s)
-  //   2. Probeer L3 class-agnostisch regionaal (werkt ook als BRO-klasse verkeerd is)
-  //   3. Probeer L3 per-klasse regionaal (als agnostisch onvoldoende data)
-  //   4. Probeer L2 globaal per-klasse
-  //   5. Val terug op L1 literatuurprior (identiek aan oud gedrag)
+  // Poort D blend-logica:
+  //   1. EMERGENCY_ROLLBACK=true → direct L1, geen lookup
+  //   2. Geocodeer postcode → RD-coördinaten (PDOK, gecached 24h, timeout 3s)
+  //   3. Probeer L3 class-agnostisch → L3 per-klasse → L2 globaal → L1
+  //   4. Als klasse enabled EN confidence ≥ drempel → blend (weight=EMPIRICAL_WEIGHT)
+  //   5. Anders → blijf op L1 (geen rhoWetOverride)
   //
-  // Alle stappen zijn niet-kritiek: als ze mislukken, blijft de berekening intact.
+  // Alle stappen zijn niet-kritiek: fout → L1 (identiek aan oud gedrag).
   let rhoWetSource: ActivePriorSource = 'l1_literature';
   let localDepthHint = null as import('./types').LocalDepthHintEnrichment | null;
+  let empiricalBlend: EmpiricalBlendInfo | null = null;
 
   // Stap 1: RD + WGS84 via postcode-geocoding (server-side, gecached)
   let rdX: number | null = null;
@@ -117,19 +126,58 @@ export async function runGroundingAssessment(
     }
   }
 
-  // Stap 2-6: Active prior lookup (L4 → L3 → L2 → L1)
-  try {
-    const active = await resolveActivePrior(
-      input.lithoClass, input.rho, rdX, rdY, lat, lon,
-      input.postcode, huisnummer,
-    );
-    if (active.source !== 'l1_literature') {
-      (input as { rhoWetOverride?: number }).rhoWetOverride = active.rhoWet;
+  // Stap 2: Active prior lookup + Poort D blend
+  if (isEmergencyRollback()) {
+    // Noodstop — alle berekeningen vallen terug op L1, geen DB-lookup
+    console.info('[pipeline/poort-d] EMERGENCY_ROLLBACK actief — L1 wordt gebruikt');
+  } else {
+    try {
+      const active = await resolveActivePrior(
+        input.lithoClass, input.rho, rdX, rdY, lat, lon,
+        input.postcode, huisnummer,
+      );
+      rhoWetSource = active.source;
+      localDepthHint = active.localDepthHint ?? null;
+
+      if (
+        active.source !== 'l1_literature' &&
+        isLithoClassEnabled(input.lithoClass)
+      ) {
+        const confidence  = sourceToConfidence(active.source);
+        const l1Rho       = resolveRhoWet(input.lithoClass, input.rho);
+
+        if (confidence >= getConfidenceThreshold()) {
+          // Blend: empirisch × weight + L1 × (1-weight)
+          const weight     = getEmpiricalWeight();
+          const blendedRho = Math.round(active.rhoWet * weight + l1Rho * (1 - weight));
+          (input as { rhoWetOverride?: number }).rhoWetOverride = blendedRho;
+
+          empiricalBlend = {
+            empiricalRho:    active.rhoWet,
+            l1Rho,
+            blendedRho,
+            empiricalWeight: weight,
+            confidence,
+            source:          active.source,
+            blendApplied:    true,
+          };
+        } else {
+          // Confidence te laag — log voor monitoring, blijf op L1
+          const l1Rho = resolveRhoWet(input.lithoClass, input.rho);
+          empiricalBlend = {
+            empiricalRho:    active.rhoWet,
+            l1Rho,
+            blendedRho:      l1Rho,
+            empiricalWeight: 0,
+            confidence,
+            source:          active.source,
+            blendApplied:    false,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('[pipeline/active-prior] lookup mislukt, gebruik L1:', e);
     }
-    rhoWetSource = active.source;
-    localDepthHint = active.localDepthHint ?? null;
-  } catch (e) {
-    console.warn('[pipeline/active-prior] lookup mislukt, gebruik L1:', e);
   }
 
   try {
@@ -174,6 +222,7 @@ export async function runGroundingAssessment(
       resultValidation:  resultCheck.validation,
       rhoWetSource,
       localDepthHint,
+      empiricalBlend,
     };
 
     return {
