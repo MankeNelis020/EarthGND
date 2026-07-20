@@ -6,6 +6,7 @@ import { Navbar } from '@/components/ui/Navbar';
 import { Footer } from '@/components/ui/Footer';
 import { Providers } from '@/components/Providers';
 import { CookieBanner } from '@/components/analytics/CookieBanner';
+import { SupportWidget } from '@/components/support/SupportWidget';
 
 export async function generateMetadata({
   params,
@@ -56,6 +57,7 @@ export default async function LocaleLayout({
             <main>{children}</main>
             <Footer />
             <CookieBanner />
+            <SupportWidget />
           </Providers>
         </NextIntlClientProvider>
       </body>
