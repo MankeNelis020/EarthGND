@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useSupport } from '@/hooks/useSupport';
+import { useRealtimeUnread } from '@/hooks/useRealtimeUnread';
 import { useOfflineQueue } from './useOfflineQueue';
 import { ConversationList } from './ConversationList';
 import { NewConversationForm } from './NewConversationForm';
@@ -27,19 +28,24 @@ export function SupportWidget() {
     clearActiveConversation,
   } = useSupport();
 
+  const { realtimeUnread, resetRealtimeUnread, requestNotificationPermission } = useRealtimeUnread();
+
   const { enqueue } = useOfflineQueue(async (msg) => {
     await addMessage(msg.conversationId, msg.body);
   });
 
-  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
+  const dbUnread    = conversations.reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
+  const totalUnread = Math.max(dbUnread, realtimeUnread);
 
   const openPanel = useCallback(async () => {
     setIsOpen(true);
+    resetRealtimeUnread();
+    await requestNotificationPermission();
     if (!loaded) {
       setLoaded(true);
       await loadConversations();
     }
-  }, [loaded, loadConversations]);
+  }, [loaded, loadConversations, resetRealtimeUnread, requestNotificationPermission]);
 
   const closePanel = () => setIsOpen(false);
 
