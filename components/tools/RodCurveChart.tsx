@@ -72,6 +72,8 @@ export function RodCurveChart({
   const [depth, setDepth]     = useState(computedDepth);
   const [dragging, setDragging] = useState(false);
   const [ohmInput, setOhmInput] = useState('');
+  // Tracks the start position of each touch gesture for direction detection
+  const pointerStartRef = useRef<{ x: number; y: number; captured: boolean } | null>(null);
 
   // Marker volgt nieuwe berekening
   useEffect(() => { setDepth(computedDepth); }, [computedDepth]);
@@ -152,16 +154,36 @@ export function RodCurveChart({
   }, [D_MIN, D_MAX, iw]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setDragging(true);
-    scrub(e);
+    pointerStartRef.current = { x: e.clientX, y: e.clientY, captured: false };
+    // Mouse: capture immediately (no scroll conflict)
+    if (e.pointerType === 'mouse') {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      pointerStartRef.current.captured = true;
+      setDragging(true);
+      scrub(e);
+    }
   }, [scrub]);
 
   const onPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    if (dragging) scrub(e);
-  }, [dragging, scrub]);
+    const start = pointerStartRef.current;
+    if (!start) return;
+    if (!start.captured) {
+      // Touch: wait for direction intent before capturing
+      const dx = Math.abs(e.clientX - start.x);
+      const dy = Math.abs(e.clientY - start.y);
+      if (dx < 4 && dy < 4) return;           // not moved enough yet
+      if (dy > dx) { pointerStartRef.current = null; return; } // vertical → let browser scroll
+      e.currentTarget.setPointerCapture(e.pointerId);
+      start.captured = true;
+      setDragging(true);
+    }
+    scrub(e);
+  }, [scrub]);
 
-  const endDrag = useCallback(() => setDragging(false), []);
+  const endDrag = useCallback(() => {
+    pointerStartRef.current = null;
+    setDragging(false);
+  }, []);
 
   // ── Inverse: typ Ω → marker springt naar benodigde diepte ──────────────────
   const goToOhm = () => {
@@ -185,7 +207,7 @@ export function RodCurveChart({
         <svg
           ref={svgRef}
           viewBox={`0 0 ${W} ${H}`}
-          style={{ width: '100%', display: 'block', touchAction: 'none', cursor: dragging ? 'grabbing' : 'crosshair' }}
+          style={{ width: '100%', display: 'block', touchAction: 'pan-y', cursor: dragging ? 'grabbing' : 'crosshair' }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
