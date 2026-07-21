@@ -50,6 +50,13 @@ export async function POST(request: NextRequest) {
       const totalCents = totalCentsForCredits(credits);
       const totalEuros = totalPriceForCredits(credits);
 
+      const successParams = new URLSearchParams({
+        checkout: 'success',
+        type:     'credits',
+        qty:      String(credits),
+        amount:   totalEuros.toFixed(2),
+      });
+
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
         line_items: [{
@@ -65,12 +72,12 @@ export async function POST(request: NextRequest) {
         }],
         customer_email: user.email,
         metadata: {
-          userId: user.id,
-          creditCount: String(credits),
+          userId:       user.id,
+          creditCount:  String(credits),
           pricingModel: 'slider',
         },
-        success_url: `${baseUrl}/${locale}/dashboard?checkout=success`,
-        cancel_url: `${baseUrl}/${locale}/pricing`,
+        success_url: `${baseUrl}/${locale}/dashboard?${successParams}`,
+        cancel_url:  `${baseUrl}/${locale}/pricing`,
       });
 
       return NextResponse.json({ url: session.url });
@@ -90,17 +97,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Stripe prijs-ID niet geconfigureerd voor dit plan' }, { status: 503 });
     }
 
+    const plan = PLANS[planKey as keyof typeof PLANS];
+    const successParams = new URLSearchParams({
+      checkout: 'success',
+      type:     'plan',
+      plan:     planKey,
+      ...(plan ? { amount: String(plan.prijs) } : {}),
+    });
+
     const session = await stripe.checkout.sessions.create({
       mode,
       line_items: [{ price: priceId, quantity: 1 }],
       customer_email: user.email,
-      metadata: { userId: user.id },
-      success_url: `${baseUrl}/${locale}/dashboard?checkout=success`,
-      cancel_url: `${baseUrl}/${locale}/pricing`,
+      metadata: { userId: user.id, planKey },
+      success_url: `${baseUrl}/${locale}/dashboard?${successParams}`,
+      cancel_url:  `${baseUrl}/${locale}/pricing`,
     });
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
+    console.error('[stripe/checkout] session.create failed:', err);
     const message = err instanceof Error ? err.message : 'Stripe error';
     return NextResponse.json({ error: message }, { status: 500 });
   }
