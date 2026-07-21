@@ -52,27 +52,15 @@ export function useSupport() {
           event:  'INSERT',
           schema: 'public',
           table:  'messages',
-          filter: 'sender_type=eq.agent',
+          // Geen server-side filter: vereist REPLICA IDENTITY FULL.
+          // Client-side check op sender_type hieronder.
         },
         (payload: RealtimePostgresInsertPayload<Message>) => {
           const msg = payload.new;
-          // DEBUG — verwijder na diagnose
-          console.log('[DBG-1] Realtime event ontvangen', {
-            msg_id:          msg.id,
-            conversation_id: msg.conversation_id,
-            sender_type:     msg.sender_type,
-            body:            msg.body?.slice(0, 40),
-          });
+          if (msg.sender_type !== 'agent') return;
           setState(s => {
-            console.log('[DBG-2] setState callback', {
-              hasActive:    !!s.activeConversation,
-              activeId:     s.activeConversation?.id,
-              msgConvId:    msg.conversation_id,
-              match:        s.activeConversation?.id === msg.conversation_id,
-            });
             if (!s.activeConversation || s.activeConversation.id !== msg.conversation_id) return s;
             if (s.activeConversation.messages.some(m => m.id === msg.id)) return s;
-            console.log('[DBG-3] Bericht toegevoegd aan activeConversation');
             return {
               ...s,
               activeConversation: {

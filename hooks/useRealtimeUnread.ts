@@ -25,9 +25,9 @@ export function useRealtimeUnread() {
           event:  'INSERT',
           schema: 'public',
           table:  'messages',
-          filter: 'sender_type=eq.agent',
         },
         (payload: RealtimePostgresInsertPayload<Message>) => {
+          if (payload.new.sender_type !== 'agent') return;
           setRealtimeUnread(n => n + 1);
 
           if (
