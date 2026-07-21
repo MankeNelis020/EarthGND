@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
+import type { Message } from '@/lib/support/types';
 
 /**
- * Subscribes to new agent messages via Supabase Realtime.
- * Supabase RLS ensures only the authenticated user's conversations deliver events.
- * Shows a browser Notification when the tab is in the background.
+ * Bijhoudt ongelezen agent-berichten via Supabase Realtime (met JWT-auth)
+ * plus een background-poll als fallback voor wanneer Realtime stil is.
  */
 export function useRealtimeUnread() {
   const [realtimeUnread, setRealtimeUnread] = useState(0);
@@ -14,39 +15,53 @@ export function useRealtimeUnread() {
 
   useEffect(() => {
     const supabase = clientRef.current;
+    let active = true;
 
-    const channel = supabase
-      .channel('support-agent-messages')
-      .on(
-        'postgres_changes',
-        {
-          event:  'INSERT',
-          schema: 'public',
-          table:  'messages',
-          filter: 'sender_type=eq.agent',
-        },
-        () => {
-          setRealtimeUnread(n => n + 1);
+    async function subscribe() {
+      // JWT zodat Supabase Realtime RLS-protected rows ontvangt
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        supabase.realtime.setAuth(session.access_token);
+      }
 
-          if (
-            typeof document !== 'undefined' &&
-            document.visibilityState === 'hidden' &&
-            typeof Notification !== 'undefined' &&
-            Notification.permission === 'granted'
-          ) {
-            try {
-              new Notification('EarthGND Ondersteuning', {
-                body: 'Je hebt een nieuw bericht',
-                icon: '/favicon.ico',
-                tag:  'support-reply',
-              });
-            } catch { /* browser may block notifications */ }
-          }
-        },
-      )
-      .subscribe();
+      if (!active) return;
 
-    return () => { supabase.removeChannel(channel); };
+      supabase
+        .channel('support-unread-badge')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages' },
+          (payload: RealtimePostgresInsertPayload<Message>) => {
+            if (payload.new.sender_type !== 'agent') return;
+            setRealtimeUnread(n => n + 1);
+
+            if (
+              typeof document !== 'undefined' &&
+              document.visibilityState === 'hidden' &&
+              typeof Notification !== 'undefined' &&
+              Notification.permission === 'granted'
+            ) {
+              try {
+                new Notification('EarthGND Ondersteuning', {
+                  body: payload.new.body?.slice(0, 100) || 'Je hebt een nieuw bericht',
+                  icon: '/favicon.ico',
+                  tag:  'support-reply',
+                });
+              } catch { /* browser may block notifications */ }
+            }
+          },
+        )
+        .subscribe((status: string, err?: Error) => {
+          if (err) console.error('[realtime/badge] subscribe error', err);
+        });
+    }
+
+    subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(supabase.channel('support-unread-badge'));
+    };
   }, []);
 
   const resetRealtimeUnread = useCallback(() => setRealtimeUnread(0), []);

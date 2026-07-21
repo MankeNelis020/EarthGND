@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 import type {
   ConversationSummary,
   ConversationWithMessages,
@@ -32,11 +34,89 @@ export function useSupport() {
     isUnauthenticated:  false,
   });
 
-  const loadingRef = useRef(false);
+  const loadingRef  = useRef(false);
+  const activeIdRef = useRef<string | null>(null);
+  const pollingRef  = useRef(false);
 
   function patch(update: Partial<State>) {
     setState(s => ({ ...s, ...update }));
   }
+
+  // activeIdRef bijhouden zodat polling-interval altijd de huidige id ziet.
+  useEffect(() => {
+    activeIdRef.current = state.activeConversation?.id ?? null;
+  }, [state.activeConversation?.id]);
+
+  // Polling-fallback: elke 5 s de actieve conversation verversen.
+  // Vervangt Realtime zolang de JWT-auth-flow niet volledig is geconfigureerd.
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const id = activeIdRef.current;
+      if (!id || pollingRef.current) return;
+      pollingRef.current = true;
+      try {
+        const res = await fetch(`/api/support/conversations/${id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const fresh = data.conversation as ConversationWithMessages;
+        setState(s => {
+          if (!s.activeConversation || s.activeConversation.id !== id) return s;
+          if (fresh.messages.length <= s.activeConversation.messages.length) return s;
+          return { ...s, activeConversation: fresh };
+        });
+      } catch { /* stil falen */ } finally {
+        pollingRef.current = false;
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Supabase Realtime — met JWT-auth zodat RLS-protected events aankomen.
+  useEffect(() => {
+    const supabase = createClient();
+    let active = true;
+
+    async function subscribe() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        supabase.realtime.setAuth(session.access_token);
+      }
+      if (!active) return;
+
+      supabase
+        .channel('support-agent-messages')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages' },
+          (payload: RealtimePostgresInsertPayload<Message>) => {
+            const msg = payload.new;
+            if (msg.sender_type !== 'agent') return;
+            setState(s => {
+              if (!s.activeConversation || s.activeConversation.id !== msg.conversation_id) return s;
+              if (s.activeConversation.messages.some(m => m.id === msg.id)) return s;
+              return {
+                ...s,
+                activeConversation: {
+                  ...s.activeConversation,
+                  status:   'waiting_for_customer',
+                  messages: [...s.activeConversation.messages, msg],
+                },
+              };
+            });
+          },
+        )
+        .subscribe((status: string, err?: Error) => {
+          if (err) console.error('[support/realtime] subscribe error', err);
+        });
+    }
+
+    subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(supabase.channel('support-agent-messages'));
+    };
+  }, []);
 
   const loadConversations = useCallback(async () => {
     if (loadingRef.current) return;
