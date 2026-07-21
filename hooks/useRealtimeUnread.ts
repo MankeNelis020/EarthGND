@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 import type { Message } from '@/lib/support/types';
 
 /**
@@ -29,8 +30,8 @@ export function useRealtimeUnread(onAgentMessage?: (message: Message) => void) {
           table:  'messages',
           filter: 'sender_type=eq.agent',
         },
-        (payload) => {
-          const message = payload.new as Message;
+        (payload: RealtimePostgresInsertPayload<Message>) => {
+          const message = payload.new;
 
           setRealtimeUnread(n => n + 1);
           onMessageRef.current?.(message);
