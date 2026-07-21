@@ -31,6 +31,7 @@ export function useRealtimeUnread(onAgentMessage?: (message: Message) => void) {
           filter: 'sender_type=eq.agent',
         },
         (payload: RealtimePostgresInsertPayload<Message>) => {
+          console.log('[realtime] postgres_changes payload', payload);
           const message = payload.new;
 
           setRealtimeUnread(n => n + 1);
@@ -52,7 +53,14 @@ export function useRealtimeUnread(onAgentMessage?: (message: Message) => void) {
           }
         },
       )
-      .subscribe();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .on('system' as any, (msg: unknown) => {
+        console.log('[realtime] system', msg);
+      })
+      .subscribe((status, err) => {
+        console.log('[realtime] subscribe status', status);
+        if (err) console.error('[realtime] subscribe error', err);
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, []);
