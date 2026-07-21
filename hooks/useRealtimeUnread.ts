@@ -6,22 +6,19 @@ import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 import type { Message } from '@/lib/support/types';
 
 /**
- * Subscribes to new agent messages via Supabase Realtime.
- * Supabase RLS ensures only the authenticated user's conversations deliver events.
- * Shows a browser Notification when the tab is in the background.
- * Calls onAgentMessage with the full row so callers can update local state.
+ * Bijhoudt het aantal ongelezen agent-berichten via Supabase Realtime.
+ * Toont een browser Notification als de tab op de achtergrond staat.
+ * Message-state zit in useSupport (zelfde Realtime-event, aparte channel).
  */
-export function useRealtimeUnread(onAgentMessage?: (message: Message) => void) {
+export function useRealtimeUnread() {
   const [realtimeUnread, setRealtimeUnread] = useState(0);
-  const clientRef       = useRef(createClient());
-  const onMessageRef    = useRef(onAgentMessage);
-  onMessageRef.current  = onAgentMessage;
+  const clientRef = useRef(createClient());
 
   useEffect(() => {
     const supabase = clientRef.current;
 
     const channel = supabase
-      .channel('support-agent-messages')
+      .channel('support-unread-badge')
       .on(
         'postgres_changes',
         {
@@ -31,11 +28,7 @@ export function useRealtimeUnread(onAgentMessage?: (message: Message) => void) {
           filter: 'sender_type=eq.agent',
         },
         (payload: RealtimePostgresInsertPayload<Message>) => {
-          console.log('[realtime] postgres_changes payload', payload);
-          const message = payload.new;
-
           setRealtimeUnread(n => n + 1);
-          onMessageRef.current?.(message);
 
           if (
             typeof document !== 'undefined' &&
@@ -45,7 +38,7 @@ export function useRealtimeUnread(onAgentMessage?: (message: Message) => void) {
           ) {
             try {
               new Notification('EarthGND Ondersteuning', {
-                body: message.body?.slice(0, 100) || 'Je hebt een nieuw bericht',
+                body: payload.new.body?.slice(0, 100) || 'Je hebt een nieuw bericht',
                 icon: '/favicon.ico',
                 tag:  'support-reply',
               });
@@ -54,8 +47,7 @@ export function useRealtimeUnread(onAgentMessage?: (message: Message) => void) {
         },
       )
       .subscribe((status: string, err?: Error) => {
-        console.log('[realtime] subscribe status', status);
-        if (err) console.error('[realtime] subscribe error', err);
+        if (err) console.error('[realtime/badge] subscribe error', err);
       });
 
     return () => { supabase.removeChannel(channel); };
