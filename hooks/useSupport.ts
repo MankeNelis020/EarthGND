@@ -14,6 +14,7 @@ interface State {
   activeConversation: ConversationWithMessages | null;
   isLoading:          boolean;
   error:              string | null;
+  isUnauthenticated:  boolean;
 }
 
 interface CreateConvInput {
@@ -28,6 +29,7 @@ export function useSupport() {
     activeConversation: null,
     isLoading:          false,
     error:              null,
+    isUnauthenticated:  false,
   });
 
   const loadingRef = useRef(false);
@@ -42,9 +44,10 @@ export function useSupport() {
     patch({ isLoading: true, error: null });
     try {
       const res = await fetch('/api/support/conversations');
+      if (res.status === 401) { patch({ isUnauthenticated: true, isLoading: false }); return; }
       if (!res.ok) throw new Error('Laden mislukt');
       const data = await res.json();
-      patch({ conversations: data.conversations ?? [], isLoading: false });
+      patch({ conversations: data.conversations ?? [], isLoading: false, isUnauthenticated: false });
     } catch {
       patch({ error: 'Gesprekken laden mislukt', isLoading: false });
     } finally {
@@ -131,6 +134,7 @@ export function useSupport() {
     activeConversation:    state.activeConversation,
     isLoading:             state.isLoading,
     error:                 state.error,
+    isUnauthenticated:     state.isUnauthenticated,
     loadConversations,
     openConversation,
     createConversation,
