@@ -48,8 +48,14 @@ export function useSupport() {
     activeIdRef.current = state.activeConversation?.id ?? null;
   }, [state.activeConversation?.id]);
 
+  // TODO: vervang polling door Supabase Realtime zodra de JWT-auth-flow werkt.
+  // Probleem: postgres_changes events worden stil geblokkeerd voor RLS-tabellen
+  // als het access_token niet expliciet aan de WebSocket-verbinding wordt
+  // meegegeven. Fix: roep supabase.realtime.setAuth(session.access_token) aan
+  // na createClient(), of gebruik createBrowserClient met een custom fetch die
+  // de Authorization-header meestuurt. Zie utils/supabase/client.ts.
+  //
   // Polling-fallback: elke 5 seconden de actieve conversation verversen.
-  // Vangt agent-replies op wanneer Realtime geen events levert (JWT/RLS issue).
   useEffect(() => {
     const interval = setInterval(async () => {
       const id = activeIdRef.current;
