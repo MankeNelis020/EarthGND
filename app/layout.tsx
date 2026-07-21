@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { GTMLoader } from '@/components/analytics/GTMLoader';
 
 export const metadata: Metadata = {
   title: 'EarthGND — Professionele Aardingsberekeningen',
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html suppressHydrationWarning>
-      <body>{children}</body>
+      <body>
+        <GTMLoader />
+        {children}
+      </body>
     </html>
   );
 }

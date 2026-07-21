@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:pendiepte": "npx tsx --tsconfig tsconfig.json scripts/pendiepte-model-check.ts",
+    "validate:poort-a": "npx tsx --tsconfig tsconfig.json scripts/validate-poort-a-gw-detection.ts",
+    "test:support": "npx tsx --tsconfig tsconfig.json scripts/test-support-service.ts",
     "verify:geotop": "npx tsx --tsconfig tsconfig.json scripts/verify-geotop.ts",
     "calibrate:fase0": "npx tsx --tsconfig tsconfig.json scripts/fase0-counterfactual.ts",
     "calibrate:depth": "npx tsx --tsconfig tsconfig.json scripts/fase0-depth-verify.ts",
@@ -17,7 +19,8 @@
     "gate:depth": "npx tsx --tsconfig tsconfig.json scripts/fase0-depth-verify.ts",
     "gate:poort2": "npx tsx --tsconfig tsconfig.json scripts/gate-poort2-shadow.ts",
     "i18n:check": "npx tsx scripts/check-i18n-keys.ts",
-    "test:import": "npx tsx --tsconfig tsconfig.json scripts/test-import-local.ts"
+    "test:import": "npx tsx --tsconfig tsconfig.json scripts/test-import-local.ts",
+    "validate:poort-c": "npx tsx --tsconfig tsconfig.json scripts/validate-poort-c-lolo.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
@@ -29,7 +32,8 @@
     "react": "^18",
     "react-dom": "^18",
     "resend": "^6.12.2",
-    "stripe": "^22.0.2"
+    "stripe": "^22.0.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20",

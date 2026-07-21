@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
     : 1;
 
   // Log to DB — await to capture the UUID for the monteur flow
+  const blend = enrichment.empiricalBlend;
   const persist = await persistCalculation(supabase, {
     user_id:      user.id,
     tool:         'diepte',
@@ -66,6 +67,13 @@ export async function POST(request: NextRequest) {
       dimension:          primaryDimension,
       achievedResistance: gemiddeld.achievedResistance,
       aantalPennen,
+      // Poort D: empirische blend metadata voor monitoring
+      empirical_source:     enrichment.rhoWetSource,
+      empirical_confidence: blend?.confidence ?? null,
+      empirical_rho:        blend?.empiricalRho ?? null,
+      l1_rho:               blend?.l1Rho ?? null,
+      blended_rho:          blend?.blendedRho ?? null,
+      blend_applied:        blend?.blendApplied ?? false,
     },
   });
 
