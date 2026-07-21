@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useLocale } from 'next-intl';
 import { useSupport } from '@/hooks/useSupport';
 import { useRealtimeUnread } from '@/hooks/useRealtimeUnread';
 import { useOfflineQueue } from './useOfflineQueue';
@@ -15,12 +16,14 @@ export function SupportWidget() {
   const [isOpen,    setIsOpen]    = useState(false);
   const [panelView, setPanelView] = useState<PanelView>('list');
   const [loaded,    setLoaded]    = useState(false);
+  const locale = useLocale();
 
   const {
     conversations,
     activeConversation,
     isLoading,
     error,
+    isUnauthenticated,
     loadConversations,
     openConversation,
     createConversation,
@@ -50,8 +53,8 @@ export function SupportWidget() {
   const closePanel = () => setIsOpen(false);
 
   const handleNewConv = async (
-    category: ConversationCategory,
-    body:     string,
+    category:    ConversationCategory,
+    body:        string,
     attachments: MessageAttachment[],
   ) => {
     const id = await createConversation({ category, body, attachments });
@@ -76,31 +79,42 @@ export function SupportWidget() {
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — alleen zichtbaar op mobile; op desktop valt panel naast content */}
       <div
-        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 md:hidden ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={closePanel}
         aria-hidden="true"
       />
 
-      {/* Slide-up panel */}
+      {/* Panel — mobile: slide-up full-width; desktop: vaste breedte 1/3 rechtsonder */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Ondersteuning"
-        className={`fixed bottom-0 inset-x-0 z-50 flex flex-col rounded-t-2xl bg-[#1C1917] border-t border-white/10 shadow-2xl transition-transform duration-300 ease-out ${
-          isOpen ? 'translate-y-0' : 'translate-y-full'
-        }`}
-        style={{ maxHeight: '85dvh', height: '85dvh' }}
+        className={`
+          fixed z-50 flex flex-col bg-[#1C1917] shadow-2xl transition-all duration-300 ease-out
+          border-white/10
+          bottom-0 inset-x-0 rounded-t-2xl border-t
+          md:bottom-4 md:right-4 md:inset-x-auto md:rounded-2xl md:border
+          md:w-[min(33vw,440px)] md:min-w-[360px]
+          ${isOpen
+            ? 'translate-y-0 opacity-100'
+            : 'translate-y-4 opacity-0 pointer-events-none md:translate-y-2'
+          }
+        `}
+        style={{
+          maxHeight: '85dvh',
+          height:    '85dvh',
+        }}
       >
-        {/* Drag handle + close */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-1 shrink-0">
-          <div className="h-1 w-10 rounded-full bg-white/20 mx-auto" />
+        {/* Drag handle (mobile) + sluitknop */}
+        <div className="relative flex items-center justify-center px-4 pt-3 pb-1 shrink-0">
+          <div className="h-1 w-10 rounded-full bg-white/20 md:hidden" />
           <button
             onClick={closePanel}
-            className="absolute right-4 top-3 text-[#F5EFE6]/50 hover:text-[#F5EFE6] p-1"
+            className="absolute right-3 top-2.5 text-[#F5EFE6]/50 hover:text-[#F5EFE6] p-1 rounded-lg hover:bg-white/5"
             aria-label="Sluiten"
           >
             <CloseIcon />
@@ -109,7 +123,26 @@ export function SupportWidget() {
 
         {/* Panel content */}
         <div className="flex-1 overflow-hidden">
-          {panelView === 'list' && (
+          {/* Niet ingelogd */}
+          {isUnauthenticated && (
+            <div className="flex flex-col items-center justify-center gap-4 px-6 py-12 text-center h-full">
+              <LockIcon />
+              <div>
+                <p className="text-sm font-semibold text-[#F5EFE6]">Inloggen vereist</p>
+                <p className="mt-1 text-xs text-[#F5EFE6]/50">
+                  Je hebt een account nodig om contact op te nemen met ondersteuning.
+                </p>
+              </div>
+              <a
+                href={`/${locale}/login`}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#E8761A] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#d06510] transition-colors"
+              >
+                Inloggen
+              </a>
+            </div>
+          )}
+
+          {!isUnauthenticated && panelView === 'list' && (
             <ConversationList
               conversations={conversations}
               isLoading={isLoading}
@@ -119,14 +152,14 @@ export function SupportWidget() {
             />
           )}
 
-          {panelView === 'new' && (
+          {!isUnauthenticated && panelView === 'new' && (
             <NewConversationForm
               onSubmit={handleNewConv}
               onBack={() => setPanelView('list')}
             />
           )}
 
-          {panelView === 'conversation' && activeConversation && (
+          {!isUnauthenticated && panelView === 'conversation' && activeConversation && (
             <ConversationView
               conversation={activeConversation}
               onBack={handleBackToList}
@@ -135,18 +168,18 @@ export function SupportWidget() {
             />
           )}
 
-          {panelView === 'conversation' && !activeConversation && isLoading && (
+          {!isUnauthenticated && panelView === 'conversation' && !activeConversation && isLoading && (
             <div className="flex h-full items-center justify-center">
               <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#E8761A]" />
             </div>
           )}
         </div>
 
-        {/* Safe-area spacer */}
+        {/* Safe-area spacer (iOS) */}
         <div className="shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
       </div>
 
-      {/* Floating button */}
+      {/* Zwevende knop */}
       <button
         onClick={openPanel}
         className={`fixed bottom-6 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-[#E8761A] text-white shadow-lg transition-all duration-200 hover:bg-[#d06510] focus:outline-none focus:ring-2 focus:ring-[#E8761A] focus:ring-offset-2 focus:ring-offset-[#1C1917] ${
@@ -178,6 +211,15 @@ function CloseIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg className="h-10 w-10 text-[#F5EFE6]/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0110 0v4" />
     </svg>
   );
 }

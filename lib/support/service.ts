@@ -69,7 +69,8 @@ export function _setAdapterForTest(adapter: SupportAdapter) {
 
 export async function checkRateLimit(userId: string): Promise<boolean> {
   const db = getDb();
-  const { data } = await db.rpc('support_rate_limit_ok', { p_user_id: userId });
+  const { data, error } = await db.rpc('support_rate_limit_ok', { p_user_id: userId });
+  if (error) return true; // schema nog niet gedraaid → doorlaten
   return data === true;
 }
 
