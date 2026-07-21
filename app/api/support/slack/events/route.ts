@@ -26,7 +26,14 @@ function getDb() {
 
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
+  const body = JSON.parse(rawBody);
 
+  // Handle url_verification first — no signature needed, just echo the challenge
+  if (body.type === 'url_verification') {
+    return NextResponse.json({ challenge: body.challenge });
+  }
+
+  // All other events must carry a valid signature
   const valid = verifySlackSignature(
     rawBody,
     request.headers.get('x-slack-request-timestamp') ?? '',
@@ -34,13 +41,6 @@ export async function POST(request: NextRequest) {
   );
   if (!valid) {
     return NextResponse.json({ error: 'Ongeldige handtekening' }, { status: 401 });
-  }
-
-  const body = JSON.parse(rawBody);
-
-  // Initial URL verification during Slack app setup
-  if (body.type === 'url_verification') {
-    return NextResponse.json({ challenge: body.challenge });
   }
 
   if (body.type !== 'event_callback') {
