@@ -31,8 +31,12 @@ function createNullClient(): SupabaseClient {
 
   return {
     auth: {
-      getUser: async () => ({ data: { user: null }, error: null }),
-      signOut: async () => ({ error: null }),
+      getUser:           async () => ({ data: { user: null }, error: null }),
+      getSession:        async () => ({ data: { session: null }, error: null }),
+      signOut:           async () => ({ error: null }),
+      signInWithOAuth:   async () => ({ data: null, error: null }),
+      signInWithPassword: async () => ({ data: { user: null, session: null }, error: null }),
+      signUp:            async () => ({ data: { user: null, session: null }, error: null }),
       onAuthStateChange: (_event: unknown, _callback: unknown) => ({
         data: { subscription: { unsubscribe: noop } },
       }),
