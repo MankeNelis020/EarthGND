@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 import type {
   ConversationSummary,
   ConversationWithMessages,
@@ -37,6 +39,43 @@ export function useSupport() {
   function patch(update: Partial<State>) {
     setState(s => ({ ...s, ...update }));
   }
+
+  // Realtime subscription — zit hier zodat setState direct beschikbaar is,
+  // zonder cross-hook callback chain.
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel('support-agent-messages')
+      .on(
+        'postgres_changes',
+        {
+          event:  'INSERT',
+          schema: 'public',
+          table:  'messages',
+          filter: 'sender_type=eq.agent',
+        },
+        (payload: RealtimePostgresInsertPayload<Message>) => {
+          const msg = payload.new;
+          setState(s => {
+            if (!s.activeConversation || s.activeConversation.id !== msg.conversation_id) return s;
+            if (s.activeConversation.messages.some(m => m.id === msg.id)) return s;
+            return {
+              ...s,
+              activeConversation: {
+                ...s.activeConversation,
+                status:   'waiting_for_customer',
+                messages: [...s.activeConversation.messages, msg],
+              },
+            };
+          });
+        },
+      )
+      .subscribe((status: string, err?: Error) => {
+        if (err) console.error('[support/realtime] subscribe error', err);
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const loadConversations = useCallback(async () => {
     if (loadingRef.current) return;
@@ -129,22 +168,6 @@ export function useSupport() {
     patch({ activeConversation: null });
   }, []);
 
-  const appendAgentMessage = useCallback((message: Message) => {
-    setState(s => {
-      if (!s.activeConversation || s.activeConversation.id !== message.conversation_id) return s;
-      // Deduplicate: don't append if the message is already in the list
-      if (s.activeConversation.messages.some(m => m.id === message.id)) return s;
-      return {
-        ...s,
-        activeConversation: {
-          ...s.activeConversation,
-          status:   'waiting_for_customer',
-          messages: [...s.activeConversation.messages, message],
-        },
-      };
-    });
-  }, []);
-
   return {
     conversations:         state.conversations,
     activeConversation:    state.activeConversation,
@@ -156,6 +179,5 @@ export function useSupport() {
     createConversation,
     addMessage,
     clearActiveConversation,
-    appendAgentMessage,
   };
 }
