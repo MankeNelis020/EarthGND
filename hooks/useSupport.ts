@@ -34,11 +34,43 @@ export function useSupport() {
     isUnauthenticated:  false,
   });
 
-  const loadingRef = useRef(false);
+  const loadingRef        = useRef(false);
+  const activeIdRef       = useRef<string | null>(null);
+  const pollingRef        = useRef(false);
 
   function patch(update: Partial<State>) {
     setState(s => ({ ...s, ...update }));
   }
+
+  // Houd ref bij op de actieve conversation-id zodat de polling-interval
+  // altijd de huidige waarde ziet zonder stale closure.
+  useEffect(() => {
+    activeIdRef.current = state.activeConversation?.id ?? null;
+  }, [state.activeConversation?.id]);
+
+  // Polling-fallback: elke 5 seconden de actieve conversation verversen.
+  // Vangt agent-replies op wanneer Realtime geen events levert (JWT/RLS issue).
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const id = activeIdRef.current;
+      if (!id || pollingRef.current) return;
+      pollingRef.current = true;
+      try {
+        const res = await fetch(`/api/support/conversations/${id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const fresh = data.conversation as ConversationWithMessages;
+        setState(s => {
+          if (!s.activeConversation || s.activeConversation.id !== id) return s;
+          if (fresh.messages.length <= s.activeConversation.messages.length) return s;
+          return { ...s, activeConversation: fresh };
+        });
+      } catch { /* stil falen */ } finally {
+        pollingRef.current = false;
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Realtime subscription — zit hier zodat setState direct beschikbaar is,
   // zonder cross-hook callback chain.
