@@ -129,6 +129,22 @@ export function useSupport() {
     patch({ activeConversation: null });
   }, []);
 
+  const appendAgentMessage = useCallback((message: Message) => {
+    setState(s => {
+      if (!s.activeConversation || s.activeConversation.id !== message.conversation_id) return s;
+      // Deduplicate: don't append if the message is already in the list
+      if (s.activeConversation.messages.some(m => m.id === message.id)) return s;
+      return {
+        ...s,
+        activeConversation: {
+          ...s.activeConversation,
+          status:   'waiting_for_customer',
+          messages: [...s.activeConversation.messages, message],
+        },
+      };
+    });
+  }, []);
+
   return {
     conversations:         state.conversations,
     activeConversation:    state.activeConversation,
@@ -140,5 +156,6 @@ export function useSupport() {
     createConversation,
     addMessage,
     clearActiveConversation,
+    appendAgentMessage,
   };
 }
