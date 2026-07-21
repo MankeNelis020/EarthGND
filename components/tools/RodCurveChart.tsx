@@ -44,7 +44,7 @@ function bisectDepth(
   let lo = dMin, hi = dMax;
   for (let i = 0; i < 48; i++) {
     const mid = (lo + hi) / 2;
-    rAt(mid) > target ? (lo = mid) : (hi = mid);
+    if (rAt(mid) > target) { lo = mid; } else { hi = mid; }
   }
   return (lo + hi) / 2;
 }
