@@ -2,15 +2,19 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import type { Message } from '@/lib/support/types';
 
 /**
  * Subscribes to new agent messages via Supabase Realtime.
  * Supabase RLS ensures only the authenticated user's conversations deliver events.
  * Shows a browser Notification when the tab is in the background.
+ * Calls onAgentMessage with the full row so callers can update local state.
  */
-export function useRealtimeUnread() {
+export function useRealtimeUnread(onAgentMessage?: (message: Message) => void) {
   const [realtimeUnread, setRealtimeUnread] = useState(0);
-  const clientRef = useRef(createClient());
+  const clientRef       = useRef(createClient());
+  const onMessageRef    = useRef(onAgentMessage);
+  onMessageRef.current  = onAgentMessage;
 
   useEffect(() => {
     const supabase = clientRef.current;
@@ -25,8 +29,11 @@ export function useRealtimeUnread() {
           table:  'messages',
           filter: 'sender_type=eq.agent',
         },
-        () => {
+        (payload) => {
+          const message = payload.new as Message;
+
           setRealtimeUnread(n => n + 1);
+          onMessageRef.current?.(message);
 
           if (
             typeof document !== 'undefined' &&
@@ -36,7 +43,7 @@ export function useRealtimeUnread() {
           ) {
             try {
               new Notification('EarthGND Ondersteuning', {
-                body: 'Je hebt een nieuw bericht',
+                body: message.body?.slice(0, 100) || 'Je hebt een nieuw bericht',
                 icon: '/favicon.ico',
                 tag:  'support-reply',
               });

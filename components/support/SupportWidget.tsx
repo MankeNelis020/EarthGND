@@ -29,9 +29,10 @@ export function SupportWidget() {
     createConversation,
     addMessage,
     clearActiveConversation,
+    appendAgentMessage,
   } = useSupport();
 
-  const { realtimeUnread, resetRealtimeUnread, requestNotificationPermission } = useRealtimeUnread();
+  const { realtimeUnread, resetRealtimeUnread, requestNotificationPermission } = useRealtimeUnread(appendAgentMessage);
 
   const { enqueue } = useOfflineQueue(async (msg) => {
     await addMessage(msg.conversationId, msg.body);
