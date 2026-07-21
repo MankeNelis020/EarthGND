@@ -62,9 +62,10 @@ export class SlackSupportAdapter implements SupportAdapter {
     const channelId = process.env.SLACK_SUPPORT_CHANNEL_ID!;
 
     const existing = await this.findExistingThread(conversation.id);
+    console.info('[slack] conversation=%s thread=%s', conversation.id, existing?.thread_ts ?? 'new');
 
     if (existing) {
-      // Follow-up reply in the existing thread
+      // Follow-up: stuur als thread reply zodat alles in één Slack-thread blijft
       const body = message.body.replace(/\n/g, '\n>');
       const res  = await slackPost('chat.postMessage', {
         channel:   existing.channel_id,
