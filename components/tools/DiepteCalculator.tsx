@@ -74,8 +74,6 @@ interface CalcResult {
   plausibilityFlags?: { field: string; value: number | string; message: string; severity: 'light' | 'heavy' }[];
   rhoWetSource?:      'l4_local' | 'l3_regional_agnostic' | 'l3_regional' | 'l2_global' | 'l1_literature';
   localDepthHint?:    { medianDepthM: number; n: number; maxDistanceM: number; source: string; confidence: number };
-  effectiveRho?:       number;
-  dominantLithoClass?: number;
   rhoModel?:           'layered-nl' | 'two-layer' | 'single';
   empiricalBlend?: {
     empiricalRho:    number;
