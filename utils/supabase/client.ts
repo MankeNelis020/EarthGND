@@ -1,7 +1,10 @@
 import { createBrowserClient } from "@supabase/ssr";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+// Accept both the project-specific name and the standard Supabase name.
+const supabaseKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 type SupabaseClient = ReturnType<typeof createBrowserClient>;
 
@@ -11,6 +14,7 @@ function createNullClient(): SupabaseClient {
   nullQuery.select = () => nullQuery;
   nullQuery.eq = () => nullQuery;
   nullQuery.neq = () => nullQuery;
+  nullQuery.gte = () => nullQuery;
   nullQuery.order = () => nullQuery;
   nullQuery.limit = () => nullQuery;
   nullQuery.single = async () => ({ data: null, error: null });
@@ -19,15 +23,27 @@ function createNullClient(): SupabaseClient {
   nullQuery.delete = async () => ({ data: null, error: null });
   nullQuery.then = undefined;
 
+  // Null channel — no-op so hooks don't crash when env vars are missing.
+  const nullChannel = {
+    on:        () => nullChannel,
+    subscribe: (_cb?: unknown) => nullChannel,
+  };
+
   return {
     auth: {
-      getUser: async () => ({ data: { user: null }, error: null }),
-      signOut: async () => ({ error: null }),
+      getUser:           async () => ({ data: { user: null }, error: null }),
+      getSession:        async () => ({ data: { session: null }, error: null }),
+      signOut:           async () => ({ error: null }),
+      signInWithOAuth:   async () => ({ data: null, error: null }),
+      signInWithPassword: async () => ({ data: { user: null, session: null }, error: null }),
+      signUp:            async () => ({ data: { user: null, session: null }, error: null }),
       onAuthStateChange: (_event: unknown, _callback: unknown) => ({
         data: { subscription: { unsubscribe: noop } },
       }),
     },
-    from: () => nullQuery,
+    from:          () => nullQuery,
+    channel:       (_name: string) => nullChannel,
+    removeChannel: (_ch: unknown) => Promise.resolve(),
   } as unknown as SupabaseClient;
 }
 

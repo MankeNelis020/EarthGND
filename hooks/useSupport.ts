@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
+import { useState, useCallback, useRef } from 'react';
 import type {
   ConversationSummary,
   ConversationWithMessages,
@@ -34,88 +32,11 @@ export function useSupport() {
     isUnauthenticated:  false,
   });
 
-  const loadingRef        = useRef(false);
-  const activeIdRef       = useRef<string | null>(null);
-  const pollingRef        = useRef(false);
+  const loadingRef = useRef(false);
 
   function patch(update: Partial<State>) {
     setState(s => ({ ...s, ...update }));
   }
-
-  // Houd ref bij op de actieve conversation-id zodat de polling-interval
-  // altijd de huidige waarde ziet zonder stale closure.
-  useEffect(() => {
-    activeIdRef.current = state.activeConversation?.id ?? null;
-  }, [state.activeConversation?.id]);
-
-  // TODO: vervang polling door Supabase Realtime zodra de JWT-auth-flow werkt.
-  // Probleem: postgres_changes events worden stil geblokkeerd voor RLS-tabellen
-  // als het access_token niet expliciet aan de WebSocket-verbinding wordt
-  // meegegeven. Fix: roep supabase.realtime.setAuth(session.access_token) aan
-  // na createClient(), of gebruik createBrowserClient met een custom fetch die
-  // de Authorization-header meestuurt. Zie utils/supabase/client.ts.
-  //
-  // Polling-fallback: elke 5 seconden de actieve conversation verversen.
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const id = activeIdRef.current;
-      if (!id || pollingRef.current) return;
-      pollingRef.current = true;
-      try {
-        const res = await fetch(`/api/support/conversations/${id}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const fresh = data.conversation as ConversationWithMessages;
-        setState(s => {
-          if (!s.activeConversation || s.activeConversation.id !== id) return s;
-          if (fresh.messages.length <= s.activeConversation.messages.length) return s;
-          return { ...s, activeConversation: fresh };
-        });
-      } catch { /* stil falen */ } finally {
-        pollingRef.current = false;
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Realtime subscription — zit hier zodat setState direct beschikbaar is,
-  // zonder cross-hook callback chain.
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel('support-agent-messages')
-      .on(
-        'postgres_changes',
-        {
-          event:  'INSERT',
-          schema: 'public',
-          table:  'messages',
-          // Geen server-side filter: vereist REPLICA IDENTITY FULL.
-          // Client-side check op sender_type hieronder.
-        },
-        (payload: RealtimePostgresInsertPayload<Message>) => {
-          const msg = payload.new;
-          if (msg.sender_type !== 'agent') return;
-          setState(s => {
-            if (!s.activeConversation || s.activeConversation.id !== msg.conversation_id) return s;
-            if (s.activeConversation.messages.some(m => m.id === msg.id)) return s;
-            return {
-              ...s,
-              activeConversation: {
-                ...s.activeConversation,
-                status:   'waiting_for_customer',
-                messages: [...s.activeConversation.messages, msg],
-              },
-            };
-          });
-        },
-      )
-      .subscribe((status: string, err?: Error) => {
-        if (err) console.error('[support/realtime] subscribe error', err);
-      });
-
-    return () => { supabase.removeChannel(channel); };
-  }, []);
 
   const loadConversations = useCallback(async () => {
     if (loadingRef.current) return;

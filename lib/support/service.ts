@@ -256,13 +256,11 @@ export async function setStatus(conversationId: string, status: ConversationStat
 export async function listConversations(userId: string): Promise<ConversationSummary[]> {
   const db = getDb();
 
-  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
   const { data, error } = await db
     .from('conversations')
     .select('*')
     .eq('user_id', userId)
-    .gte('last_message_at', cutoff)
+    .neq('status', 'closed')
     .order('last_message_at', { ascending: false });
 
   if (error) throw new Error(`Conversations ophalen mislukt: ${error.message}`);

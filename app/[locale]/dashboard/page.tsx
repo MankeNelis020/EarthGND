@@ -9,6 +9,7 @@ import { LogoutButton } from '@/components/ui/LogoutButton';
 import { PostAuthRedirect } from '@/components/auth/PostAuthRedirect';
 import { DashboardSections } from '@/components/dashboard/DashboardSections';
 import { ColleaguesSection } from '@/components/dashboard/ColleaguesSection';
+import { PurchaseTracker } from '@/components/analytics/PurchaseTracker';
 
 export const runtime = 'nodejs';
 
@@ -64,7 +65,7 @@ export default async function DashboardPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ checkout?: string }>;
+  searchParams: Promise<{ checkout?: string; type?: string; plan?: string; qty?: string; amount?: string }>;
 }) {
   const { locale } = await paramsPromise;
   const cookieStore = await cookies();
@@ -179,9 +180,19 @@ export default async function DashboardPage({
       <div className="mx-auto max-w-3xl px-4 py-10">
 
         {params.checkout === 'success' && (
-          <div className="mb-6 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
-            <p className="text-sm font-semibold text-green-400">Betaling geslaagd — je credits zijn bijgeschreven.</p>
-          </div>
+          <>
+            <div className="mb-6 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
+              <p className="text-sm font-semibold text-green-400">Betaling geslaagd — je credits zijn bijgeschreven.</p>
+            </div>
+            {params.amount && (
+              <PurchaseTracker
+                type={params.type ?? 'unknown'}
+                plan={params.plan}
+                qty={params.qty}
+                amount={params.amount}
+              />
+            )}
+          </>
         )}
 
         <h1 className="font-condensed mb-6 text-3xl font-black text-white">Dashboard</h1>

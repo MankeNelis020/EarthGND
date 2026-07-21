@@ -2,13 +2,11 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
-import type { Message } from '@/lib/support/types';
 
 /**
- * Bijhoudt het aantal ongelezen agent-berichten via Supabase Realtime.
- * Toont een browser Notification als de tab op de achtergrond staat.
- * Message-state zit in useSupport (zelfde Realtime-event, aparte channel).
+ * Subscribes to new agent messages via Supabase Realtime.
+ * Supabase RLS ensures only the authenticated user's conversations deliver events.
+ * Shows a browser Notification when the tab is in the background.
  */
 export function useRealtimeUnread() {
   const [realtimeUnread, setRealtimeUnread] = useState(0);
@@ -18,16 +16,16 @@ export function useRealtimeUnread() {
     const supabase = clientRef.current;
 
     const channel = supabase
-      .channel('support-unread-badge')
+      .channel('support-agent-messages')
       .on(
         'postgres_changes',
         {
           event:  'INSERT',
           schema: 'public',
           table:  'messages',
+          filter: 'sender_type=eq.agent',
         },
-        (payload: RealtimePostgresInsertPayload<Message>) => {
-          if (payload.new.sender_type !== 'agent') return;
+        () => {
           setRealtimeUnread(n => n + 1);
 
           if (
@@ -38,7 +36,7 @@ export function useRealtimeUnread() {
           ) {
             try {
               new Notification('EarthGND Ondersteuning', {
-                body: payload.new.body?.slice(0, 100) || 'Je hebt een nieuw bericht',
+                body: 'Je hebt een nieuw bericht',
                 icon: '/favicon.ico',
                 tag:  'support-reply',
               });
@@ -46,9 +44,7 @@ export function useRealtimeUnread() {
           }
         },
       )
-      .subscribe((status: string, err?: Error) => {
-        if (err) console.error('[realtime/badge] subscribe error', err);
-      });
+      .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, []);
