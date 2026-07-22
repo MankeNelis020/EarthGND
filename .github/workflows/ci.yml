@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Volledige geschiedenis nodig zodat check-allowlist-shrinks.ts
+          # origin/main kan vergelijken met de PR-branch (lib/authz/legacy-routes.ts
+          # mag alleen krimpen — zie docs/architecture/migration-plan.md).
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -18,6 +23,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Secure-endpoint-architectuur (importgrenzen, service-role-isolatie, route-manifest, allowlist)
+        run: npm run verify:architecture
 
       - run: npm test
 

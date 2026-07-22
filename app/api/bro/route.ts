@@ -1,82 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { lookupPostcode } from '@/lib/pdok';
-import { fetchBroSoilData } from '@/lib/bro';
-import { cacheGet, cacheSet, checkRateLimit } from '@/lib/redis';
+/**
+ * Migratie van bevinding B1 (auditrapport): deze route had geen enkele
+ * auth-check en gaf de volledige BRO/GeoTOP-bodemdata per adres gratis en
+ * ongeauthenticeerd terug — precies het betaalde onderscheid van de
+ * Diepte-calculator. Nu verplicht via defineEndpoint + capability
+ * 'bro:lookup' (lib/authz/capability.ts): vereist een ingelogde gebruiker
+ * met een actief plan of credits (dezelfde regel als de paginagate),
+ * schrijft geen credit af (zie docs/architecture/bro-charging-boundary.md).
+ *
+ * Dit bestand bevat met opzet geen businesslogica en geen databasetoegang —
+ * dat staat in lib/application/bro-lookup.ts.
+ */
 
-const BRO_TTL = 60 * 60 * 24 * 30; // 30 days
+import { defineEndpoint } from '@/lib/edge/define-endpoint';
+import { BroLookupInput, lookupSoilData } from '@/lib/application/bro-lookup';
 
-// 30 unique-postcode lookups per minute per IP.
-// Redis-cached responses are served before this check runs, so
-// repeat lookups of the same postcode don't count against the limit.
-const RATE_LIMIT = 30;
-const RATE_WINDOW_S = 60;
+export const runtime = 'nodejs';
 
-function getIp(request: NextRequest): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-}
-
-export async function GET(request: NextRequest) {
-  const postcode = request.nextUrl.searchParams.get('postcode');
-  const huisnummer = request.nextUrl.searchParams.get('huisnummer') ?? undefined;
-  const rdXParam = request.nextUrl.searchParams.get('rdX');
-  const rdYParam = request.nextUrl.searchParams.get('rdY');
-  const latParam = request.nextUrl.searchParams.get('lat');
-  const lonParam = request.nextUrl.searchParams.get('lon');
-
-  try {
-    let rdX: number;
-    let rdY: number;
-    let lat: number;
-    let lon: number;
-    let cacheKey: string;
-    let addressData: { straatnaam?: string; huisnummer?: string; woonplaats?: string } = {};
-
-    if (rdXParam && rdYParam && latParam && lonParam) {
-      rdX = parseFloat(rdXParam);
-      rdY = parseFloat(rdYParam);
-      lat = parseFloat(latParam);
-      lon = parseFloat(lonParam);
-      cacheKey = `bro:v4:rd:${Math.round(rdX)}:${Math.round(rdY)}`;
-    } else if (postcode) {
-      // Always fetch address from PDOK (fast, Next.js-cached 24 h) so
-      // the confirmation shows even when BRO soil data is Redis-cached.
-      const coords = await lookupPostcode(postcode, huisnummer);
-      rdX = coords.rdX;
-      rdY = coords.rdY;
-      lat = coords.lat;
-      lon = coords.lon;
-      addressData = {
-        straatnaam: coords.straatnaam,
-        huisnummer: coords.huisnummer,
-        woonplaats: coords.woonplaats,
-      };
-      const cleaned = postcode.replace(/\s/g, '').toUpperCase();
-      // v4: cache key bumped for CPT radius change 0.5→0.25 km (2026-06-25)
-      cacheKey = huisnummer ? `bro:v4:${cleaned}:${huisnummer}` : `bro:v4:${cleaned}`;
-    } else {
-      return NextResponse.json({ error: 'postcode or rdX/rdY/lat/lon required' }, { status: 400 });
+export const GET = defineEndpoint({
+  capability: 'bro:lookup',
+  source: 'query',
+  input: BroLookupInput,
+  handler: async (ctx, input) => {
+    try {
+      const result = await lookupSoilData(ctx, input);
+      return Response.json(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return Response.json({ error: message }, { status: 500 });
     }
-
-    // Serve cached response before rate-limit check so repeat lookups are free.
-    const cached = await cacheGet(cacheKey);
-    if (cached) return NextResponse.json({ ...cached, ...addressData });
-
-    // Rate limit uncached requests (each triggers 5 outbound BRO API calls).
-    const ip = getIp(request);
-    const allowed = await checkRateLimit(`rl:bro:${ip}`, RATE_LIMIT, RATE_WINDOW_S);
-    if (!allowed) {
-      return NextResponse.json(
-        { error: 'Te veel verzoeken — wacht even en probeer opnieuw.' },
-        { status: 429 },
-      );
-    }
-
-    const broData = await fetchBroSoilData(rdX, rdY, lat, lon);
-    const response = { ...broData, ...addressData };
-    await cacheSet(cacheKey, response, BRO_TTL);
-    return NextResponse.json(response);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+  },
+});

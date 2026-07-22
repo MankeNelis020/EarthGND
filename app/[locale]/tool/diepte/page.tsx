@@ -5,6 +5,7 @@ import { PageMeta } from '@/components/ui/FieldLabel';
 import { Link } from '@/i18n/navigation';
 import { PLANS } from '@/lib/plans';
 import { formatPriceCompact } from '@/lib/pricing';
+import { hasActivePlanAccess } from '@/lib/authz/principal';
 
 export const runtime = 'nodejs';
 export const metadata = {
@@ -82,7 +83,7 @@ export default async function DieptePage({
 
   const plan = profile?.plan ?? 'gratis';
   const creditsLeft = profile?.credits_left ?? 0;
-  const hasAccess = plan !== 'gratis' || creditsLeft > 0;
+  const hasAccess = hasActivePlanAccess(plan, creditsLeft);
 
   // No subscription and no purchased credits
   if (!hasAccess) {
