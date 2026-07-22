@@ -9,12 +9,12 @@
     "logout": "Uitloggen"
   },
   "home": {
-    "title": "Aardingsweerstand. Direct bepaald.",
+    "title": "Aardingsweerstand. Berekend. Gerapporteerd.",
     "titleLine1": "Aardingsweerstand.",
-    "titleLine2": "Direct bepaald.",
-    "subtitle": "Twee professionele calculators voor elektrotechnici en aannemers. Van maximale weerstand tot exacte pendiepte — onderbouwd met BRO bodemdata.",
+    "titleLine2": "Berekend. Gerapporteerd.",
+    "subtitle": "Van automatische BRO bodemdata tot ondertekend NEN 1010 opleverrapport — één systeem voor elektrotechnici en installateurs.",
     "ctaPrimary": "Weerstand berekenen — gratis",
-    "ctaSecondary": "Bekijk tarieven",
+    "ctaSecondary": "Pendiepte berekenen",
     "card1Label": "Altijd gratis",
     "card1Title": "Weerstand Calculator",
     "card1Desc": "Bereken de maximale aardingsweerstand per NEN 1010. Kies je stelsel, installatietype en aardlekschakelaar — krijg direct vier outputlagen.",
@@ -22,13 +22,13 @@
     "card2Label": "Vanaf {price}/mnd",
     "card2Title": "Pendiepte Calculator",
     "card2Desc": "Voer een postcode in. EarthGND haalt automatisch grondsoort, grondwaterstand en pH op via het BRO — en berekent hoe diep de aardpen moet.",
-    "card2Cta": "Bekijk tarieven",
+    "card2Cta": "Aan de slag",
     "pillar1Title": "BRO Bodemdata",
     "pillar1Desc": "Grondsoort, grondwaterstand en pH rechtstreeks uit het Basis Registratie Ondergrond op postcode.",
     "pillar2Title": "NEN 1010 normen",
     "pillar2Desc": "Alle berekeningen conform NEN 1010, NEN 62305 en NEN 50522 — inclusief wettelijk maximum.",
-    "pillar3Title": "Indicatief rapport",
-    "pillar3Desc": "Exporteer een onderbouwde PDF met invoerwaarden, formule en risicoklasse voor uw dossier.",
+    "pillar3Title": "Getekend opleverrapport",
+    "pillar3Desc": "Van pendiepteberekening tot digitaal ondertekend NEN 1010 deel 6 opleverrapport — inclusief veldmeting en dossierarchief.",
     "featuresFree": {
       "f1": "Weerstand Calculator onbeperkt",
       "f2": "TT- en TN-stelsel",
@@ -38,9 +38,10 @@
     "featuresPaid": {
       "f1": "BRO bodemdata per postcode",
       "f2": "Risicoklasse I – IV",
-      "f3": "Drie berekende scenario's",
-      "f4": "PDF rapport",
-      "f5": "Grondwater & pH correcties"
+      "f3": "Drie scenario's (gunstig/gemiddeld/ongunstig)",
+      "f4": "Monteur uitnodigen per e-mail",
+      "f5": "NEN 1010 deel 6 opleverrapport",
+      "f6": "PDF rapport & e-mail delivery"
     },
     "card2PriceNote": "of {price} per berekening"
   },
