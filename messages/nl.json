@@ -43,7 +43,29 @@
       "f5": "NEN 1010 deel 6 opleverrapport",
       "f6": "PDF rapport & e-mail delivery"
     },
-    "card2PriceNote": "of {price} per berekening"
+    "card2PriceNote": "of {price} per berekening",
+    "workflowLabel": "Van berekening tot opleverrapport",
+    "workflow": {
+      "step1Title": "Bereken",
+      "step1Desc": "Voer de postcode in. BRO levert grondsoort, grondwater en pH. Calculator bepaalt de pendiepte.",
+      "step2Title": "Nodig uit",
+      "step2Desc": "Stuur de monteur een digitale taakopdracht per e-mail — inclusief verwachte pendiepte en doelweerstand.",
+      "step3Title": "Meet",
+      "step3Desc": "Monteur bevestigt de veldmeting op zijn telefoon. EarthGND archiveert het gemeten resultaat.",
+      "step4Title": "Rapporteer",
+      "step4Desc": "Genereer en onderteken het NEN 1010 deel 6 opleverrapport. Direct beschikbaar in uw dossier."
+    },
+    "ctaFreeTitle": "Begin gratis",
+    "ctaFreeDesc": "Weerstand Calculator — geen account nodig",
+    "ctaFreeBtn": "Open calculator",
+    "ctaPaidTitle": "Pendiepte berekenen",
+    "ctaPaidDesc": "Vanaf {singlePrice} per berekening · of {starterPrice}/mnd onbeperkt",
+    "ctaPaidBtn": "Bekijk tarieven",
+    "showcaseLink": "Zie een voorbeeldberekening →",
+    "trustAvg": "AVG-compliant",
+    "trustStorage": "EU-opslag",
+    "trustInvoice": "Automatische factuur",
+    "trustCancel": "Per maand opzegbaar"
   },
   "ohm": {
     "title": "Weerstand Calculator",
