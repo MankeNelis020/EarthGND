@@ -25,6 +25,13 @@ export default async function HomePage({ params }: Props) {
     t('featuresPaid.f4'), t('featuresPaid.f5'), t('featuresPaid.f6'),
   ];
 
+  const workflowSteps = [
+    { step: '01', title: t('workflow.step1Title'), desc: t('workflow.step1Desc') },
+    { step: '02', title: t('workflow.step2Title'), desc: t('workflow.step2Desc') },
+    { step: '03', title: t('workflow.step3Title'), desc: t('workflow.step3Desc') },
+    { step: '04', title: t('workflow.step4Title'), desc: t('workflow.step4Desc') },
+  ];
+
   return (
     <div className="min-h-screen bg-canvas">
 
@@ -55,31 +62,10 @@ export default async function HomePage({ params }: Props) {
       <section className="border-y border-white/5 bg-[#0d0d0d] px-4 py-12">
         <div className="mx-auto max-w-5xl">
           <p className="mb-8 text-center text-xs font-semibold uppercase tracking-widest text-white/25">
-            Van berekening tot opleverrapport
+            {t('workflowLabel')}
           </p>
           <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-            {[
-              {
-                step: '01',
-                title: 'Bereken',
-                desc: 'Voer de postcode in. BRO levert grondsoort, grondwater en pH. Calculator bepaalt de pendiepte.',
-              },
-              {
-                step: '02',
-                title: 'Nodig uit',
-                desc: 'Stuur de monteur een digitale taakopdracht per e-mail — inclusief verwachte pendiepte en doelweerstand.',
-              },
-              {
-                step: '03',
-                title: 'Meet',
-                desc: 'Monteur bevestigt de veldmeting op zijn telefoon. EarthGND archiveert het gemeten resultaat.',
-              },
-              {
-                step: '04',
-                title: 'Rapporteer',
-                desc: 'Genereer en onderteken het NEN 1010 deel 6 opleverrapport. Direct beschikbaar in uw dossier.',
-              },
-            ].map(({ step, title, desc }) => (
+            {workflowSteps.map(({ step, title, desc }) => (
               <div key={step} className="flex flex-col gap-2">
                 <span className="font-condensed text-3xl font-black text-[#E8761A]/30">{step}</span>
                 <p className="font-condensed text-base font-bold text-white">{title}</p>
@@ -135,7 +121,7 @@ export default async function HomePage({ params }: Props) {
                 {t('card2Cta')}
               </Link>
               <Link href="/examples/pendiepte" className="block w-full rounded-xl py-2 text-center text-xs text-white/35 hover:text-white/60 transition-colors">
-                Zie een voorbeeldberekening →
+                {t('showcaseLink')}
               </Link>
             </div>
           </div>
@@ -163,32 +149,32 @@ export default async function HomePage({ params }: Props) {
         <div className="mx-auto max-w-5xl">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-white/8 bg-[#111] px-7 py-8">
-              <p className="font-condensed mb-1 text-xl font-black text-white">Begin gratis</p>
-              <p className="mb-5 text-sm text-white/40">Weerstand Calculator — geen account nodig</p>
+              <p className="font-condensed mb-1 text-xl font-black text-white">{t('ctaFreeTitle')}</p>
+              <p className="mb-5 text-sm text-white/40">{t('ctaFreeDesc')}</p>
               <Link href="/tool/ohm" className="inline-flex rounded-xl border border-white/15 px-6 py-2.5 text-sm font-semibold text-white hover:border-[#E8761A]/50 hover:text-[#E8761A] transition-colors">
-                Open calculator
+                {t('ctaFreeBtn')}
               </Link>
             </div>
             <div className="rounded-2xl border border-[#E8761A]/20 bg-gradient-to-br from-[#E8761A]/6 to-transparent px-7 py-8">
-              <p className="font-condensed mb-1 text-xl font-black text-white">Pendiepte berekenen</p>
+              <p className="font-condensed mb-1 text-xl font-black text-white">{t('ctaPaidTitle')}</p>
               <p className="mb-5 text-sm text-white/40">
-                Vanaf {singlePrice} per berekening · of {starterPrice}/mnd onbeperkt
+                {t('ctaPaidDesc', { singlePrice, starterPrice })}
               </p>
               <Link href="/pricing" className="inline-flex rounded-xl bg-[#E8761A] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#d06510] transition-colors">
-                Bekijk tarieven
+                {t('ctaPaidBtn')}
               </Link>
             </div>
           </div>
 
           {/* Trust row */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-white/20">
-            <span>AVG-compliant</span>
+            <span>{t('trustAvg')}</span>
             <span className="h-3 w-px bg-white/10" />
-            <span>EU-opslag</span>
+            <span>{t('trustStorage')}</span>
             <span className="h-3 w-px bg-white/10" />
-            <span>Automatische factuur</span>
+            <span>{t('trustInvoice')}</span>
             <span className="h-3 w-px bg-white/10" />
-            <span>Per maand opzegbaar</span>
+            <span>{t('trustCancel')}</span>
           </div>
         </div>
       </section>

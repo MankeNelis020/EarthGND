@@ -9,12 +9,12 @@
     "logout": "Abmelden"
   },
   "home": {
-    "title": "Erdungswiderstand. Sofort berechnet.",
+    "title": "Erdungswiderstand. Berechnet. Dokumentiert.",
     "titleLine1": "Erdungswiderstand.",
-    "titleLine2": "Sofort berechnet.",
-    "subtitle": "Zwei professionelle Rechner für Elektriker und Unternehmer. Vom maximalen Widerstand bis zur genauen Stabtiefe — gestützt auf BRO-Bodendaten.",
+    "titleLine2": "Berechnet. Dokumentiert.",
+    "subtitle": "Von automatischen BRO-Bodendaten bis zum unterzeichneten NEN 1010-Übergabebericht — ein System für Elektriker und Installateure.",
     "ctaPrimary": "Widerstand berechnen — kostenlos",
-    "ctaSecondary": "Preise ansehen",
+    "ctaSecondary": "Stabtiefe berechnen",
     "card1Label": "Immer kostenlos",
     "card1Title": "Widerstandsrechner",
     "card1Desc": "Berechnen Sie den maximalen Erdungswiderstand gemäß NEN 1010. Wählen Sie Ihr Netz, den Installationstyp und den FI-Schutzschalter — erhalten Sie sofort vier Ausgabeschichten.",
@@ -22,13 +22,13 @@
     "card2Label": "Ab {price}/Monat",
     "card2Title": "Stabtiefe-Rechner",
     "card2Desc": "Postleitzahl eingeben. EarthGND ruft automatisch Bodenart, Grundwassertiefe und pH-Wert aus dem BRO ab — und berechnet die erforderliche Stabtiefe.",
-    "card2Cta": "Preise ansehen",
+    "card2Cta": "Loslegen",
     "pillar1Title": "BRO-Bodendaten",
     "pillar1Desc": "Bodenart, Grundwassertiefe und pH-Wert direkt aus dem niederländischen Bodenregister nach Postleitzahl.",
     "pillar2Title": "NEN 1010-Normen",
     "pillar2Desc": "Alle Berechnungen gemäß NEN 1010, NEN 62305 und NEN 50522 — einschließlich gesetzlichem Maximum.",
-    "pillar3Title": "Indikativer Bericht",
-    "pillar3Desc": "Exportieren Sie eine fundierte PDF mit Eingabewerten, Formel und Risikoklasse für Ihre Unterlagen.",
+    "pillar3Title": "Unterzeichneter Übergabebericht",
+    "pillar3Desc": "Von der Stabtiefe-Berechnung bis zum digital unterzeichneten NEN 1010 Teil 6 Übergabebericht — inklusive Feldmessung und Dateiarchiv.",
     "featuresFree": {
       "f1": "Widerstandsrechner unbegrenzt",
       "f2": "TT- und TN-Netzsystem",
@@ -38,11 +38,34 @@
     "featuresPaid": {
       "f1": "BRO-Bodendaten per Postleitzahl",
       "f2": "Risikoklasse I – IV",
-      "f3": "Drei berechnete Szenarien",
-      "f4": "PDF-Bericht",
-      "f5": "Grundwasser- & pH-Korrekturen"
+      "f3": "Drei Szenarien (günstig/mittel/ungünstig)",
+      "f4": "Monteur per E-Mail einladen",
+      "f5": "NEN 1010 Teil 6 Übergabebericht",
+      "f6": "PDF-Bericht & E-Mail-Zustellung"
     },
-    "card2PriceNote": "oder {price} pro Berechnung"
+    "card2PriceNote": "oder {price} pro Berechnung",
+    "workflowLabel": "Von der Berechnung zum Übergabebericht",
+    "workflow": {
+      "step1Title": "Berechnen",
+      "step1Desc": "Postleitzahl eingeben. BRO liefert Bodenart, Grundwasser und pH. Der Rechner ermittelt die Stabtiefe.",
+      "step2Title": "Einladen",
+      "step2Desc": "Senden Sie dem Monteur einen digitalen Arbeitsauftrag per E-Mail — mit erwarteter Stabtiefe und Zielwiderstand.",
+      "step3Title": "Messen",
+      "step3Desc": "Der Monteur bestätigt die Feldmessung per Telefon. EarthGND archiviert das gemessene Ergebnis.",
+      "step4Title": "Dokumentieren",
+      "step4Desc": "Erstellen und unterzeichnen Sie den NEN 1010 Teil 6 Übergabebericht. Sofort in Ihrer Akte verfügbar."
+    },
+    "ctaFreeTitle": "Kostenlos starten",
+    "ctaFreeDesc": "Widerstandsrechner — kein Konto erforderlich",
+    "ctaFreeBtn": "Rechner öffnen",
+    "ctaPaidTitle": "Stabtiefe berechnen",
+    "ctaPaidDesc": "Ab {singlePrice} pro Berechnung · oder {starterPrice}/Mon. unbegrenzt",
+    "ctaPaidBtn": "Preise ansehen",
+    "showcaseLink": "Beispielberechnung ansehen →",
+    "trustAvg": "DSGVO-konform",
+    "trustStorage": "EU-Speicherung",
+    "trustInvoice": "Automatische Rechnung",
+    "trustCancel": "Monatlich kündbar"
   },
   "ohm": {
     "title": "Widerstandsrechner",

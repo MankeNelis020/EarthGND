@@ -9,12 +9,12 @@
     "logout": "Sign out"
   },
   "home": {
-    "title": "Earth resistance. Instantly determined.",
+    "title": "Earthing resistance. Calculated. Reported.",
     "titleLine1": "Earthing resistance.",
-    "titleLine2": "Instantly calculated.",
-    "subtitle": "Two professional calculators for electricians and contractors. From maximum resistance to exact rod depth — backed by BRO soil data.",
+    "titleLine2": "Calculated. Reported.",
+    "subtitle": "From automatic BRO soil data to a signed NEN 1010 delivery report — one system for electricians and installers.",
     "ctaPrimary": "Calculate resistance — free",
-    "ctaSecondary": "View pricing",
+    "ctaSecondary": "Calculate rod depth",
     "card1Label": "Always free",
     "card1Title": "Resistance Calculator",
     "card1Desc": "Calculate the maximum grounding resistance per NEN 1010. Choose your grid, installation type and RCD — get four output layers instantly.",
@@ -22,13 +22,13 @@
     "card2Label": "From {price}/mo",
     "card2Title": "Rod Depth Calculator",
     "card2Desc": "Enter a postal code. EarthGND automatically retrieves soil type, groundwater depth and pH from BRO — and calculates the required rod depth.",
-    "card2Cta": "View pricing",
+    "card2Cta": "Get started",
     "pillar1Title": "BRO Soil Data",
     "pillar1Desc": "Soil type, groundwater depth and pH directly from the Dutch Soil Registration by postal code.",
     "pillar2Title": "NEN 1010 standards",
     "pillar2Desc": "All calculations conform to NEN 1010, NEN 62305 and NEN 50522 — including legal maximum.",
-    "pillar3Title": "Indicative report",
-    "pillar3Desc": "Export a substantiated PDF with input values, formula and risk class for your file.",
+    "pillar3Title": "Signed delivery report",
+    "pillar3Desc": "From rod depth calculation to a digitally signed NEN 1010 part 6 delivery report — including field measurement and file archive.",
     "featuresFree": {
       "f1": "Resistance Calculator unlimited",
       "f2": "TT and TN grid systems",
@@ -38,11 +38,34 @@
     "featuresPaid": {
       "f1": "BRO soil data by postal code",
       "f2": "Risk class I – IV",
-      "f3": "Three calculated scenarios",
-      "f4": "PDF report",
-      "f5": "Groundwater & pH corrections"
+      "f3": "Three scenarios (favorable/average/unfavorable)",
+      "f4": "Invite field engineer by email",
+      "f5": "NEN 1010 part 6 delivery report",
+      "f6": "PDF report & email delivery"
     },
-    "card2PriceNote": "or {price} per calculation"
+    "card2PriceNote": "or {price} per calculation",
+    "workflowLabel": "From calculation to delivery report",
+    "workflow": {
+      "step1Title": "Calculate",
+      "step1Desc": "Enter the postal code. BRO provides soil type, groundwater and pH. The calculator determines the required rod depth.",
+      "step2Title": "Invite",
+      "step2Desc": "Send the field engineer a digital task order by email — including expected rod depth and target resistance.",
+      "step3Title": "Measure",
+      "step3Desc": "The engineer confirms the field measurement on their phone. EarthGND archives the measured result.",
+      "step4Title": "Report",
+      "step4Desc": "Generate and sign the NEN 1010 part 6 delivery report. Immediately available in your project file."
+    },
+    "ctaFreeTitle": "Start free",
+    "ctaFreeDesc": "Resistance Calculator — no account needed",
+    "ctaFreeBtn": "Open calculator",
+    "ctaPaidTitle": "Calculate rod depth",
+    "ctaPaidDesc": "From {singlePrice} per calculation · or {starterPrice}/mo unlimited",
+    "ctaPaidBtn": "View pricing",
+    "showcaseLink": "See an example calculation →",
+    "trustAvg": "GDPR-compliant",
+    "trustStorage": "EU storage",
+    "trustInvoice": "Automatic invoice",
+    "trustCancel": "Cancel monthly"
   },
   "ohm": {
     "title": "Resistance Calculator",
