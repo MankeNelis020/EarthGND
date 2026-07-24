@@ -55,7 +55,7 @@ export default async function DieptePage({
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Link
-                href="/login"
+                href={`/login?next=/${locale}/tool/diepte`}
                 className="rounded-xl bg-[#E8761A] px-6 py-3 text-sm font-bold text-white hover:bg-[#d06510] transition-colors"
               >
                 Inloggen
