@@ -9,10 +9,10 @@
     "logout": "Abmelden"
   },
   "home": {
-    "title": "Erdungswiderstand. Berechnet. Dokumentiert.",
+    "title": "Erdungswiderstand. Von der Berechnung zum Nachweis.",
     "titleLine1": "Erdungswiderstand.",
-    "titleLine2": "Berechnet. Dokumentiert.",
-    "subtitle": "Von automatischen BRO-Bodendaten bis zum unterzeichneten NEN 1010-Übergabebericht — ein System für Elektriker und Installateure.",
+    "titleLine2": "Von der Berechnung zum Nachweis.",
+    "subtitle": "Berechnen Sie den Erdungswiderstand, bestimmen Sie die optimale Erdungsstablänge und erstellen Sie automatisch einen NEN 1010 Übergabebericht. Eine Plattform für Installateure, die schneller arbeiten und mit Zuversicht abliefern möchten.",
     "ctaPrimary": "Widerstand berechnen — kostenlos",
     "ctaSecondary": "Stabtiefe berechnen",
     "card1Label": "Immer kostenlos",

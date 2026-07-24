@@ -9,10 +9,10 @@
     "logout": "Uitloggen"
   },
   "home": {
-    "title": "Aardingsweerstand. Berekend. Gerapporteerd.",
+    "title": "Aardingsweerstand. Van berekening tot bewijs.",
     "titleLine1": "Aardingsweerstand.",
-    "titleLine2": "Berekend. Gerapporteerd.",
-    "subtitle": "Van automatische BRO bodemdata tot ondertekend NEN 1010 opleverrapport — één systeem voor elektrotechnici en installateurs.",
+    "titleLine2": "Van berekening tot bewijs.",
+    "subtitle": "Bereken de aardingsweerstand, bepaal de optimale pendiepte en genereer automatisch een NEN 1010 opleverrapport. Eén platform voor installateurs die sneller willen werken en met vertrouwen willen opleveren.",
     "ctaPrimary": "Weerstand berekenen — gratis",
     "ctaSecondary": "Pendiepte berekenen",
     "card1Label": "Altijd gratis",
