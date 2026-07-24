@@ -9,10 +9,10 @@
     "logout": "Sign out"
   },
   "home": {
-    "title": "Earthing resistance. Calculated. Reported.",
+    "title": "Earthing resistance. From calculation to proof.",
     "titleLine1": "Earthing resistance.",
-    "titleLine2": "Calculated. Reported.",
-    "subtitle": "From automatic BRO soil data to a signed NEN 1010 delivery report — one system for electricians and installers.",
+    "titleLine2": "From calculation to proof.",
+    "subtitle": "Calculate grounding resistance, determine the optimal rod depth and automatically generate a NEN 1010 delivery report. One platform for installers who want to work faster and deliver with confidence.",
     "ctaPrimary": "Calculate resistance — free",
     "ctaSecondary": "Calculate rod depth",
     "card1Label": "Always free",
