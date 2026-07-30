@@ -27,6 +27,8 @@ interface SalesResponse {
   } | null;
   nearby: Array<{
     id: string;
+    calculation_id: string | null;
+    href: string | null;
     distanceM: number;
     postcode: string | null;
     huisnummer: string | null;
@@ -85,7 +87,9 @@ export default function MoatSalesPage() {
           <span>/</span>
           <span className="text-white/70">Sales</span>
           <span className="text-white/20">·</span>
-          <Link href="/admin/moat/ops" className="hover:text-[#E8761A]">Operations</Link>
+          <Link href="/admin/moat/ops" className="hover:text-[#E8761A]">Ops</Link>
+          <span className="text-white/20">·</span>
+          <Link href="/admin/moat/shadow" className="hover:text-[#E8761A]">Shadow</Link>
         </div>
 
         <h1 className="font-condensed text-3xl font-black">Sales battlefield</h1>
@@ -193,6 +197,7 @@ export default function MoatSalesPage() {
                     <th className="px-4 py-3">Voorspeld</th>
                     <th className="px-4 py-3">Fout%</th>
                     <th className="px-4 py-3">Cat.</th>
+                    <th className="px-4 py-3">Open</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -222,6 +227,15 @@ export default function MoatSalesPage() {
                       </td>
                       <td className="px-4 py-2.5 text-xs text-white/50">
                         {n.prediction_accuracy_category ?? (n.hasPredictionLink ? '—' : 'geen link')}
+                      </td>
+                      <td className="px-4 py-2.5 text-xs">
+                        {n.href ? (
+                          <Link href={n.href} className="text-[#E8761A] hover:underline" target="_blank">
+                            open
+                          </Link>
+                        ) : (
+                          <span className="text-white/25">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}
