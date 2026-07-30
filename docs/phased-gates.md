@@ -83,7 +83,15 @@ Acceptatiecriteria voor het gefaseerde validatieplan. Poort 1 + P1 zijn afgerond
 | Moat Index / geographic / growth | `calculate_moat_index`, `moat_geographic_strength`, `moat_growth_trajectory` |
 | Admin leesbaar | `/admin/moat`, `docs/moat-data-dictionary.md` |
 
-**Operator:** migratie draaien → `/admin/moat` → Herbereken. Sprint 2+ = board/sales/ops UX.
+**Operator:** migratie draaien → `/admin/moat` → Herbereken.
+
+### Sprint 2 — Directeur dashboard ✅ code
+
+| Criterium | Bron |
+|-----------|------|
+| Product vs moat taal | `lib/moat/labels.ts`, label-migratie |
+| Board view (index + componenten + geo + print) | `/admin/moat` |
+| Concurrentiepositie (kwalitatief) | zelfde pagina |
 
 ---
 

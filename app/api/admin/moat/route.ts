@@ -1,14 +1,13 @@
 /**
- * GET /api/admin/moat — Sprint 1 moat spine (Directeur / Sales / Ops queries).
+ * GET /api/admin/moat — Moat spine + board view (Sprint 1–2).
  * POST /api/admin/moat — refresh regional_signatures + meting metrics.
- *
- * Requires ADMIN_EMAILS (or any auth when unset).
  */
 
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { deriveMoatBoardView } from '@/lib/moat/derive';
 import type {
   GeographicStrengthRow,
   GrowthTrajectoryRow,
@@ -65,18 +64,23 @@ export async function GET() {
 
   if (moatErr || geoErr || growthErr) {
     notes.push(
-      'RPC ontbreekt of faalde — draai supabase/moat_data_spine_migration.sql in Supabase.',
+      'RPC ontbreekt of faalde — draai supabase/moat_data_spine_migration.sql (+ moat_labels_sprint2_migration.sql).',
     );
     if (moatErr) notes.push(`calculate_moat_index: ${moatErr.message}`);
     if (geoErr) notes.push(`moat_geographic_strength: ${geoErr.message}`);
     if (growthErr) notes.push(`moat_growth_trajectory: ${growthErr.message}`);
   }
 
+  const moatIndex = (moatRaw as MoatIndex | null) ?? null;
+  const geographic = (geoRaw as GeographicStrengthRow[]) ?? [];
+  const growth = (growthRaw as GrowthTrajectoryRow[]) ?? [];
+
   const payload: MoatSpinePayload = {
-    moatIndex: (moatRaw as MoatIndex | null) ?? null,
-    geographic: (geoRaw as GeographicStrengthRow[]) ?? [],
-    growth: (growthRaw as GrowthTrajectoryRow[]) ?? [],
+    moatIndex,
+    geographic,
+    growth,
     signatureCount: count ?? 0,
+    board: deriveMoatBoardView(moatIndex, geographic, growth),
     notes,
     queriedAt: new Date().toISOString(),
   };

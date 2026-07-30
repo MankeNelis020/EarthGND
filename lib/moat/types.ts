@@ -1,4 +1,4 @@
-/** Sprint 1 moat spine types — aligned with supabase/moat_data_spine_migration.sql */
+/** Moat spine types — aligned with supabase/moat_data_spine_migration.sql */
 
 export type PredictionAccuracyCategory =
   | 'excellent'
@@ -15,7 +15,9 @@ export interface MoatIndex {
   avg_confidence: number;
   confidence_spread: number;
   avg_empirical_percentage: number;
+  /** @deprecated use moat_claim_ready_regions — regions with confidence ≥ 0.70 */
   strong_regions: number;
+  moat_claim_ready_regions?: number;
   region_count: number;
   volume_component: number;
   confidence_component: number;
@@ -36,6 +38,7 @@ export interface GeographicStrengthRow {
   first_try_success_rate: number | null;
   readiness_status: string;
   pricing_tier: PricingTier | string;
+  /** Legacy DB flag: moat claim ready (≥0.70), NOT product availability */
   sellable: boolean;
 }
 
@@ -51,6 +54,7 @@ export interface MoatSpinePayload {
   geographic: GeographicStrengthRow[];
   growth: GrowthTrajectoryRow[];
   signatureCount: number;
+  board: import('./derive').MoatBoardView | null;
   notes: string[];
   queriedAt: string;
 }
