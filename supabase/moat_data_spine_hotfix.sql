@@ -1,0 +1,9 @@
+-- DEPRECATED as a partial fix.
+-- The first migration was rolled back by Postgres when refresh failed,
+-- so helper RPCs (including refresh_regional_signatures) do not exist.
+--
+-- Do this instead (idempotent — safe if some columns already exist):
+--
+--   Run the FULL file:  supabase/moat_data_spine_migration.sql
+--
+-- That file already includes the double-precision fix for moat_accuracy_category.
