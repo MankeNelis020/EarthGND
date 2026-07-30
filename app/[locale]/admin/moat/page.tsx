@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from '@/i18n/navigation';
 import type { MoatSpinePayload } from '@/lib/moat/types';
 import {
   PRODUCT_AVAILABILITY_LINE,
@@ -91,7 +92,19 @@ export default function MoatAdminPage() {
               {PRODUCT_AVAILABILITY_LINE}
             </p>
           </div>
-          <div className="flex gap-2 print:hidden">
+          <div className="flex flex-wrap gap-2 print:hidden">
+            <Link
+              href="/admin/moat/sales"
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
+            >
+              Sales
+            </Link>
+            <Link
+              href="/admin/moat/ops"
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
+            >
+              Operations
+            </Link>
             <button
               type="button"
               onClick={() => window.print()}

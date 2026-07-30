@@ -2,7 +2,8 @@
 
 **Canonical migration:** `supabase/moat_data_spine_migration.sql`  
 **Label fix (Sprint 2):** `supabase/moat_labels_sprint2_migration.sql`  
-**Admin UI:** `/admin/moat` · **API:** `GET/POST /api/admin/moat`
+**Admin UI:** `/admin/moat` (directeur) · `/admin/moat/sales` · `/admin/moat/ops`  
+**API:** `GET/POST /api/admin/moat` · `GET /api/admin/moat/sales` · `GET /api/admin/moat/ops`
 
 ---
 
@@ -57,9 +58,20 @@ min(1, (n/20) × (1 / (1 + std_error%/100)) × link_factor)
 
 ---
 
+## Sprint 3 — Sales + Ops (geen nieuwe SQL)
+
+| Surface | Doel |
+|---------|------|
+| `/admin/moat/sales` | Geocode klantadres → named regio + nearby outcomes (default 2 km) + pitchregel |
+| `/admin/moat/ops` | Funnel (outcomes → prediction-link → dieptefout → knowledge) + wekelijkse teller + regio-gezondheid |
+
+Bron: `pendiepte_metingen` + `regional_signatures` (zelfde spine als Sprint 1). Radius sales is breder dan L4 (2 km vs 500 m) — pitch-context, geen ρ-prior.
+
+---
+
 ## Operator
 
 1. `moat_data_spine_migration.sql` (eenmalig, al gedaan)
 2. `moat_labels_sprint2_migration.sql` (labelteksten in RPC)
-3. Redeploy → `/admin/moat` → Print/PDF voor board
+3. Redeploy → `/admin/moat` → Print/PDF voor board; Sales / Operations via nav
 4. **Herbereken** na nieuwe confirmed metingen

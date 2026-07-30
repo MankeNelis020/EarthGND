@@ -4,9 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createClient } from '@/utils/supabase/server';
-import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { requireMoatAdmin, moatServiceClient } from '@/lib/moat/admin-auth';
 import { deriveMoatBoardView } from '@/lib/moat/derive';
 import type {
   GeographicStrengthRow,
@@ -18,40 +16,11 @@ import type {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
-  .split(',')
-  .map(e => e.trim())
-  .filter(Boolean);
-
-function service() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-}
-
-async function requireAdmin() {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 }) };
-  if (ADMIN_EMAILS.length > 0 && !ADMIN_EMAILS.includes(user.email ?? '')) {
-    return {
-      error: NextResponse.json(
-        { error: 'Geen toegang — voeg je e-mail toe aan ADMIN_EMAILS' },
-        { status: 403 },
-      ),
-    };
-  }
-  return { user };
-}
-
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireMoatAdmin();
   if (auth.error) return auth.error;
 
-  const db = service();
+  const db = moatServiceClient();
   const notes: string[] = [];
 
   const [{ data: moatRaw, error: moatErr }, { data: geoRaw, error: geoErr }, { data: growthRaw, error: growthErr }, { count }] =
@@ -89,10 +58,10 @@ export async function GET() {
 }
 
 export async function POST() {
-  const auth = await requireAdmin();
+  const auth = await requireMoatAdmin();
   if (auth.error) return auth.error;
 
-  const db = service();
+  const db = moatServiceClient();
   const { data, error } = await db.rpc('refresh_regional_signatures');
   if (error) {
     return NextResponse.json(

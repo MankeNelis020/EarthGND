@@ -93,6 +93,14 @@ Acceptatiecriteria voor het gefaseerde validatieplan. Poort 1 + P1 zijn afgerond
 | Board view (index + componenten + geo + print) | `/admin/moat` |
 | Concurrentiepositie (kwalitatief) | zelfde pagina |
 
+### Sprint 3 — Sales + Ops ✅ code
+
+| Criterium | Bron |
+|-----------|------|
+| Sales battlefield (adres → regio + nearby outcomes + pitch) | `/admin/moat/sales`, `GET /api/admin/moat/sales` |
+| Ops funnel / weekly / regio-gezondheid | `/admin/moat/ops`, `GET /api/admin/moat/ops` |
+| Geen nieuwe migratie | hergebruikt Sprint 1 spine |
+
 ---
 
 ## Aanbevolen volgorde bij release
