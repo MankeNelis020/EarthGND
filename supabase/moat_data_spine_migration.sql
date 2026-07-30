@@ -92,7 +92,7 @@ as $$
   end;
 $$;
 
-create or replace function public.moat_accuracy_category(p_abs_pct numeric)
+create or replace function public.moat_accuracy_category(p_abs_pct double precision)
 returns text
 language sql
 immutable
@@ -104,6 +104,15 @@ as $$
     when p_abs_pct <= 35 then 'acceptable'
     else 'miss'
   end;
+$$;
+
+-- Overload for numeric callers
+create or replace function public.moat_accuracy_category(p_abs_pct numeric)
+returns text
+language sql
+immutable
+as $$
+  select public.moat_accuracy_category(p_abs_pct::double precision);
 $$;
 
 -- ─── 3. regional_signatures (moat materialized) ──────────────────────────────
@@ -222,7 +231,7 @@ begin
     depth_error_percent            = round(s.depth_err_pct::numeric, 2),
     ra_error_ohm                   = s.ra_err,
     ra_error_percent               = round(s.ra_err_pct::numeric, 2),
-    prediction_accuracy_category   = public.moat_accuracy_category(abs(s.depth_err_pct)),
+    prediction_accuracy_category   = public.moat_accuracy_category(abs(s.depth_err_pct)::double precision),
     data_quality_score             = round(s.quality::numeric, 3),
     blend_applied                  = s.blend,
     empirical_contribution_percent = s.emp_pct,
