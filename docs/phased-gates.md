@@ -72,6 +72,21 @@ Acceptatiecriteria voor het gefaseerde validatieplan. Poort 1 + P1 zijn afgerond
 
 ---
 
+## Moat visibility — Sprint 1 (data spine) ✅ code
+
+**Doel:** voorspellingsfouten + regionale confidence leesbaar maken (directeur-taal).
+
+| Criterium | Bron |
+|-----------|------|
+| Accuracy columns op `pendiepte_metingen` | `supabase/moat_data_spine_migration.sql` |
+| `regional_signatures` + refresh RPCs | zelfde migratie |
+| Moat Index / geographic / growth | `calculate_moat_index`, `moat_geographic_strength`, `moat_growth_trajectory` |
+| Admin leesbaar | `/admin/moat`, `docs/moat-data-dictionary.md` |
+
+**Operator:** migratie draaien → `/admin/moat` → Herbereken. Sprint 2+ = board/sales/ops UX.
+
+---
+
 ## Aanbevolen volgorde bij release
 
 1. `npm test` + `npm run build` groen
@@ -80,3 +95,4 @@ Acceptatiecriteria voor het gefaseerde validatieplan. Poort 1 + P1 zijn afgerond
 4. `npm run gate:depth` — geoMean factor ≤ 1.30 per locatie
 5. Poort 3 OOS review → eventueel `SOIL_KNOWLEDGE_ACTIVE=true` in staging
 6. Poort 4 productiebeslissing → `empirical_weight`
+7. Moat spine: `moat_data_spine_migration.sql` + `/admin/moat`
