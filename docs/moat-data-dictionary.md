@@ -1,116 +1,65 @@
-# Data Dictionary: Moat spine (Sprint 1)
+# Data Dictionary: Moat spine
 
 **Canonical migration:** `supabase/moat_data_spine_migration.sql`  
+**Label fix (Sprint 2):** `supabase/moat_labels_sprint2_migration.sql`  
 **Admin UI:** `/admin/moat` · **API:** `GET/POST /api/admin/moat`
-
-This is the moat materialized. It answers: *How good are our predictions, by region and soil?*
 
 ---
 
-## Ground truth vs roadmap wish-list
+## Product ≠ moat
+
+| Laag | Betekenis |
+|------|-----------|
+| **Product** | Dwight + BRO (+ L2/L3/L4 priors). **Overal in NL beschikbaar** — ook zonder lokale veldmetingen. |
+| **Moat** | Bewijs uit confirmed *outcomes* (voorspeld vs gemeten). Nodig om een **regionale data-claim** te staven, niet om de calculator te mogen gebruiken. |
+
+Verbetering van de voorspelling gebeurt op twee sporen (los van de moat-score):
+1. **Lokaal** — precedenten in de buurt (L4)
+2. **Grondsoort** — Ω·m / klasse-priors (L2/L3)
+
+---
+
+## Ground truth vs oude roadmap-taal
 
 | Roadmap term | Live EarthGND mapping |
 |--------------|------------------------|
-| `diepte_aanbeveling` | `calculations.result.dimension` → denormalized as `predicted_depth_m` |
-| Actual depth | `pendiepte_metingen.installed_depth` |
-| Actual Ra | `pendiepte_metingen.achieved_ra` |
-| Empirical % | From `calculations.result` blend fields when `calculation_id` present |
-| ST_CLUSTERKMEANS | **Not used** — named NL lat/lon boxes via `moat_region_for_coords()` |
-| Imports without calc | Prediction errors stay NULL + note (honest gap) |
+| `diepte_aanbeveling` | `calculations.result.dimension` → `predicted_depth_m` |
+| Actual depth / Ra | `installed_depth` / `achieved_ra` |
+| “Sellable ≥70%” | **Moat claim ready** (niet: product mag verkocht worden) |
+| ST_CLUSTERKMEANS | Named NL boxes via `moat_region_for_coords()` |
 
 ---
 
-## `pendiepte_metingen` — new calculated columns
-
-| Column | Meaning |
-|--------|---------|
-| `predicted_depth_m` | Dwight recommendation at confirm/import time (from linked calculation) |
-| `predicted_ra_ohm` | Predicted Ra from calculation |
-| `depth_error_m` | `installed_depth − predicted_depth_m` |
-| `depth_error_percent` | Error as % of predicted |
-| `ra_error_ohm` / `ra_error_percent` | Same for Ra |
-| `prediction_accuracy_category` | `excellent` (≤10%) / `good` (≤20%) / `acceptable` (≤35%) / `miss` / `unknown` |
-| `data_quality_score` | 0–1 completeness (depth, Ra, curve, GPS, prediction link) |
-| `is_outlier` | \|error%\| > μ+3σ within region (n≥5) |
-| `blend_applied` | Calc used empirical ρ wet override |
-| `empirical_contribution_percent` | 0–100 proxy from blend confidence / source |
-| `regional_cluster_id` | Named region e.g. `Amsterdam`, `Veluwe` |
-| `regional_confidence` | Synced from `regional_signatures.confidence_score` |
-| `last_calculated_at` | Last refresh |
-| `calculation_notes` | Why NULL prediction / stopreden caveat |
-
-**Refresh:** `select refresh_moat_meting_metrics();` or `select refresh_regional_signatures();` (does both).
-
----
-
-## `regional_signatures`
-
-Each row = **region × soil_type** cluster.
-
-### `confidence_score` (0–1)
+## `confidence_score` (0–1) → moat-status
 
 ```
 min(1, (n/20) × (1 / (1 + std_error%/100)) × link_factor)
 ```
 
-- `link_factor = 0.35` if no linked predictions (imports-only), else `1`
-- **&lt;0.50** Building — don’t sell  
-- **0.50–0.70** Pilot  
-- **0.70–0.85** Standard sell (caveats)  
-- **≥0.85** Premium  
+| Score | Moat-status | Data-claim |
+|-------|-------------|------------|
+| ≥0.85 | Moat bewezen | Premium data-claim |
+| ≥0.70 | Moat ontstaat | Standaard data-claim |
+| ≥0.50 | Outcomes verzamelen | Pilot data-claim |
+| &lt;0.50 | Te dun voor claim | Nog geen data-claim |
 
-### `empirical_percentage`
-
-Average empirical contribution when known. Low until Poort D blend is widely on.
-
-### `first_try_success_rate`
-
-% of rows with a known accuracy category that are not `miss`.
-
-### `sellable` / `recommended_pricing_tier`
-
-Derived from confidence: `premium` / `standard` / `pilot` / `building`.
+`regional_signatures.sellable` is een **legacy kolomnaam** = `confidence ≥ 0.70` (moat claim ready).
 
 ---
 
-## RPCs (dashboard queries)
+## RPCs
 
 | Function | Answers |
 |----------|---------|
-| `calculate_moat_index()` | Volume + confidence + empirical → score 0–10 |
-| `moat_geographic_strength()` | Per-region readiness + pricing tier |
-| `moat_growth_trajectory()` | Monthly counts + cumulative toward 500 |
+| `calculate_moat_index()` | Volume + confidence + empirical → 0–10 |
+| `moat_geographic_strength()` | Per regio moat-status + data-claim tier |
+| `moat_growth_trajectory()` | Maandelijkse outcomes → 500 |
 
 ---
 
-## How to use
+## Operator
 
-**Q: Can we sell in Amsterdam?**  
-→ `select * from moat_geographic_strength() where region_name = 'Amsterdam';`
-
-**Q: Where are blind spots?**  
-→ `select region_name, confidence_score from regional_signatures where confidence_score < 0.5;`
-
-**Q: What’s our moat strength?**  
-→ `select calculate_moat_index();`
-
-**Q: Why is depth error weird on Lelystad?**  
-→ Check `stopreden` + `calculation_notes` — vastgelopen ≠ model miss.
-
----
-
-## Operator checklist
-
-1. Run `supabase/moat_data_spine_migration.sql` in Supabase  
-2. Confirm `select * from regional_signatures limit 20;`  
-3. Open `/admin/moat` (email in `ADMIN_EMAILS`)  
-4. Click **Herbereken signatures** after new confirmed metingen  
-5. Manual data: verify `elektrode_diameter_mm` / `stopreden` before trusting ρ / depth errors for L2/L3  
-
----
-
-## Out of scope (later sprints)
-
-- Board PDF / Realtime Moat Index card (Sprint 2)  
-- Sales “similar projects” UX (Sprint 3)  
-- `pipeline_events` alerting spine (Sprint 4)  
+1. `moat_data_spine_migration.sql` (eenmalig, al gedaan)
+2. `moat_labels_sprint2_migration.sql` (labelteksten in RPC)
+3. Redeploy → `/admin/moat` → Print/PDF voor board
+4. **Herbereken** na nieuwe confirmed metingen

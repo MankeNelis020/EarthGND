@@ -29,6 +29,7 @@ Na migratie schrijft de app alleen `input_values` / `result`. `getScanContext()`
 | `supabase/profile_settings_migration.sql` | Installateur gegevens, logo, terms_accepted_at, collega erkenning |
 | `supabase/electrode_diameter_migration.sql` | `elektrode_diameter_mm`, `stopreden` op pendiepte_metingen |
 | `supabase/moat_data_spine_migration.sql` | Prediction accuracy columns, `regional_signatures`, moat RPCs |
+| `supabase/moat_labels_sprint2_migration.sql` | Moat-status labels (product ≠ data-claim) |
 | `supabase/fix_prior_rls_and_constraints.sql` | RLS policies service role |
 
 ## 4. Overige patches
