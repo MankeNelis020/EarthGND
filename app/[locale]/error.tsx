@@ -76,6 +76,19 @@ export default function LocaleError({
         </p>
       </div>
 
+      {code === 'E_SUPABASE_ENV' && (
+        <div className="mt-4 w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left text-xs leading-relaxed text-amber-100/90">
+          <p className="font-semibold text-amber-200">Vercel Preview mist Supabase-env</p>
+          <p className="mt-2 text-amber-100/80">
+            Zet in Vercel → Environment Variables deze keys ook aan voor <strong>Preview</strong>:
+            {' '}<span className="font-mono">NEXT_PUBLIC_SUPABASE_URL</span>,{' '}
+            <span className="font-mono">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</span> (of{' '}
+            <span className="font-mono">ANON_KEY</span>), en{' '}
+            <span className="font-mono">SUPABASE_SERVICE_ROLE_KEY</span>. Daarna Preview redeployen.
+          </p>
+        </div>
+      )}
+
       <div className="mt-6 flex flex-col gap-2 sm:flex-row">
         <button
           type="button"

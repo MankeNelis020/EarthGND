@@ -52,6 +52,33 @@ export function DashboardCrashFallback({
           <p className="mt-2 break-words font-mono text-white/45">{detail}</p>
         )}
       </div>
+
+      {code === 'E_SUPABASE_ENV' && (
+        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left text-xs leading-relaxed text-amber-100/90">
+          <p className="font-semibold text-amber-200">Vercel Preview mist Supabase-env</p>
+          <ol className="mt-2 list-decimal space-y-1 pl-4 text-amber-100/80">
+            <li>Open Vercel → Project → Settings → Environment Variables</li>
+            <li>
+              Zet <span className="font-mono">NEXT_PUBLIC_SUPABASE_URL</span> aan voor{' '}
+              <strong>Preview</strong> (niet alleen Production)
+            </li>
+            <li>
+              Zet ook <span className="font-mono">NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</span> of{' '}
+              <span className="font-mono">NEXT_PUBLIC_SUPABASE_ANON_KEY</span> aan voor Preview
+            </li>
+            <li>
+              Zet <span className="font-mono">SUPABASE_SERVICE_ROLE_KEY</span> aan voor Preview
+              (monteur-queries)
+            </li>
+            <li>Redeploy de Preview na opslaan</li>
+          </ol>
+          <p className="mt-2 text-amber-100/60">
+            Check: open <span className="font-mono">/api/health/env</span> op deze preview — alle
+            booleans moeten <span className="font-mono">true</span> zijn.
+          </p>
+        </div>
+      )}
+
       <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
         <button
           type="button"
