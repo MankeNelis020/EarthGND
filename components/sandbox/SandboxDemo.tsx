@@ -274,7 +274,15 @@ function DemoCalcResults({
   );
 }
 
-/** Prefills like MonteurForm — read-only so guests explore without writes. */
+type DepthPoint = { depth: number; ra: number };
+
+type MetingOverrides = {
+  depth_curve: DepthPoint[];
+  installed_depth: number;
+  achieved_ra: number;
+};
+
+/** Prefills like MonteurForm — depth curve editable in 3 m steps (pin 1,5 m × 2). */
 function DemoMetingStep({
   city,
   onBack,
@@ -282,7 +290,7 @@ function DemoMetingStep({
 }: {
   city: SandboxCityFixture;
   onBack: () => void;
-  onNext: () => void;
+  onNext: (overrides: MetingOverrides) => void;
 }) {
   const t = useTranslations('sandbox');
   const m = city.meting;
@@ -290,6 +298,34 @@ function DemoMetingStep({
   const target = city.calc.input_values.targetResistance;
   const methodLabel = driveLabel(m.drijfmethode, city.soil.driveMethodUi);
   const isMulti = (m.rods?.length ?? 0) > 1;
+
+  const [depthCurve, setDepthCurve] = useState<DepthPoint[]>(() =>
+    m.depth_curve.map(p => ({ ...p })),
+  );
+
+  useEffect(() => {
+    setDepthCurve(city.meting.depth_curve.map(p => ({ ...p })));
+  }, [city.id, city.meting.depth_curve]);
+
+  function addRow() {
+    const lastDepth = depthCurve[depthCurve.length - 1]?.depth ?? 0;
+    setDepthCurve(prev => [...prev, { depth: lastDepth + 3, ra: 0 }]);
+  }
+  function removeRow(i: number) {
+    if (depthCurve.length <= 1) return;
+    setDepthCurve(prev => prev.filter((_, idx) => idx !== i));
+  }
+  function updateRa(i: number, ra: number) {
+    setDepthCurve(prev => prev.map((r, idx) => (idx === i ? { ...r, ra } : r)));
+  }
+
+  const lastPoint = depthCurve[depthCurve.length - 1];
+  const installedDepth = isMulti ? m.installed_depth : (lastPoint?.depth ?? m.installed_depth);
+  const achievedRa = isMulti
+    ? m.achieved_ra
+    : (lastPoint && lastPoint.ra > 0 ? lastPoint.ra : m.achieved_ra);
+  const maxRa = Math.max(...depthCurve.map(p => p.ra), 1);
+  const meetsTarget = achievedRa <= target;
 
   return (
     <div className="mt-8 flex flex-col gap-6">
@@ -435,45 +471,84 @@ function DemoMetingStep({
             <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-white/60">
               {t('metingCurve')}
             </p>
-            <p className="mb-4 text-[10px] text-white/40">{t('metingCurveHint')}</p>
+            <p className="mb-1 text-[10px] text-white/40">{t('metingCurveHint')}</p>
+            <p className="mb-4 text-[10px] text-white/35">{t('metingCurveRule')}</p>
             <div className="flex flex-col gap-2">
-              {m.depth_curve.map((row, i) => (
-                <div key={i} className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+              {depthCurve.map((row, i) => (
+                <div key={`${row.depth}-${i}`} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3">
                   <div className="flex items-center gap-1.5">
-                    <input readOnly value={row.depth} className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white" />
+                    <input
+                      readOnly
+                      value={row.depth}
+                      className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm tabular-nums text-white"
+                      title={t('metingDepthLocked')}
+                    />
                     <span className="text-xs text-white/40">m</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-white/5">
                     <div
                       className="h-full rounded-full bg-[#E8761A]/50"
-                      style={{
-                        width: `${Math.min((row.ra / Math.max(...m.depth_curve.map(p => p.ra), 1)) * 100, 100)}%`,
-                      }}
+                      style={{ width: `${Math.min((row.ra / maxRa) * 100, 100)}%` }}
                     />
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <input readOnly value={row.ra} className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white" />
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      value={row.ra || ''}
+                      onChange={e => updateRa(i, Number(e.target.value))}
+                      placeholder="Ra"
+                      className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                    />
                     <span className="text-xs text-white/40">Ω</span>
                   </div>
+                  {depthCurve.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeRow(i)}
+                      className="text-white/30 hover:text-red-400"
+                      aria-label={t('metingRemoveRow')}
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={addRow}
+              className="mt-3 flex items-center gap-1.5 text-xs text-[#E8761A] hover:text-[#d06510]"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+              </svg>
+              {t('metingAddPoint')} (+3 m)
+            </button>
           </div>
 
           <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
               {t('metingFinal')} <span className="text-red-400">*</span>
             </p>
+            <p className="mb-3 text-[10px] text-white/40">{t('metingFinalHint')}</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs text-white/70">Geïnstalleerde diepte (m)</label>
-                <input readOnly value={m.installed_depth.toFixed(2)} className={inputClass} />
+                <input readOnly value={installedDepth.toFixed(0)} className={inputClass} />
               </div>
               <div>
                 <label className="mb-1 block text-xs text-white/70">Gemeten Ra (Ω)</label>
                 <div className="flex items-center gap-2">
-                  <input readOnly value={m.achieved_ra.toFixed(2)} className={inputClass} />
-                  <span className="shrink-0 text-[11px] text-green-400">✓ {t('metingPass')}</span>
+                  <input readOnly value={achievedRa.toFixed(2)} className={inputClass} />
+                  {meetsTarget ? (
+                    <span className="shrink-0 text-[11px] text-green-400">✓ {t('metingPass')}</span>
+                  ) : (
+                    <span className="shrink-0 text-[11px] text-amber-300">{t('metingKeepGoing')}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -506,7 +581,13 @@ function DemoMetingStep({
           </button>
           <button
             type="button"
-            onClick={onNext}
+            onClick={() =>
+              onNext({
+                depth_curve: depthCurve,
+                installed_depth: installedDepth,
+                achieved_ra: achievedRa,
+              })
+            }
             className="rounded-xl bg-[#E8761A] px-6 py-3 text-sm font-bold text-white hover:bg-[#d06510]"
           >
             {t('ctaConfirmMeting')}
@@ -519,12 +600,18 @@ function DemoMetingStep({
 
 function DemoRapportStep({
   city,
+  metingOverrides,
   onBack,
 }: {
   city: SandboxCityFixture;
+  metingOverrides: MetingOverrides | null;
   onBack: () => void;
 }) {
   const t = useTranslations('sandbox');
+  const meting = {
+    ...city.meting,
+    ...(metingOverrides ?? {}),
+  };
 
   return (
     <div className="mt-8">
@@ -548,7 +635,7 @@ function DemoRapportStep({
         <OpleverrapportView
           uuid={city.calc.id}
           calc={city.calc}
-          meting={city.meting}
+          meting={meting}
           isCalculator={false}
           readOnly
           profile={{
@@ -608,6 +695,7 @@ export function SandboxDemo({ initialCityId }: { initialCityId?: string }) {
   );
   const [step, setStep] = useState<Step>('calc');
   const [maxStep, setMaxStep] = useState(0);
+  const [metingOverrides, setMetingOverrides] = useState<MetingOverrides | null>(null);
   const city = getSandboxCity(cityId);
 
   useEffect(() => {
@@ -624,6 +712,7 @@ export function SandboxDemo({ initialCityId }: { initialCityId?: string }) {
     setCityId(id);
     setStep('calc');
     setMaxStep(0);
+    setMetingOverrides(null);
   }
 
   const stepLabels: Record<Step, string> = {
@@ -708,11 +797,18 @@ export function SandboxDemo({ initialCityId }: { initialCityId?: string }) {
           <DemoMetingStep
             city={city}
             onBack={() => goTo('calc')}
-            onNext={() => goTo('rapport')}
+            onNext={(overrides) => {
+              setMetingOverrides(overrides);
+              goTo('rapport');
+            }}
           />
         )}
         {step === 'rapport' && (
-          <DemoRapportStep city={city} onBack={() => goTo('meting')} />
+          <DemoRapportStep
+            city={city}
+            metingOverrides={metingOverrides}
+            onBack={() => goTo('meting')}
+          />
         )}
       </div>
     </div>
