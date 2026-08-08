@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { pushEvent } from '@/lib/analytics/gtm';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 
 type IntegrationView = {
   status: string;
@@ -16,6 +17,7 @@ type IntegrationView = {
 
 export function KlicSettingsPanel() {
   const t = useTranslations('workPrep.settings');
+  const policyLabelId = useId();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -148,32 +150,37 @@ export function KlicSettingsPanel() {
 
       {/* Policy */}
       <section className="rounded-2xl border border-white/8 bg-[#111] p-5">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-white/50">
-          {t('policyTitle')}
-        </p>
-        <p className="mt-2 text-sm text-white/55">{t('policyBody')}</p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <span className={`text-sm font-semibold ${enabled ? 'text-emerald-300' : 'text-white/40'}`}>
-            {enabled ? t('policyOn') : t('policyOff')}
-          </span>
-          {enabled ? (
-            <button
-              type="button"
-              onClick={() => { setDisableOpen(true); setDisableAck(false); }}
-              className="min-h-11 rounded-lg border border-white/15 px-4 py-2 text-sm text-white/80"
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p
+              id={policyLabelId}
+              className="text-[11px] font-semibold uppercase tracking-widest text-white/50"
             >
-              {t('disableCta')}
-            </button>
-          ) : (
-            <button
-              type="button"
+              {t('policyTitle')}
+            </p>
+            <p className="mt-2 text-sm text-white/55">{t('policyBody')}</p>
+            <p
+              className={`mt-3 text-sm font-semibold ${enabled ? 'text-[#34C759]' : 'text-white/40'}`}
+            >
+              {enabled ? t('policyOn') : t('policyOff')}
+            </p>
+          </div>
+          <div className="pt-0.5">
+            <ToggleSwitch
+              checked={enabled}
               disabled={busy}
-              onClick={() => void setPolicy(true)}
-              className="min-h-11 rounded-lg border border-emerald-500/40 px-4 py-2 text-sm font-semibold text-emerald-300"
-            >
-              {t('enableCta')}
-            </button>
-          )}
+              aria-labelledby={policyLabelId}
+              aria-label={enabled ? t('disableCta') : t('enableCta')}
+              onCheckedChange={(next) => {
+                if (next) {
+                  void setPolicy(true);
+                  return;
+                }
+                setDisableOpen(true);
+                setDisableAck(false);
+              }}
+            />
+          </div>
         </div>
       </section>
 
