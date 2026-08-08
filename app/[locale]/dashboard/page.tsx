@@ -72,7 +72,23 @@ export default async function DashboardPage({
 }) {
   const { locale } = await paramsPromise;
   const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+
+  let supabase: ReturnType<typeof createClient>;
+  try {
+    supabase = createClient(cookieStore);
+  } catch (err) {
+    const e = err as Error & { code?: string; status?: number };
+    console.error(JSON.stringify({
+      event: 'app_error',
+      code: e.code ?? 'E_SUPABASE_ENV',
+      status: e.status ?? 503,
+      path: `/${locale}/dashboard`,
+      message: e.message?.slice(0, 200) ?? null,
+      at: new Date().toISOString(),
+    }));
+    throw err;
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect(`/${locale}/login?next=/${locale}/dashboard`);
