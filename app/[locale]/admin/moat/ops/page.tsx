@@ -88,6 +88,10 @@ export default function MoatOpsPage() {
           <Link href="/admin/moat/sales" className="hover:text-[#E8761A]">Sales</Link>
           <span>/</span>
           <span className="text-white/70">Operations</span>
+          <span className="text-white/20">·</span>
+          <Link href="/admin/moat/outcomes" className="hover:text-[#E8761A]">Outcomes</Link>
+          <span className="text-white/20">·</span>
+          <Link href="/admin/moat/shadow" className="hover:text-[#E8761A]">Shadow</Link>
         </div>
 
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -95,13 +99,21 @@ export default function MoatOpsPage() {
             <h1 className="font-condensed text-3xl font-black">Operations</h1>
             <p className="mt-2 max-w-xl text-sm text-white/50">{PRODUCT_AVAILABILITY_LINE}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
-          >
-            Vernieuwen
-          </button>
+          <div className="flex gap-2">
+            <Link
+              href="/admin/moat/outcomes?unlinked=1"
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
+            >
+              Unlinked
+            </Link>
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
+            >
+              Vernieuwen
+            </button>
+          </div>
         </div>
 
         {loading && <p className="text-sm text-white/40">Laden…</p>}
@@ -162,6 +174,14 @@ export default function MoatOpsPage() {
             <p className="mt-4 text-[11px] text-white/35">
               Kwaliteit: goed/null {f.qualityGoed} · twijfel {f.qualityTwijfel} · onbruikbaar {f.qualityOnbruikbaar}
               {' · '}outliers {f.outliers}
+              {' · '}
+              <Link href="/admin/moat/outcomes" className="text-[#E8761A] hover:underline">
+                alle outcomes
+              </Link>
+              {' · '}
+              <Link href="/admin/moat/outcomes?unlinked=1" className="text-[#E8761A] hover:underline">
+                zonder link
+              </Link>
             </p>
           </section>
         )}
@@ -181,6 +201,7 @@ export default function MoatOpsPage() {
                     <th className="px-4 py-3">Conf.</th>
                     <th className="px-4 py-3">Moat-status</th>
                     <th className="px-4 py-3">Data-claim</th>
+                    <th className="px-4 py-3">Drill</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -197,6 +218,14 @@ export default function MoatOpsPage() {
                       </td>
                       <td className="px-4 py-2.5 text-xs text-white/70">{r.moat_status}</td>
                       <td className="px-4 py-2.5 text-xs text-[#E8761A]">{r.data_claim_tier}</td>
+                      <td className="px-4 py-2.5 text-xs">
+                        <Link
+                          href={`/admin/moat/outcomes?region=${encodeURIComponent(r.region_name)}`}
+                          className="text-[#E8761A] hover:underline"
+                        >
+                          outcomes
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -213,9 +242,12 @@ export default function MoatOpsPage() {
             <ul className="divide-y divide-white/5 px-6">
               {data.weekly.map(w => (
                 <li key={w.weekStart} className="flex justify-between py-3 text-sm">
-                  <span className="text-white/55">
+                  <Link
+                    href={`/admin/moat/outcomes?week=${encodeURIComponent(w.weekStart)}`}
+                    className="text-white/55 hover:text-[#E8761A]"
+                  >
                     week van {new Date(w.weekStart).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </span>
+                  </Link>
                   <span className="tabular-nums">+{w.count}</span>
                 </li>
               ))}

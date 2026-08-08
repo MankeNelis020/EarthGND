@@ -41,7 +41,7 @@ Acceptatiecriteria voor het gefaseerde validatieplan. Poort 1 + P1 zijn afgerond
 | Evidence → L2/L3 Welford | `lib/soil-knowledge/evidence-accumulator.ts` |
 | Diepte gate < +30% geoMean | `npm run gate:depth` (velddata + BRO-cache) |
 
-**Nog niet:** geautomatiseerde Poort-2 dashboard; handmatige review van `shadow_predictions` met `actual_rho IS NOT NULL`.
+**Admin UI:** `/admin/moat/shadow` (Sprint 4) — resolved/unresolved + mean relative error. CLI: `npm run gate:poort2` (indien geconfigureerd) / `scripts/gate-poort2-shadow.ts`.
 
 ---
 
@@ -68,7 +68,7 @@ Acceptatiecriteria voor het gefaseerde validatieplan. Poort 1 + P1 zijn afgerond
 |-----------|--------|
 | `empirical_weight > 0` beslissing | schema-kolom aanwezig, code pinned op 0 |
 | L4 lokale observaties | types/schema only |
-| Admin observability | pipeline-status admin, geen shadow-metrics UI |
+| Admin observability | `/admin/pipeline` + `/admin/moat/shadow` (Sprint 4) |
 
 ---
 
@@ -100,6 +100,15 @@ Acceptatiecriteria voor het gefaseerde validatieplan. Poort 1 + P1 zijn afgerond
 | Sales battlefield (adres → regio + nearby outcomes + pitch) | `/admin/moat/sales`, `GET /api/admin/moat/sales` |
 | Ops funnel / weekly / regio-gezondheid | `/admin/moat/ops`, `GET /api/admin/moat/ops` |
 | Geen nieuwe migratie | hergebruikt Sprint 1 spine |
+
+### Sprint 4 — Integration ✅ code
+
+| Criterium | Bron |
+|-----------|------|
+| Outcome drill-down + calculation links | `/admin/moat/outcomes`, Sales/Ops links |
+| Shadow / Poort-2 admin | `/admin/moat/shadow` over `shadow_predictions` |
+| Wekelijkse ops digest | `GET /api/admin/moat/cron/digest` (ma 07:00 UTC) |
+| Geen nieuwe migratie | hergebruikt bestaande tabellen |
 
 ---
 

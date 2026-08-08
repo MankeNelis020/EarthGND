@@ -15,11 +15,14 @@ import {
   moatReadinessLabel,
 } from '@/lib/moat/labels';
 import { moatRegionForCoords } from '@/lib/moat/regions';
+import { outcomeHref } from '@/lib/moat/outcomes';
 
 export const SALES_NEARBY_RADIUS_M = 2000;
 
 export type SalesNearbyOutcome = {
   id: string;
+  calculation_id: string | null;
+  href: string | null;
   distanceM: number;
   lat: number;
   lon: number;
@@ -56,6 +59,7 @@ export type SalesPitchSummary = {
 
 type MetingRow = {
   id: string;
+  calculation_id: string | null;
   lat: number | null;
   lon: number | null;
   postcode: string | null;
@@ -91,7 +95,7 @@ export async function fetchSalesNearbyOutcomes(
   const { data, error } = await db
     .from('pendiepte_metingen')
     .select(`
-      id, lat, lon, postcode, huisnummer, straatnaam, woonplaats,
+      id, calculation_id, lat, lon, postcode, huisnummer, straatnaam, woonplaats,
       installed_depth, predicted_depth_m, depth_error_percent,
       prediction_accuracy_category, regional_cluster_id, status,
       measurement_quality
@@ -114,6 +118,8 @@ export async function fetchSalesNearbyOutcomes(
       const distanceM = haversineMeters(lat, lon, r.lat as number, r.lon as number);
       return {
         id: r.id,
+        calculation_id: r.calculation_id,
+        href: outcomeHref(r.calculation_id, r.status),
         distanceM,
         lat: r.lat as number,
         lon: r.lon as number,

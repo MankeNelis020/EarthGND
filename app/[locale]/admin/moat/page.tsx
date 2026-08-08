@@ -103,7 +103,19 @@ export default function MoatAdminPage() {
               href="/admin/moat/ops"
               className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
             >
-              Operations
+              Ops
+            </Link>
+            <Link
+              href="/admin/moat/outcomes"
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
+            >
+              Outcomes
+            </Link>
+            <Link
+              href="/admin/moat/shadow"
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
+            >
+              Shadow
             </Link>
             <button
               type="button"
@@ -222,6 +234,7 @@ export default function MoatAdminPage() {
                     <th className="px-4 py-3">Emp%</th>
                     <th className="px-4 py-3">Moat-status</th>
                     <th className="px-4 py-3">Data-claim</th>
+                    <th className="px-4 py-3 print:hidden">Drill</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 print:divide-black/10">
@@ -247,6 +260,14 @@ export default function MoatAdminPage() {
                         </td>
                         <td className="px-4 py-2.5 text-xs text-[#E8761A] print:text-black">
                           {dataClaimTierLabel(r.pricing_tier)}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs print:hidden">
+                          <Link
+                            href={`/admin/moat/outcomes?region=${encodeURIComponent(r.region_name)}`}
+                            className="text-[#E8761A] hover:underline"
+                          >
+                            outcomes
+                          </Link>
                         </td>
                       </tr>
                     );
