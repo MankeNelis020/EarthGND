@@ -1614,19 +1614,27 @@ export function DiepteCalculator({ initialTarget, initialLabel }: DiepteCalculat
               />
 
               {calcResult.calculationId ? (
-                monteurSent ? (
-                  <div className="flex items-center justify-center rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3">
-                    <span className="text-sm font-semibold text-green-400">✓ Uitnodiging verstuurd</span>
-                  </div>
-                ) : (
-                  <button
-                    onClick={openMonteurModal}
-                    className="flex items-center justify-center gap-2 rounded-md border border-brand/30 bg-brand-muted px-4 py-3 text-sm font-semibold text-brand hover:bg-brand/20 transition-colors"
+                <>
+                  <a
+                    href={`/project/${calcResult.calculationId}/voorbereiding`}
+                    className="flex items-center justify-center gap-2 rounded-md bg-[#E8761A] px-4 py-3 text-sm font-bold text-white hover:bg-[#d06510] transition-colors"
                   >
-                    <IconMail className="h-4 w-4" />
-                    Uitnodigen installateur
-                  </button>
-                )
+                    Werkvoorbereiding openen
+                  </a>
+                  {monteurSent ? (
+                    <div className="flex items-center justify-center rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3">
+                      <span className="text-sm font-semibold text-green-400">✓ Uitnodiging verstuurd</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={openMonteurModal}
+                      className="flex items-center justify-center gap-2 rounded-md border border-brand/30 bg-brand-muted px-4 py-3 text-sm font-semibold text-brand hover:bg-brand/20 transition-colors"
+                    >
+                      <IconMail className="h-4 w-4" />
+                      Uitnodigen installateur
+                    </button>
+                  )}
+                </>
               ) : (
                 <div
                   className="flex items-center justify-center rounded-xl border border-white/8 bg-white/3 px-4 py-3 text-sm text-white/40"

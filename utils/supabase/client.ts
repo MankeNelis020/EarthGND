@@ -1,10 +1,8 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/supabase/public-env';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-// Accept both the project-specific name and the standard Supabase name.
-const supabaseKey =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = getSupabaseUrl();
+const supabaseKey = getSupabaseAnonKey();
 
 type SupabaseClient = ReturnType<typeof createBrowserClient>;
 

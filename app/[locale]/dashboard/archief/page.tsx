@@ -97,16 +97,28 @@ export default async function ArchiefPage({
 
   const t = await getTranslations({ locale, namespace: 'dashboard' });
 
-  const admin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const admin =
+    serviceKey && supabaseUrl
+      ? createAdminClient(supabaseUrl, serviceKey)
+      : null;
+  if (!admin) {
+    console.error(JSON.stringify({
+      event: 'app_error',
+      code: 'E_SUPABASE_ENV',
+      status: 503,
+      path: `/${locale}/dashboard/archief`,
+      message: 'Missing SUPABASE_SERVICE_ROLE_KEY or URL for archive admin queries',
+      at: new Date().toISOString(),
+    }));
+  }
 
   const [
     { data: calculations },
     { data: rapports },
-    { data: monteurJobsRaw },
-    { data: calcMetingenRaw },
+    monteurJobsRaw,
+    calcMetingenRaw,
   ] = await Promise.all([
     supabase
       .from('calculations')
@@ -121,23 +133,29 @@ export default async function ArchiefPage({
       .order('updated_at', { ascending: false })
       .limit(100),
     admin
-      .from('pendiepte_metingen')
-      .select('calculation_id, status, postcode, straatnaam, woonplaats, created_at')
-      .ilike('monteur_email', user.email ?? '')
-      .order('created_at', { ascending: false })
-      .limit(100),
+      ? admin
+          .from('pendiepte_metingen')
+          .select('calculation_id, status, postcode, straatnaam, woonplaats, created_at')
+          .ilike('monteur_email', user.email ?? '')
+          .order('created_at', { ascending: false })
+          .limit(100)
+          .then(r => r.data)
+      : Promise.resolve(null),
     admin
-      .from('pendiepte_metingen')
-      .select('calculation_id, status, monteur_email, submitted_at, confirmed_at')
-      .eq('calculator_user_id', user.id)
-      .limit(200),
+      ? admin
+          .from('pendiepte_metingen')
+          .select('calculation_id, status, monteur_email, submitted_at, confirmed_at')
+          .eq('calculator_user_id', user.id)
+          .limit(200)
+          .then(r => r.data)
+      : Promise.resolve(null),
   ]);
 
   const calcs     = (calculations as Calculation[]) ?? [];
   const rapporten = (rapports as Rapport[]) ?? [];
 
   const diepteCalcs = calcs.filter(c => c.tool === 'diepte');
-  const calcMetingen = (calcMetingenRaw as MetingInfo[]) ?? [];
+  const calcMetingen = (calcMetingenRaw as MetingInfo[] | null) ?? [];
   const metingMap    = new Map(calcMetingen.map(m => [m.calculation_id, m]));
   const getStatus    = (c: Calculation) => metingMap.get(c.id)?.status ?? 'none';
 
@@ -146,7 +164,7 @@ export default async function ArchiefPage({
   const rapportPhase = diepteCalcs.filter(c => getStatus(c) === 'confirmed');
 
   const ownCalcIds = new Set(calcs.map(c => c.id));
-  const monteurJobs = ((monteurJobsRaw as MonteurJob[]) ?? [])
+  const monteurJobs = ((monteurJobsRaw as MonteurJob[] | null) ?? [])
     .filter(j => !ownCalcIds.has(j.calculation_id));
 
   // Archive shows items 4+ (older than the dashboard top-3)

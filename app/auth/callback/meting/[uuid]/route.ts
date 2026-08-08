@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { CookieOptions } from '@supabase/ssr';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/supabase/public-env';
 
 export const runtime = 'nodejs';
 
@@ -19,11 +20,18 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     return NextResponse.redirect(`${origin}/${refLocale}/login?error=auth`);
   }
 
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseKey = getSupabaseAnonKey();
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[auth/callback/meting] E_SUPABASE_ENV');
+    return NextResponse.redirect(`${origin}/${refLocale}/login?error=E_SUPABASE_ENV`);
+  }
+
   const pendingCookies: { name: string; value: string; options: CookieOptions }[] = [];
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() { return request.cookies.getAll(); },

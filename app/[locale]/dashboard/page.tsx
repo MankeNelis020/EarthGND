@@ -10,6 +10,8 @@ import { PostAuthRedirect } from '@/components/auth/PostAuthRedirect';
 import { DashboardSections } from '@/components/dashboard/DashboardSections';
 import { ColleaguesSection } from '@/components/dashboard/ColleaguesSection';
 import { PurchaseTracker } from '@/components/analytics/PurchaseTracker';
+import { DashboardCrashFallback } from '@/components/dashboard/DashboardCrashFallback';
+import { logServerError } from '@/lib/errors/log-server-error';
 
 export const runtime = 'nodejs';
 
@@ -39,6 +41,9 @@ interface Calculation {
   rapport_naam: string | null;
   pdf_url: string | null;
   created_at: string;
+  planned_execution_date?: string | null;
+  execution_date_confirmed_at?: string | null;
+  contractor_notification_status?: string | null;
 }
 
 interface Rapport {
@@ -60,6 +65,16 @@ interface Profile {
   created_at: string;
 }
 
+function isNextRedirect(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'digest' in err &&
+    typeof (err as { digest?: unknown }).digest === 'string' &&
+    String((err as { digest: string }).digest).startsWith('NEXT_REDIRECT')
+  );
+}
+
 export default async function DashboardPage({
   params: paramsPromise,
   searchParams,
@@ -68,37 +83,111 @@ export default async function DashboardPage({
   searchParams: Promise<{ checkout?: string; type?: string; plan?: string; qty?: string; amount?: string }>;
 }) {
   const { locale } = await paramsPromise;
+
+  try {
+    return await renderDashboard(locale, searchParams);
+  } catch (err) {
+    if (isNextRedirect(err)) throw err;
+
+    const code =
+      err instanceof Error && 'code' in err && typeof (err as { code?: string }).code === 'string'
+        ? (err as { code: string }).code
+        : 'E_DASHBOARD';
+    const detail = err instanceof Error ? err.message : 'Onbekende fout';
+
+    logServerError({
+      code,
+      status: 500,
+      path: `/${locale}/dashboard`,
+      err,
+    });
+
+    return (
+      <div className="min-h-screen bg-canvas">
+        <DashboardCrashFallback code={code} status={500} detail={detail} />
+      </div>
+    );
+  }
+}
+
+async function renderDashboard(
+  locale: string,
+  searchParams: Promise<{ checkout?: string; type?: string; plan?: string; qty?: string; amount?: string }>,
+) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError) {
+    logServerError({
+      code: 'E_AUTH_CALLBACK',
+      status: 401,
+      path: `/${locale}/dashboard`,
+      err: authError,
+    });
+  }
 
   if (!user) redirect(`/${locale}/login?next=/${locale}/dashboard`);
 
   const params = await searchParams;
 
-  const admin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const admin =
+    serviceKey && supabaseUrl
+      ? createAdminClient(supabaseUrl, serviceKey)
+      : null;
+
+  const CALC_SELECT_WITH_PREP =
+    'id, tool, postcode, rapport_naam, pdf_url, created_at, planned_execution_date, execution_date_confirmed_at, contractor_notification_status';
+  const CALC_SELECT_BASE =
+    'id, tool, postcode, rapport_naam, pdf_url, created_at';
+
+  let calcs: Calculation[] = [];
+  let profile: Profile | null = null;
+  let rapporten: Rapport[] = [];
+  let monteurJobsRaw: MonteurJob[] | null = null;
+  let calcMetingenRaw: MetingInfo[] | null = null;
+
+  // Prefer prep columns; fall back if migration not applied yet.
+  const withPrep = await supabase
+    .from('calculations')
+    .select(CALC_SELECT_WITH_PREP)
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (withPrep.error) {
+    console.warn('[dashboard] prep columns unavailable, falling back:', withPrep.error.message);
+    const base = await supabase
+      .from('calculations')
+      .select(CALC_SELECT_BASE)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (base.error) {
+      logServerError({
+        code: 'E_DASHBOARD',
+        path: `/${locale}/dashboard`,
+        err: base.error.message,
+      });
+    }
+    calcs = (base.data as Calculation[] | null) ?? [];
+  } else {
+    calcs = (withPrep.data as Calculation[] | null) ?? [];
+  }
 
   const [
-    { data: profileRaw },
-    { data: calculations },
-    { data: rapports },
-    { data: monteurJobsRaw },
-    { data: calcMetingenRaw },
+    { data: profileRaw, error: profileError },
+    { data: rapports, error: rapportsError },
+    monteurJobsData,
+    calcMetingenData,
   ] = await Promise.all([
     supabase
       .from('profiles')
       .select('plan, credits_left, credits_purchased, credits_reset, email, created_at')
       .eq('id', user.id)
-      .single(),
-    supabase
-      .from('calculations')
-      .select('id, tool, postcode, rapport_naam, pdf_url, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(20),
+      .maybeSingle(),
     supabase
       .from('inspection_reports')
       .select('id, status, locatie, opdrachtgever, systeemtype, datum_uitvoering, updated_at')
@@ -106,25 +195,65 @@ export default async function DashboardPage({
       .order('updated_at', { ascending: false })
       .limit(8),
     admin
-      .from('pendiepte_metingen')
-      .select('calculation_id, status, postcode, straatnaam, woonplaats, created_at, submitted_at, confirmed_at')
-      .ilike('monteur_email', user.email ?? '')
-      .order('created_at', { ascending: false })
-      .limit(20),
+      ? Promise.resolve(
+          admin
+            .from('pendiepte_metingen')
+            .select('calculation_id, status, postcode, straatnaam, woonplaats, created_at, submitted_at, confirmed_at')
+            .ilike('monteur_email', user.email ?? '')
+            .order('created_at', { ascending: false })
+            .limit(20),
+        )
+          .then(r => r.data)
+          .catch(err => {
+            logServerError({ code: 'E_DASHBOARD', path: `/${locale}/dashboard`, err });
+            return null;
+          })
+      : Promise.resolve(null),
     admin
-      .from('pendiepte_metingen')
-      .select('calculation_id, status, monteur_email, submitted_at, confirmed_at')
-      .eq('calculator_user_id', user.id)
-      .limit(50),
+      ? Promise.resolve(
+          admin
+            .from('pendiepte_metingen')
+            .select('calculation_id, status, monteur_email, submitted_at, confirmed_at')
+            .eq('calculator_user_id', user.id)
+            .limit(50),
+        )
+          .then(r => r.data)
+          .catch(err => {
+            logServerError({ code: 'E_DASHBOARD', path: `/${locale}/dashboard`, err });
+            return null;
+          })
+      : Promise.resolve(null),
   ]);
 
-  const profile   = profileRaw as Profile | null;
-  const calcs     = (calculations as Calculation[]) ?? [];
-  const rapporten = (rapports as Rapport[]) ?? [];
+  if (profileError) {
+    // credits_purchased may be missing on older DBs — retry without it
+    console.warn('[dashboard] profile select failed:', profileError.message);
+    const retry = await supabase
+      .from('profiles')
+      .select('plan, credits_left, credits_reset, email, created_at')
+      .eq('id', user.id)
+      .maybeSingle();
+    profile = retry.data
+      ? ({ ...(retry.data as object), credits_purchased: 0 } as Profile)
+      : null;
+  } else {
+    profile = profileRaw as Profile | null;
+  }
 
-  const planConfig      = PLANS[(profile?.plan ?? 'gratis') as keyof typeof PLANS];
-  const totalCredits    = planConfig.credits;
-  const creditsLeft     = profile?.credits_left ?? 0;
+  if (rapportsError) {
+    console.warn('[dashboard] rapports select failed:', rapportsError.message);
+    rapporten = [];
+  } else {
+    rapporten = (rapports as Rapport[]) ?? [];
+  }
+
+  monteurJobsRaw = (monteurJobsData as MonteurJob[] | null) ?? null;
+  calcMetingenRaw = (calcMetingenData as MetingInfo[] | null) ?? null;
+
+  const planKey = (profile?.plan ?? 'gratis') as keyof typeof PLANS;
+  const planConfig = PLANS[planKey] ?? PLANS.gratis;
+  const totalCredits = planConfig.credits;
+  const creditsLeft = profile?.credits_left ?? 0;
   const creditsPurchased = profile?.credits_purchased ?? 0;
   const subscriptionCredits = Math.max(0, creditsLeft - creditsPurchased);
   const creditsPct = totalCredits > 0
@@ -140,39 +269,42 @@ export default async function DashboardPage({
 
   const diepteCalcs = calcs.filter(c => c.tool === 'diepte');
 
-  const calcMetingen = (calcMetingenRaw as MetingInfo[]) ?? [];
-  const metingMap    = new Map(calcMetingen.map(m => [m.calculation_id, m]));
-  const getStatus    = (c: Calculation) => metingMap.get(c.id)?.status ?? 'none';
+  const calcMetingen = calcMetingenRaw ?? [];
+  const metingMap = new Map(calcMetingen.map(m => [m.calculation_id, m]));
+  const getStatus = (c: Calculation) => metingMap.get(c.id)?.status ?? 'none';
 
-  const calcPhase    = diepteCalcs.filter(c => ['none', 'draft'].includes(getStatus(c)));
-  const metingPhase  = diepteCalcs.filter(c => ['invited', 'submitted'].includes(getStatus(c)));
+  const calcPhase = diepteCalcs.filter(c => ['none', 'draft'].includes(getStatus(c)));
+  const metingPhase = diepteCalcs.filter(c => ['invited', 'submitted'].includes(getStatus(c)));
   const rapportPhase = diepteCalcs.filter(c => getStatus(c) === 'confirmed');
 
-  const ownCalcIds  = new Set(calcs.map(c => c.id));
-  const monteurJobs = ((monteurJobsRaw as MonteurJob[]) ?? [])
+  const ownCalcIds = new Set(calcs.map(c => c.id));
+  const monteurJobs = (monteurJobsRaw ?? [])
     .filter(j => !ownCalcIds.has(j.calculation_id));
 
-  // Normalise to a single flat list for the rapport section
   const rapportItems = [
     ...rapportPhase.map(c => ({
-      id:         c.id,
-      type:       'pendiepte' as const,
-      label:      '',
-      status:     'confirmed',
-      naam:       c.rapport_naam ?? c.postcode ?? 'Geen postcode',
+      id: c.id,
+      type: 'pendiepte' as const,
+      label: '',
+      status: 'confirmed',
+      naam: c.rapport_naam ?? c.postcode ?? 'Geen postcode',
       created_at: c.created_at,
-      href:       `/pendiepte-rapport/${c.id}`,
+      href: `/pendiepte-rapport/${c.id}`,
     })),
     ...rapporten.map(r => ({
-      id:         r.id,
-      type:       'nen1010' as const,
-      label:      r.systeemtype ?? '',
-      status:     r.status,
-      naam:       r.locatie ?? r.opdrachtgever ?? 'Naamloos rapport',
+      id: r.id,
+      type: 'nen1010' as const,
+      label: r.systeemtype ?? '',
+      status: r.status,
+      naam: r.locatie ?? r.opdrachtgever ?? 'Naamloos rapport',
       created_at: r.updated_at,
-      href:       `/rapport/${r.id}`,
+      href: `/rapport/${r.id}`,
     })),
-  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  ].sort((a, b) => {
+    const tb = Date.parse(b.created_at);
+    const ta = Date.parse(a.created_at);
+    return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+  });
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -197,7 +329,6 @@ export default async function DashboardPage({
 
         <h1 className="font-condensed mb-6 text-3xl font-black text-white">Dashboard</h1>
 
-        {/* ── Credits + quick actions ────────────────────────────────────── */}
         <div className="mb-6 rounded-2xl border border-white/8 bg-[#111]">
           <div className="flex items-center justify-between border-b border-white/6 px-6 py-4">
             <div>
@@ -241,12 +372,11 @@ export default async function DashboardPage({
               <p className="text-sm text-white/40">Gratis plan — Weerstand Calculator onbeperkt beschikbaar.</p>
             )}
           </div>
-          {/* Quick links inside credits card */}
           <div className="grid grid-cols-3 divide-x divide-white/6 border-t border-white/6">
             {[
-              { href: '/tool/ohm',    label: 'Weerstand',   sub: 'Calculator' },
-              { href: '/tool/diepte', label: 'Pendiepte',   sub: 'Calculator' },
-              { href: '/rapport/nieuw', label: 'NEN 1010',  sub: 'Nieuw rapport' },
+              { href: '/tool/ohm', label: 'Weerstand', sub: 'Calculator' },
+              { href: '/tool/diepte', label: 'Pendiepte', sub: 'Calculator' },
+              { href: '/rapport/nieuw', label: 'NEN 1010', sub: 'Nieuw rapport' },
             ].map(({ href, label, sub }) => (
               <Link
                 key={href}
@@ -262,37 +392,40 @@ export default async function DashboardPage({
 
         <ColleaguesSection />
 
-        {/* ── Workflow sections (client component handles delete + modal) ── */}
         <DashboardSections
           locale={locale}
           calcPhase={calcPhase.map(c => ({
-            id:          c.id,
-            postcode:    c.postcode,
+            id: c.id,
+            postcode: c.postcode,
             rapport_naam: c.rapport_naam,
-            created_at:  c.created_at,
+            created_at: c.created_at,
+            plannedExecutionDate: c.planned_execution_date ?? null,
+            executionDateConfirmed: !!c.execution_date_confirmed_at,
+            contractorInformed:
+              c.contractor_notification_status === 'sent' ||
+              c.contractor_notification_status === 'manually_confirmed',
           }))}
           metingPhase={metingPhase.map(c => ({
-            id:                   c.id,
-            postcode:             c.postcode,
-            rapport_naam:         c.rapport_naam,
-            created_at:           c.created_at,
-            metingStatus:         metingMap.get(c.id)?.status,
-            monteurEmail:         metingMap.get(c.id)?.monteur_email,
-            metingSubmittedAt:    metingMap.get(c.id)?.submitted_at ?? null,
-            metingConfirmedAt:    metingMap.get(c.id)?.confirmed_at ?? null,
+            id: c.id,
+            postcode: c.postcode,
+            rapport_naam: c.rapport_naam,
+            created_at: c.created_at,
+            metingStatus: metingMap.get(c.id)?.status,
+            monteurEmail: metingMap.get(c.id)?.monteur_email,
+            metingSubmittedAt: metingMap.get(c.id)?.submitted_at ?? null,
+            metingConfirmedAt: metingMap.get(c.id)?.confirmed_at ?? null,
           }))}
           monteurJobs={monteurJobs.map(j => ({
             calculation_id: j.calculation_id,
-            status:         j.status,
-            postcode:       j.postcode,
-            straatnaam:     j.straatnaam,
-            woonplaats:     j.woonplaats,
-            created_at:     j.created_at,
+            status: j.status,
+            postcode: j.postcode,
+            straatnaam: j.straatnaam,
+            woonplaats: j.woonplaats,
+            created_at: j.created_at,
           }))}
           rapportPhase={rapportItems}
         />
 
-        {/* ── Account ───────────────────────────────────────────────────── */}
         <div className="mt-6 rounded-2xl border border-white/8 bg-[#111]">
           <div className="border-b border-white/6 px-6 py-4">
             <h2 className="font-condensed text-base font-bold text-white">Account</h2>
@@ -300,7 +433,7 @@ export default async function DashboardPage({
           <div className="divide-y divide-white/5 px-6">
             {[
               { label: 'E-mail', value: user.email ?? '—' },
-              { label: 'Plan',   value: planConfig.label },
+              { label: 'Plan', value: planConfig.label },
               {
                 label: 'Lid sinds',
                 value: profile?.created_at

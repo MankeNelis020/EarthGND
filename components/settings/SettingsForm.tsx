@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { isProPlan, PROFILE_LOGO_BUCKET, profileLogoPath, type UserProfileSettings } from '@/lib/profile';
+import { KlicSettingsPanel } from '@/components/work-preparation/KlicSettingsPanel';
 
 export function SettingsForm() {
   const [profile, setProfile] = useState<UserProfileSettings | null>(null);
@@ -245,3 +246,17 @@ export function SettingsForm() {
     </form>
   );
 }
+
+/** Standalone KLIC / werkvoorbereiding settings block for instellingen page. */
+export function SettingsKlicSection() {
+  return (
+    <div className="mt-10">
+      <h2 className="font-condensed mb-2 text-xl font-black text-white">Werkvoorbereiding &amp; KLIC</h2>
+      <p className="mb-5 text-sm text-white/45">
+        Controleer of projecten klaar zijn voor uitvoering. Kadaster-kosten blijven bij jouw organisatie.
+      </p>
+      <KlicSettingsPanel />
+    </div>
+  );
+}
+

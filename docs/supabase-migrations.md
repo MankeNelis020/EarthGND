@@ -32,7 +32,20 @@ Na migratie schrijft de app alleen `input_values` / `result`. `getScanContext()`
 | `supabase/moat_labels_sprint2_migration.sql` | Moat-status labels (product ≠ data-claim) |
 | `supabase/fix_prior_rls_and_constraints.sql` | RLS policies service role |
 
-## 4. Overige patches
+## 4. Work preparation & KLIC (PR #56)
+
+| Bestand | Inhoud |
+|---------|--------|
+| `supabase/work_preparation_klic_migration.sql` | `planned_execution_date` + contractor/override op `calculations`; KLIC-policy op `profiles`; tabellen `klic_integrations` + `klic_requests` + RLS |
+
+**Operator notes**
+
+- Tenant = `user_id` (geen organization-tabel).
+- Bestaande `klic_meldingen` (NEN-bewijs) blijft ongewijzigd.
+- Live BMKL blijft uit (`KLIC_BMKL_ENABLED=false`) tot officiële Kadaster-configuratie.
+- Geen credential-plaintext in client-leesbare responses.
+
+## 5. Overige patches
 
 Controleer `supabase/` op aanvullende `.sql` bestanden en pas toe na de bovenstaande basis, in commit-datumvolgorde indien afhankelijk.
 

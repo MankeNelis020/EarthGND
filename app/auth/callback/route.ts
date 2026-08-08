@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import type { CookieOptions } from '@supabase/ssr';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/supabase/public-env';
 
 export const runtime = 'nodejs';
 
@@ -17,13 +18,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/${nextLocale}/login?error=auth`);
   }
 
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseKey = getSupabaseAnonKey();
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[auth/callback] E_SUPABASE_ENV missing public Supabase env');
+    return NextResponse.redirect(`${origin}/${nextLocale}/login?error=E_SUPABASE_ENV`);
+  }
+
   // Collect cookies written during session exchange so we can attach them
   // to the redirect response we build afterwards.
   const pendingCookies: { name: string; value: string; options: CookieOptions }[] = [];
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() { return request.cookies.getAll(); },

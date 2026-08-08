@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { Link } from '@/i18n/navigation';
-import { SettingsForm } from '@/components/settings/SettingsForm';
+import { SettingsForm, SettingsKlicSection } from '@/components/settings/SettingsForm';
 
 export const metadata = {
   title: 'Instellingen — EarthGND',
@@ -32,6 +32,7 @@ export default async function InstellingenPage({ params }: Ctx) {
           </p>
         </div>
         <SettingsForm />
+        <SettingsKlicSection />
       </div>
     </div>
   );
