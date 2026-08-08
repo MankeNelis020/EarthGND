@@ -1,3 +1,5 @@
+import { canUseFeature } from '@/lib/entitlements';
+
 export interface UserProfileSettings {
   plan: string;
   email: string | null;
@@ -9,7 +11,7 @@ export interface UserProfileSettings {
 }
 
 export function isProPlan(plan: string): boolean {
-  return plan === 'pro';
+  return canUseFeature(plan, 'profile_logo');
 }
 
 export const PROFILE_LOGO_BUCKET = 'profile-logos';
