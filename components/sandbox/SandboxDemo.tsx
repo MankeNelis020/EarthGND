@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
 import { OpleverrapportView } from '@/components/meting/OpleverrapportView';
 import { RodCurveChart } from '@/components/tools/RodCurveChart';
 import { HeroMetric, ScenarioMetric, InstrumentPanel } from '@/components/ui/instrument';
+import { DRIVE_METHOD_LABELS, type DriveMethod } from '@/lib/pipeline/driveability';
 import {
   SANDBOX_CITIES,
   getSandboxCity,
@@ -16,6 +17,13 @@ import {
 type Step = 'calc' | 'meting' | 'rapport';
 
 const STEPS: Step[] = ['calc', 'meting', 'rapport'];
+
+const inputClass =
+  'w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white read-only:cursor-default read-only:opacity-90 focus:border-[#E8761A] focus:outline-none';
+
+function driveLabel(raw: string, uiFallback: string): string {
+  return DRIVE_METHOD_LABELS[raw as DriveMethod] ?? uiFallback ?? raw;
+}
 
 function scenariosFromCity(city: SandboxCityFixture) {
   const d = city.calc.result.dimension;
@@ -54,30 +62,37 @@ function scenariosFromCity(city: SandboxCityFixture) {
 
 function Stepper({
   step,
+  maxReached,
   labels,
+  onSelect,
 }: {
   step: Step;
+  maxReached: number;
   labels: Record<Step, string>;
+  onSelect: (s: Step) => void;
 }) {
-  const idx = STEPS.indexOf(step);
   return (
     <ol className="mt-6 flex flex-wrap gap-2">
       {STEPS.map((s, i) => {
         const active = s === step;
-        const done = i < idx;
+        const reachable = i <= maxReached;
         return (
-          <li
-            key={s}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold ${
-              active
-                ? 'border-[#E8761A]/40 bg-[#E8761A]/10 text-[#E8761A]'
-                : done
-                  ? 'border-white/15 text-white/70'
-                  : 'border-white/8 text-white/30'
-            }`}
-          >
-            <span className="tabular-nums opacity-70">{i + 1}</span>
-            {labels[s]}
+          <li key={s}>
+            <button
+              type="button"
+              disabled={!reachable}
+              onClick={() => onSelect(s)}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                active
+                  ? 'border-[#E8761A]/40 bg-[#E8761A]/10 text-[#E8761A]'
+                  : reachable
+                    ? 'border-white/15 text-white/70 hover:border-white/30 hover:text-white'
+                    : 'cursor-not-allowed border-white/8 text-white/30'
+              }`}
+            >
+              <span className="tabular-nums opacity-70">{i + 1}</span>
+              {labels[s]}
+            </button>
           </li>
         );
       })}
@@ -101,7 +116,6 @@ function DemoCalcResults({
 
   return (
     <div className="mt-8 flex flex-col gap-section">
-      {/* Location panel — mirrors PostcodeInput result look */}
       <InstrumentPanel>
         <p className="type-label mb-3">{t('calcLocationLabel')}</p>
         <p className="text-sm font-semibold text-white">
@@ -110,10 +124,76 @@ function DemoCalcResults({
           {city.meting.postcode} {city.meting.woonplaats}
         </p>
         <p className="mt-1 text-xs text-white/45">
-          {city.soilHint} · ρ ≈ {city.calc.input_values.rho} Ω·m · GHG {gw} m
+          {city.soilHint} · ρ ≈ {city.soil.effectiveRho} Ω·m · GHG {gw} m
         </p>
         <p className="mt-2 text-[11px] text-amber-200/70">{t('calcLocationDummy')}</p>
       </InstrumentPanel>
+
+      {/* BRO-like soil samples — mirrors PostcodeInput table */}
+      <div className="panel overflow-hidden">
+        <div className="border-b border-white/6 px-5 py-3">
+          <p className="text-xs font-medium text-white/50">{t('calcSoilTable')}</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-[11px] uppercase tracking-wider text-white/35">
+              <tr>
+                <th className="px-5 py-2">Diepte</th>
+                <th className="px-5 py-2">Klasse</th>
+                <th className="px-5 py-2">ρ (Ω·m)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {city.soil.samples.map(s => (
+                <tr key={s.depthM}>
+                  <td className="px-5 py-2 tabular-nums text-white/70">−{s.depthM} m</td>
+                  <td className="px-5 py-2 capitalize text-white/80">{s.classLabel}</td>
+                  <td className="px-5 py-2 tabular-nums">{s.rho}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className={`border-t px-5 py-3 text-sm ${
+          city.soil.riskClass === 'I' ? 'border-green-500/20 bg-green-500/5 text-green-300' :
+          city.soil.riskClass === 'II' ? 'border-yellow-500/20 bg-yellow-500/5 text-yellow-200' :
+          'border-orange-500/20 bg-orange-500/5 text-orange-200'
+        }`}>
+          <p className="font-semibold">{city.soil.riskLabel}</p>
+          <p className="mt-0.5 text-xs opacity-80">{city.soil.riskDescription}</p>
+        </div>
+      </div>
+
+      {/* Read-only params — same labels as calculator */}
+      <div className="panel p-5">
+        <p className="mb-3 text-xs font-medium text-white/50">{t('calcParamsLabel')}</p>
+        <div className="grid gap-3 text-sm sm:grid-cols-2">
+          <p>
+            <span className="text-white/40">{t('calcElectrode')}: </span>
+            Verticale pen
+          </p>
+          <p>
+            <span className="text-white/40">Drijfmethode: </span>
+            {city.soil.driveMethodUi}
+          </p>
+          <p>
+            <span className="text-white/40">Diameter: </span>
+            {city.soil.diameterLabel}
+          </p>
+          <p>
+            <span className="text-white/40">{t('calcTarget')}: </span>
+            {city.soil.targetCategoryLabel}
+          </p>
+          <p>
+            <span className="text-white/40">ρ effectief: </span>
+            {city.soil.effectiveRho} Ω·m
+          </p>
+          <p>
+            <span className="text-white/40">GHG: </span>
+            {gw} m
+          </p>
+        </div>
+      </div>
 
       <HeroMetric
         label={t('calcHeroLabel')}
@@ -133,14 +213,6 @@ function DemoCalcResults({
           </p>
         </div>
         <div className="space-y-2 px-5 py-4 text-sm text-white/70">
-          <p>
-            <span className="text-white/40">{t('calcElectrode')}: </span>
-            Verticale pen · {city.calc.input_values.drijfmethode}
-          </p>
-          <p>
-            <span className="text-white/40">{t('calcTarget')}: </span>
-            ≤ {target} Ω
-          </p>
           <p>
             <span className="text-white/40">{t('calcPredictedRa')}: </span>
             {city.calc.result.achievedResistance.toFixed(2)} Ω
@@ -172,7 +244,6 @@ function DemoCalcResults({
         </div>
       </div>
 
-      {/* Interactive R-vs-depth — same RodCurveChart as real Pendiepte calculator */}
       <div className="panel p-5">
         <p className="mb-1 text-xs font-medium text-white/50">{t('calcCurveTitle')}</p>
         <p className="mb-3 text-[11px] text-white/35">{t('calcCurveHint')}</p>
@@ -203,6 +274,7 @@ function DemoCalcResults({
   );
 }
 
+/** Prefills like MonteurForm — read-only so guests explore without writes. */
 function DemoMetingStep({
   city,
   onBack,
@@ -215,9 +287,20 @@ function DemoMetingStep({
   const t = useTranslations('sandbox');
   const m = city.meting;
   const expected = city.calc.result.dimension;
+  const target = city.calc.input_values.targetResistance;
+  const methodLabel = driveLabel(m.drijfmethode, city.soil.driveMethodUi);
+  const isMulti = (m.rods?.length ?? 0) > 1;
 
   return (
     <div className="mt-8 flex flex-col gap-6">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">
+          {t('metingPageEyebrow')}
+        </p>
+        <h2 className="font-condensed mt-1 text-2xl font-black">{t('metingPageTitle')}</h2>
+        <p className="mt-1 text-sm text-white/45">{t('metingPageSubtitle')}</p>
+      </div>
+
       <div className="rounded-xl border border-[#E8761A]/25 bg-[#E8761A]/5 px-4 py-3">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">
           {t('metingExpectedLabel')}
@@ -225,140 +308,210 @@ function DemoMetingStep({
         <p className="mt-1 text-sm text-white/80">
           {t('metingExpectedBody', {
             depth: expected.toFixed(2),
-            target: city.calc.input_values.targetResistance,
-            method: city.calc.input_values.drijfmethode,
+            target,
+            method: methodLabel,
           })}
         </p>
       </div>
 
-      <section className="rounded-2xl border border-white/8 bg-[#111] p-5">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/40">
-          {t('metingLocation')}
+      {/* GPS — filled state like MonteurForm after locate */}
+      <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
+          {t('metingGps')} <span className="text-red-400">*</span>
         </p>
-        <div className="grid gap-2 text-sm sm:grid-cols-2">
-          <p>
-            <span className="text-white/40">GPS: </span>
-            {m.lat.toFixed(5)}, {m.lon.toFixed(5)} ± {m.gps_accuracy_m} m
-          </p>
-          <p>
-            <span className="text-white/40">Adres: </span>
-            {[m.straatnaam, m.huisnummer, m.postcode, m.woonplaats].filter(Boolean).join(' ')}
+        <div className="mb-3 rounded-lg border border-green-500/25 bg-green-500/5 px-3 py-2">
+          <p className="text-xs font-semibold text-green-400">{t('metingGpsOk')}</p>
+          <p className="mt-0.5 text-xs text-white/60">
+            {m.lat.toFixed(6)}, {m.lon.toFixed(6)}
+            <span className="ml-2 text-white/40">± {m.gps_accuracy_m} m</span>
           </p>
         </div>
-      </section>
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white/40"
+        >
+          {t('metingGpsBtn')}
+        </button>
+      </div>
 
-      <section className="rounded-2xl border border-white/8 bg-[#111] p-5">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/40">
+      {/* Address fields — same grid as MonteurForm */}
+      <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
+          {t('metingAddress')}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 sm:col-span-1">
+            <label className="mb-1 block text-xs text-white/70">Postcode</label>
+            <input readOnly value={m.postcode} className={inputClass} />
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <label className="mb-1 block text-xs text-white/70">Woonplaats</label>
+            <input readOnly value={m.woonplaats} className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-white/70">Straatnaam</label>
+            <input readOnly value={m.straatnaam} className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-white/70">Huisnummer</label>
+            <input readOnly value={m.huisnummer} className={inputClass} />
+          </div>
+        </div>
+      </div>
+
+      {/* Electrode + drive method */}
+      <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
           {t('metingElectrode')}
         </p>
-        <div className="grid gap-2 text-sm sm:grid-cols-2">
-          <p>
-            <span className="text-white/40">Type: </span>
-            Verticale pen
-          </p>
-          <p>
-            <span className="text-white/40">Drijfmethode: </span>
-            {m.drijfmethode}
-          </p>
-          <p>
-            <span className="text-white/40">Aantal pennen: </span>
-            {m.aantal_pennen}
-          </p>
-        </div>
-      </section>
-
-      {(m.rods?.length ?? 0) > 1 ? (
-        <section className="overflow-hidden rounded-2xl border border-white/8 bg-[#111]">
-          <div className="border-b border-white/8 px-5 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">
-              {t('metingRods', { n: m.rods!.length })}
-            </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-[#E8761A] bg-[#E8761A]/10 py-2.5 text-center text-sm font-semibold text-[#E8761A]">
+            Verticale pen / staaf
           </div>
-          <div className="divide-y divide-white/5">
+          <div className="rounded-xl border border-white/8 bg-white/3 py-2.5 text-center text-sm font-semibold text-white/35">
+            Horizontaal lint
+          </div>
+        </div>
+        <p className="mb-1.5 mt-4 text-xs text-white/70">{t('metingDrive')}</p>
+        <div className="rounded-lg border border-[#E8761A] bg-[#E8761A]/10 px-3 py-2 text-xs text-[#E8761A]">
+          {methodLabel}
+        </div>
+      </div>
+
+      {isMulti ? (
+        <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-white/60">
+            {t('metingRods', { n: m.rods!.length })}
+          </p>
+          <p className="mt-0.5 text-[10px] text-white/40">{t('metingRodsHint')}</p>
+          <div className="mt-4 flex flex-col gap-3">
             {m.rods!.map(rod => (
-              <div key={rod.rod_number} className="flex items-center gap-4 px-5 py-2.5 text-sm">
-                <span className="w-14 text-white/55">Pen {rod.rod_number}</span>
-                <span className="w-20 tabular-nums">{rod.installed_depth.toFixed(2)} m</span>
-                <span className="font-semibold text-[#E8761A] tabular-nums">
-                  {rod.achieved_ra.toFixed(2)} Ω
-                </span>
+              <div key={rod.rod_number} className="rounded-xl border border-white/8 bg-white/3 p-4">
+                <p className="mb-3 text-xs font-semibold text-white/70">Pen {rod.rod_number}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] text-white/50">Geïnstalleerde diepte (m)</label>
+                    <input readOnly value={rod.installed_depth.toFixed(1)} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] text-white/50">Gemeten Ra (Ω)</label>
+                    <input readOnly value={rod.achieved_ra.toFixed(2)} className={inputClass} />
+                  </div>
+                </div>
               </div>
             ))}
           </div>
-          <div className="border-t border-white/8 px-5 py-3 text-sm">
-            <span className="text-white/40">{t('metingCombinedRa')}: </span>
-            <span className="font-semibold text-green-400">{m.achieved_ra.toFixed(2)} Ω</span>
-            <span className="ml-2 text-[11px] text-green-400/80">✓ {t('metingPass')}</span>
+          <div className="mt-5 rounded-xl border border-[#E8761A]/20 bg-[#E8761A]/5 p-4">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">
+              {t('metingCombinedRa')}
+            </p>
+            <div className="flex items-center gap-2">
+              <input readOnly value={m.achieved_ra.toFixed(2)} className="w-32 rounded-lg border border-[#E8761A]/30 bg-white/5 px-3 py-2 text-sm text-white" />
+              <span className="text-sm text-white/60">Ω</span>
+              <span className="text-[11px] text-green-400">✓ {t('metingPass')} (≤ {target} Ω)</span>
+            </div>
           </div>
-        </section>
+        </div>
       ) : (
-        <section className="rounded-2xl border border-white/8 bg-[#111] p-5">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/40">
-            {t('metingFinal')}
-          </p>
-          <div className="grid gap-2 text-sm sm:grid-cols-2">
-            <p>
-              <span className="text-white/40">Diepte: </span>
-              {m.installed_depth.toFixed(2)} m
+        <>
+          <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
+              {t('metingDiameterStop')}
             </p>
-            <p>
-              <span className="text-white/40">Ra: </span>
-              <span className="font-semibold text-green-400">{m.achieved_ra.toFixed(2)} Ω</span>
-              <span className="ml-2 text-[11px] text-green-400/80">✓ {t('metingPass')}</span>
-            </p>
-          </div>
-        </section>
-      )}
-
-      <section className="overflow-hidden rounded-2xl border border-white/8 bg-[#111]">
-        <div className="border-b border-white/8 px-5 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-white/40">
-            {t('metingCurve')}
-          </p>
-        </div>
-        <div className="divide-y divide-white/5">
-          {(() => {
-            const maxRa = Math.max(...m.depth_curve.map(pt => pt.ra), 1);
-            return m.depth_curve.map((pt, i) => (
-              <div key={i} className="flex items-center gap-4 px-5 py-2.5">
-                <span className="w-16 text-sm text-white/60">{pt.depth} m</span>
-                <div className="h-1.5 flex-1 rounded-full bg-white/5">
-                  <div
-                    className="h-full rounded-full bg-[#E8761A]/60"
-                    style={{ width: `${Math.min((pt.ra / maxRa) * 100, 100)}%` }}
-                  />
-                </div>
-                <span className="w-16 text-right text-sm font-semibold">{pt.ra} Ω</span>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs text-white/70">Geslagen diameter</label>
+                <input readOnly value={city.soil.diameterLabel} className={inputClass} />
               </div>
-            ));
-          })()}
-        </div>
-      </section>
+              <div>
+                <label className="mb-1 block text-xs text-white/70">Stopreden</label>
+                <input readOnly value={t('metingStopredenDemo')} className={inputClass} />
+              </div>
+            </div>
+          </div>
 
-      {m.notes && (
-        <section className="rounded-xl border border-white/8 bg-white/3 px-4 py-3">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-white/40">
-            {t('metingNotes')}
-          </p>
-          <p className="text-sm leading-relaxed text-white/70">{m.notes}</p>
-        </section>
+          <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-white/60">
+              {t('metingCurve')}
+            </p>
+            <p className="mb-4 text-[10px] text-white/40">{t('metingCurveHint')}</p>
+            <div className="flex flex-col gap-2">
+              {m.depth_curve.map((row, i) => (
+                <div key={i} className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <input readOnly value={row.depth} className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white" />
+                    <span className="text-xs text-white/40">m</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-white/5">
+                    <div
+                      className="h-full rounded-full bg-[#E8761A]/50"
+                      style={{
+                        width: `${Math.min((row.ra / Math.max(...m.depth_curve.map(p => p.ra), 1)) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input readOnly value={row.ra} className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white" />
+                    <span className="text-xs text-white/40">Ω</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
+              {t('metingFinal')} <span className="text-red-400">*</span>
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs text-white/70">Geïnstalleerde diepte (m)</label>
+                <input readOnly value={m.installed_depth.toFixed(2)} className={inputClass} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-white/70">Gemeten Ra (Ω)</label>
+                <div className="flex items-center gap-2">
+                  <input readOnly value={m.achieved_ra.toFixed(2)} className={inputClass} />
+                  <span className="shrink-0 text-[11px] text-green-400">✓ {t('metingPass')}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-xl border border-white/15 px-5 py-3 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
-        >
-          {t('ctaBackCalc')}
-        </button>
-        <button
-          type="button"
-          onClick={onNext}
-          className="rounded-xl bg-[#E8761A] px-6 py-3 text-sm font-bold text-white hover:bg-[#d06510]"
-        >
-          {t('ctaToRapport')}
-        </button>
+      <div className="rounded-2xl border border-white/8 bg-[#111] p-5">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/60">
+          {t('metingNotes')}
+        </p>
+        <textarea
+          readOnly
+          value={m.notes}
+          rows={3}
+          className={`${inputClass} resize-none`}
+        />
+      </div>
+
+      <div className="rounded-2xl border border-[#E8761A]/25 bg-[#E8761A]/5 p-5">
+        <p className="text-sm font-semibold text-[#E8761A]">{t('metingSubmitTitle')}</p>
+        <p className="mt-1 text-xs leading-relaxed text-white/60">{t('metingSubmitBody')}</p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-xl border border-white/15 px-5 py-3 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
+          >
+            {t('ctaBackCalc')}
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            className="rounded-xl bg-[#E8761A] px-6 py-3 text-sm font-bold text-white hover:bg-[#d06510]"
+          >
+            {t('ctaConfirmMeting')}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -375,14 +528,20 @@ function DemoRapportStep({
 
   return (
     <div className="mt-8">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="font-condensed text-xl font-bold">{t('previewTitle')}</h2>
-          <p className="mt-1 text-xs text-white/40">{t('previewSubtitle')}</p>
+      <div className="mb-6">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">
+          {t('rapportEyebrow')}
+        </p>
+        <h2 className="font-condensed mt-1 text-2xl font-black">{t('previewTitle')}</h2>
+        <p className="mt-1 text-sm text-white/45">{t('previewSubtitle')}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+            {t('dummyBadge')}
+          </span>
+          <span className="rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-semibold text-green-400">
+            {t('rapportConfirmed')}
+          </span>
         </div>
-        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
-          {t('dummyBadge')}
-        </span>
       </div>
 
       <div className="rounded-2xl border border-dashed border-amber-500/25 bg-[#0d0d0d] p-4 sm:p-6">
@@ -401,7 +560,7 @@ function DemoRapportStep({
         />
       </div>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+      <div className="mt-6">
         <button
           type="button"
           onClick={onBack}
@@ -448,11 +607,23 @@ export function SandboxDemo({ initialCityId }: { initialCityId?: string }) {
       : 'amsterdam') as SandboxCityId,
   );
   const [step, setStep] = useState<Step>('calc');
+  const [maxStep, setMaxStep] = useState(0);
   const city = getSandboxCity(cityId);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [step, cityId]);
+
+  function goTo(next: Step) {
+    const i = STEPS.indexOf(next);
+    setStep(next);
+    setMaxStep(m => Math.max(m, i));
+  }
 
   function selectCity(id: SandboxCityId) {
     setCityId(id);
     setStep('calc');
+    setMaxStep(0);
   }
 
   const stepLabels: Record<Step, string> = {
@@ -482,45 +653,66 @@ export function SandboxDemo({ initialCityId }: { initialCityId?: string }) {
           <p className="mt-1 text-amber-100/80">{t('dummyBannerBody')}</p>
         </div>
 
-        <Stepper step={step} labels={stepLabels} />
-
-        <section className="mt-6">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/35">
-            {t('cityPickerLabel')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {SANDBOX_CITIES.map(c => {
-              const active = c.id === cityId;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => selectCity(c.id)}
-                  className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors ${
-                    active
-                      ? 'bg-[#E8761A] text-white'
-                      : 'border border-white/15 text-white/70 hover:border-white/30 hover:text-white'
-                  }`}
-                >
-                  {c.name}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        <Stepper
+          step={step}
+          maxReached={Math.max(maxStep, STEPS.indexOf(step))}
+          labels={stepLabels}
+          onSelect={setStep}
+        />
 
         {step === 'calc' && (
-          <DemoCalcResults city={city} onNext={() => setStep('meting')} />
+          <section className="mt-6">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-white/35">
+              {t('cityPickerLabel')}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {SANDBOX_CITIES.map(c => {
+                const active = c.id === cityId;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => selectCity(c.id)}
+                    className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors ${
+                      active
+                        ? 'bg-[#E8761A] text-white'
+                        : 'border border-white/15 text-white/70 hover:border-white/30 hover:text-white'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {step !== 'calc' && (
+          <p className="mt-6 text-xs text-white/40">
+            {t('activeCity')}: <span className="font-semibold text-white/70">{city.name}</span>
+            {' · '}
+            <button
+              type="button"
+              onClick={() => goTo('calc')}
+              className="text-[#E8761A] hover:underline"
+            >
+              {t('changeCity')}
+            </button>
+          </p>
+        )}
+
+        {step === 'calc' && (
+          <DemoCalcResults city={city} onNext={() => goTo('meting')} />
         )}
         {step === 'meting' && (
           <DemoMetingStep
             city={city}
-            onBack={() => setStep('calc')}
-            onNext={() => setStep('rapport')}
+            onBack={() => goTo('calc')}
+            onNext={() => goTo('rapport')}
           />
         )}
         {step === 'rapport' && (
-          <DemoRapportStep city={city} onBack={() => setStep('meting')} />
+          <DemoRapportStep city={city} onBack={() => goTo('meting')} />
         )}
       </div>
     </div>
