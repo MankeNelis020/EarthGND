@@ -326,20 +326,27 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
 
   function CalcRow({ calc }: { calc: CalcItem }) {
     const naam = calc.rapport_naam ?? calc.postcode ?? 'Geen postcode';
-    const prepHref = `/project/${calc.id}/voorbereiding`;
-    const prepBits = [
-      calc.contractorInformed ? t('prep.contractorOk') : t('prep.contractorOpen'),
-      calc.executionDateConfirmed
-        ? t('prep.dateOk', { date: calc.plannedExecutionDate ? fmtDate(calc.plannedExecutionDate, l) : '—' })
-        : calc.plannedExecutionDate
-          ? t('prep.dateUnconfirmed', { date: fmtDate(calc.plannedExecutionDate, l) })
-          : t('prep.dateOpen'),
-    ].join(' · ');
+    const prepHref = `/${l}/project/${calc.id}/voorbereiding`;
+    let prepBadge = 'Werkvoorbereiding';
+    let prepBits = 'Open voorbereiding';
+    try {
+      prepBadge = t('prep.badge');
+      prepBits = [
+        calc.contractorInformed ? t('prep.contractorOk') : t('prep.contractorOpen'),
+        calc.executionDateConfirmed
+          ? t('prep.dateOk', { date: calc.plannedExecutionDate ? fmtDate(calc.plannedExecutionDate, l) : '—' })
+          : calc.plannedExecutionDate
+            ? t('prep.dateUnconfirmed', { date: fmtDate(calc.plannedExecutionDate, l) })
+            : t('prep.dateOpen'),
+      ].join(' · ');
+    } catch {
+      // Never let missing i18n keys crash the dashboard RSC payload.
+    }
     return (
       <li className="flex items-center gap-1.5 px-4 py-2 border-b border-white/5 last:border-0">
         <Link href={prepHref} className="flex-1 min-w-0">
           <div className="mb-0.5">
-            <Badge label={t('prep.badge')} tone="brand" />
+            <Badge label={prepBadge} tone="brand" />
           </div>
           <p className="text-sm font-semibold text-white truncate leading-tight">{naam}</p>
           <DashboardMeta>{prepBits}</DashboardMeta>
