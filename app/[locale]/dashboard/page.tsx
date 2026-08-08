@@ -39,6 +39,9 @@ interface Calculation {
   rapport_naam: string | null;
   pdf_url: string | null;
   created_at: string;
+  planned_execution_date?: string | null;
+  execution_date_confirmed_at?: string | null;
+  contractor_notification_status?: string | null;
 }
 
 interface Rapport {
@@ -95,7 +98,7 @@ export default async function DashboardPage({
       .single(),
     supabase
       .from('calculations')
-      .select('id, tool, postcode, rapport_naam, pdf_url, created_at')
+      .select('id, tool, postcode, rapport_naam, pdf_url, created_at, planned_execution_date, execution_date_confirmed_at, contractor_notification_status')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20),
@@ -270,6 +273,11 @@ export default async function DashboardPage({
             postcode:    c.postcode,
             rapport_naam: c.rapport_naam,
             created_at:  c.created_at,
+            plannedExecutionDate: c.planned_execution_date ?? null,
+            executionDateConfirmed: !!c.execution_date_confirmed_at,
+            contractorInformed:
+              c.contractor_notification_status === 'sent' ||
+              c.contractor_notification_status === 'manually_confirmed',
           }))}
           metingPhase={metingPhase.map(c => ({
             id:                   c.id,

@@ -151,8 +151,8 @@
     "successBanner": "Payment successful — credits have been added to your account.",
     "more": "More >",
     "sections": {
-      "calculations": "Calculations",
-      "calculationsSubtitle": "Rod depth — no installer invited yet",
+      "calculations": "Work preparation",
+      "calculationsSubtitle": "Calculation ready — prepare execution",
       "measurements": "Field measurements",
       "measurementsSubtitle": "Open and submitted measurements",
       "reports": "Delivery reports",
@@ -216,6 +216,14 @@
       "revokeBody": "You are revoking the invitation for {naam}. The installer will not be notified.",
       "revokeConfirm": "Yes, revoke",
       "revokeCancel": "Cancel"
+    },
+    "prep": {
+      "badge": "Work preparation",
+      "contractorOk": "Client ready",
+      "contractorOpen": "Client open",
+      "dateOk": "Execution {date}",
+      "dateUnconfirmed": "Date {date} (unconfirmed)",
+      "dateOpen": "Date open"
     }
   },
   "auth": {
@@ -263,5 +271,162 @@
     "ctaTitle": "Try it yourself?",
     "ctaOhm": "Resistance Calculator",
     "ctaDiepte": "Rod Depth Calculator"
+  },
+  "workPrep": {
+    "eyebrow": "Project",
+    "title": "Work preparation",
+    "ready": {
+      "label": "Ready for execution",
+      "all": "All set",
+      "partial": "{ready} of {total} ready",
+      "badgeOk": "Ready",
+      "badgeOpen": "Action needed"
+    },
+    "execution": {
+      "label": "Execution",
+      "notPlanned": "Not planned yet",
+      "plan": "Plan date",
+      "change": "Change",
+      "save": "Save",
+      "confirm": "Confirm date",
+      "confirmed": "Confirmed"
+    },
+    "contractor": {
+      "label": "Inform client",
+      "hint": "Confirm that the target resistance and expected rod depth have been communicated.",
+      "markManual": "Confirm manually",
+      "done": "Client informed"
+    },
+    "klic": {
+      "label": "KLIC notification",
+      "none": "No KLIC notification registered yet.",
+      "ready": "KLIC ready — {ref}",
+      "processing": "KLIC in progress",
+      "dateChanged": "Execution date changed — check whether the notification still matches.",
+      "policyOff": "KLIC check disabled by organisation",
+      "manualNote": "Manually registered",
+      "submitCta": "Submit KLIC",
+      "manualCta": "Registered externally",
+      "upgradeCta": "Upgrade for KLIC connection",
+      "refresh": "Refresh status",
+      "settingsLink": "KLIC settings",
+      "billingNote": "Fees are charged directly by Kadaster to your organisation."
+    },
+    "items": {
+      "calculation": "Calculation ready",
+      "contractor": "Client informed",
+      "klic": "KLIC notification",
+      "executionDate": "Execution date confirmed",
+      "calculationDone": "Calculation available",
+      "calculationPending": "No calculation yet",
+      "contractorDone": "Communicated",
+      "contractorPending": "Not confirmed yet",
+      "klicDone": "KLIC registered",
+      "klicDisabled": "Disabled by organisation",
+      "dateDone": "Date confirmed",
+      "dateUnconfirmed": "Date set — confirm still needed",
+      "dateMissing": "Not planned yet"
+    },
+    "klicMsg": {
+      "policyDisabled": "KLIC check disabled",
+      "dateChanged": "Date changed after submission",
+      "attention": "Attention required",
+      "failed": "Submission failed",
+      "ok": "KLIC ready",
+      "override": "Continuing with override",
+      "noDate": "No execution date",
+      "processingUrgent": "Still processing — execution soon",
+      "processing": "Processing",
+      "pastDue": "Execution date passed without KLIC",
+      "urgent": "KLIC needs urgent attention",
+      "warning": "KLIC needs attention",
+      "reminder": "KLIC still open",
+      "notStarted": "Not started"
+    },
+    "status": {
+      "done": "Done",
+      "pending": "Open",
+      "attention": "Action needed",
+      "urgent": "Urgent",
+      "na": "N/A"
+    },
+    "cta": {
+      "startMeting": "Start field measurement",
+      "dashboard": "Back to dashboard"
+    },
+    "common": {
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "dateUpdated": "Execution date updated.",
+      "dateConfirmed": "Execution date confirmed.",
+      "contractorMarked": "Client marked as informed.",
+      "klicManual": "KLIC notification registered.",
+      "klicSubmitted": "KLIC notification submitted.",
+      "override": "Continuation recorded."
+    },
+    "errors": {
+      "generic": "Something went wrong. Try again.",
+      "klicSubmit": "KLIC notification could not be submitted."
+    },
+    "manual": {
+      "title": "Registered externally",
+      "subtitle": "EarthGND does not verify the contents — registration for your project file only.",
+      "ref": "KLIC reference number",
+      "date": "Notification date",
+      "save": "Save"
+    },
+    "submit": {
+      "title": "KLIC notification",
+      "project": "Project",
+      "date": "Planned execution",
+      "work": "Works",
+      "workValue": "Install earth electrode",
+      "confirmLocation": "I have checked the location and excavation area.",
+      "submit": "Submit KLIC",
+      "submitting": "Submitting KLIC…"
+    },
+    "override": {
+      "title": "KLIC status not ready",
+      "body": "No ready KLIC notification is registered for this project yet.",
+      "ack": "I confirm that I have checked whether a KLIC notification is required for this work and take responsibility for continuing.",
+      "fixKlic": "Arrange KLIC",
+      "continue": "Continue anyway"
+    },
+    "settings": {
+      "policyTitle": "KLIC check",
+      "policyBody": "When enabled, EarthGND tracks whether a KLIC notification is registered before execution. This is a workflow control, not a legal determination.",
+      "policyOn": "Enabled",
+      "policyOff": "Disabled",
+      "disableCta": "Disable KLIC check",
+      "enableCta": "Enable KLIC check",
+      "disableTitle": "Disable KLIC check?",
+      "disableBody": "EarthGND will no longer check whether a KLIC notification is registered before a project is executed. For certain works, including mechanical excavation, a KLIC notification may be legally required. Responsibility for compliance remains with your organisation.",
+      "disableAck": "I understand that EarthGND will no longer monitor KLIC status for projects.",
+      "disableConfirm": "Disable anyway",
+      "cancel": "Cancel",
+      "integrationTitle": "Kadaster KLIC",
+      "integrationBody": "Submit KLIC notifications directly from EarthGND projects. Your organisation uses its own Kadaster account and billing relationship.",
+      "notEntitled": "KLIC API integration is available from Pro. You can still register notifications manually.",
+      "upgrade": "View pricing →",
+      "connected": "Connected",
+      "disconnected": "Not connected",
+      "configRequired": "Configuration required — live BMKL is not available yet.",
+      "org": "Organisation",
+      "lastChecked": "Last checked",
+      "connect": "Connect Kadaster",
+      "verify": "Verify connection",
+      "disconnect": "Disconnect",
+      "openKadaster": "No KLIC account yet? Open Kadaster",
+      "bmklPending": "Live BMKL stays disabled until official Kadaster configuration. Manual registration remains available.",
+      "loadError": "Failed to load settings",
+      "saveError": "Save failed",
+      "enabledOk": "KLIC check enabled.",
+      "disabledOk": "KLIC check disabled.",
+      "connectedOk": "Kadaster connection saved.",
+      "verifiedOk": "Connection verified.",
+      "verifyFail": "Connection not active.",
+      "disconnectedOk": "Disconnected. Historic KLIC records are kept."
+    }
   }
 }

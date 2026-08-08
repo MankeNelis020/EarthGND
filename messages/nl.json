@@ -151,8 +151,8 @@
     "successBanner": "Betaling geslaagd — je credits zijn bijgeschreven.",
     "more": "Meer >",
     "sections": {
-      "calculations": "Berekeningen",
-      "calculationsSubtitle": "Pendiepte — nog geen monteur uitgenodigd",
+      "calculations": "Werkvoorbereiding",
+      "calculationsSubtitle": "Berekening gereed — bereid uitvoering voor",
       "measurements": "Veldmetingen",
       "measurementsSubtitle": "Openstaande en ingediende metingen",
       "reports": "Opleverrapporten",
@@ -216,6 +216,14 @@
       "revokeBody": "Je trekt de uitnodiging voor {naam} in. De monteur krijgt hiervan geen melding.",
       "revokeConfirm": "Ja, intrekken",
       "revokeCancel": "Annuleer"
+    },
+    "prep": {
+      "badge": "Werkvoorbereiding",
+      "contractorOk": "Opdrachtgever gereed",
+      "contractorOpen": "Opdrachtgever open",
+      "dateOk": "Uitvoering {date}",
+      "dateUnconfirmed": "Datum {date} (onbevestigd)",
+      "dateOpen": "Datum open"
     }
   },
   "auth": {
@@ -263,5 +271,162 @@
     "ctaTitle": "Zelf berekenen?",
     "ctaOhm": "Weerstand Calculator",
     "ctaDiepte": "Pendiepte Calculator"
+  },
+  "workPrep": {
+    "eyebrow": "Project",
+    "title": "Werkvoorbereiding",
+    "ready": {
+      "label": "Klaar voor uitvoering",
+      "all": "Alles gereed",
+      "partial": "{ready} van {total} gereed",
+      "badgeOk": "Gereed",
+      "badgeOpen": "Actie nodig"
+    },
+    "execution": {
+      "label": "Uitvoering",
+      "notPlanned": "Nog niet gepland",
+      "plan": "Datum plannen",
+      "change": "Wijzigen",
+      "save": "Opslaan",
+      "confirm": "Datum bevestigen",
+      "confirmed": "Bevestigd"
+    },
+    "contractor": {
+      "label": "Opdrachtgever informeren",
+      "hint": "Bevestig dat de gewenste weerstand en verwachte pendiepte zijn gecommuniceerd.",
+      "markManual": "Handmatig bevestigen",
+      "done": "Opdrachtgever geïnformeerd"
+    },
+    "klic": {
+      "label": "KLIC-melding",
+      "none": "Nog geen KLIC-melding geregistreerd.",
+      "ready": "KLIC gereed — {ref}",
+      "processing": "KLIC in behandeling",
+      "dateChanged": "Uitvoeringsdatum gewijzigd — controleer of de melding nog aansluit.",
+      "policyOff": "KLIC-controle uitgeschakeld door organisatie",
+      "manualNote": "Handmatig geregistreerd",
+      "submitCta": "KLIC-melding doen",
+      "manualCta": "Melding extern gedaan",
+      "upgradeCta": "Upgrade voor KLIC-koppeling",
+      "refresh": "Status vernieuwen",
+      "settingsLink": "KLIC-instellingen",
+      "billingNote": "Kosten worden rechtstreeks door Kadaster aan jouw organisatie in rekening gebracht."
+    },
+    "items": {
+      "calculation": "Berekening gereed",
+      "contractor": "Opdrachtgever geïnformeerd",
+      "klic": "KLIC-melding",
+      "executionDate": "Uitvoeringsdatum bevestigd",
+      "calculationDone": "Berekening beschikbaar",
+      "calculationPending": "Nog geen berekening",
+      "contractorDone": "Gecommuniceerd",
+      "contractorPending": "Nog niet bevestigd",
+      "klicDone": "KLIC geregistreerd",
+      "klicDisabled": "Uitgeschakeld door organisatie",
+      "dateDone": "Datum bevestigd",
+      "dateUnconfirmed": "Datum gezet — nog bevestigen",
+      "dateMissing": "Nog niet gepland"
+    },
+    "klicMsg": {
+      "policyDisabled": "KLIC-controle uitgeschakeld",
+      "dateChanged": "Datum gewijzigd na indiening",
+      "attention": "Aandacht vereist",
+      "failed": "Indiening mislukt",
+      "ok": "KLIC gereed",
+      "override": "Doorgaan met override",
+      "noDate": "Geen uitvoeringsdatum",
+      "processingUrgent": "Nog in behandeling — uitvoering nabij",
+      "processing": "In behandeling",
+      "pastDue": "Uitvoeringsdatum verstreken zonder KLIC",
+      "urgent": "KLIC vereist urgente aandacht",
+      "warning": "KLIC vereist aandacht",
+      "reminder": "KLIC nog open",
+      "notStarted": "Nog niet gestart"
+    },
+    "status": {
+      "done": "Gereed",
+      "pending": "Open",
+      "attention": "Actie nodig",
+      "urgent": "Urgent",
+      "na": "N.v.t."
+    },
+    "cta": {
+      "startMeting": "Veldmeting starten",
+      "dashboard": "Naar dashboard"
+    },
+    "common": {
+      "cancel": "Annuleren"
+    },
+    "toast": {
+      "dateUpdated": "Uitvoeringsdatum bijgewerkt.",
+      "dateConfirmed": "Uitvoeringsdatum bevestigd.",
+      "contractorMarked": "Opdrachtgever gemarkeerd als geïnformeerd.",
+      "klicManual": "KLIC-melding geregistreerd.",
+      "klicSubmitted": "KLIC-melding ingediend.",
+      "override": "Doorgaan vastgelegd."
+    },
+    "errors": {
+      "generic": "Er ging iets mis. Probeer opnieuw.",
+      "klicSubmit": "KLIC-melding kon niet worden ingediend."
+    },
+    "manual": {
+      "title": "Melding extern uitgevoerd",
+      "subtitle": "EarthGND verifieert de inhoud niet — alleen registratie voor je projectdossier.",
+      "ref": "KLIC-meldnummer",
+      "date": "Datum melding",
+      "save": "Opslaan"
+    },
+    "submit": {
+      "title": "KLIC-melding",
+      "project": "Project",
+      "date": "Geplande uitvoering",
+      "work": "Werkzaamheden",
+      "workValue": "Aardelektrode installeren",
+      "confirmLocation": "Ik heb locatie en graafgebied gecontroleerd.",
+      "submit": "KLIC-melding indienen",
+      "submitting": "KLIC-melding indienen…"
+    },
+    "override": {
+      "title": "KLIC-status niet gereed",
+      "body": "Voor dit project is nog geen gereedstaande KLIC-melding geregistreerd.",
+      "ack": "Ik bevestig dat ik zelf heb gecontroleerd of voor deze werkzaamheden een KLIC-melding nodig is en neem verantwoordelijkheid voor het doorgaan.",
+      "fixKlic": "KLIC regelen",
+      "continue": "Toch doorgaan"
+    },
+    "settings": {
+      "policyTitle": "KLIC-controle",
+      "policyBody": "Wanneer ingeschakeld, bewaakt EarthGND of een KLIC-melding is geregistreerd vóór uitvoering. Dit is een workflow-controle, geen juridische vaststelling.",
+      "policyOn": "Ingeschakeld",
+      "policyOff": "Uitgeschakeld",
+      "disableCta": "KLIC-controle uitschakelen",
+      "enableCta": "KLIC-controle inschakelen",
+      "disableTitle": "KLIC-controle uitschakelen?",
+      "disableBody": "EarthGND controleert dan niet meer of een KLIC-melding is geregistreerd voordat een project wordt uitgevoerd. Bij bepaalde werkzaamheden, waaronder machinale graafwerkzaamheden, kan een KLIC-melding wettelijk verplicht zijn. De verantwoordelijkheid voor het voldoen aan de geldende verplichtingen blijft bij jouw organisatie.",
+      "disableAck": "Ik begrijp dat EarthGND de KLIC-status van projecten hierdoor niet meer bewaakt.",
+      "disableConfirm": "Toch uitschakelen",
+      "cancel": "Annuleren",
+      "integrationTitle": "Kadaster KLIC",
+      "integrationBody": "Dien KLIC-meldingen rechtstreeks vanuit EarthGND-projecten in via de KLIC-koppeling. Je organisatie gebruikt daarbij haar eigen Kadaster-account en factureringsrelatie.",
+      "notEntitled": "KLIC API-integratie is beschikbaar vanaf Pro. Je kunt meldingen wel handmatig registreren.",
+      "upgrade": "Bekijk tarieven →",
+      "connected": "Verbonden",
+      "disconnected": "Niet gekoppeld",
+      "configRequired": "Configuratie vereist — BMKL live is nog niet beschikbaar.",
+      "org": "Organisatie",
+      "lastChecked": "Laatst gecontroleerd",
+      "connect": "Kadaster koppelen",
+      "verify": "Verbinding controleren",
+      "disconnect": "Ontkoppelen",
+      "openKadaster": "Nog geen KLIC-account? Open Kadaster",
+      "bmklPending": "Live BMKL blijft uitgeschakeld tot officiële Kadaster-configuratie. Handmatige registratie blijft beschikbaar.",
+      "loadError": "Instellingen laden mislukt",
+      "saveError": "Opslaan mislukt",
+      "enabledOk": "KLIC-controle ingeschakeld.",
+      "disabledOk": "KLIC-controle uitgeschakeld.",
+      "connectedOk": "Kadaster-koppeling opgeslagen.",
+      "verifiedOk": "Verbinding gecontroleerd.",
+      "verifyFail": "Verbinding niet actief.",
+      "disconnectedOk": "Koppeling ontkoppeld. Historische KLIC-gegevens blijven bewaard."
+    }
   }
 }

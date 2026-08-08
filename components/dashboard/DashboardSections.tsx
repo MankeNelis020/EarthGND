@@ -19,6 +19,9 @@ export interface CalcItem {
   monteurEmail?: string | null;
   metingSubmittedAt?: string | null;
   metingConfirmedAt?: string | null;
+  plannedExecutionDate?: string | null;
+  executionDateConfirmed?: boolean;
+  contractorInformed?: boolean;
 }
 
 export interface MonteurJob {
@@ -323,14 +326,26 @@ export function DashboardSections({ locale, calcPhase, metingPhase, monteurJobs,
 
   function CalcRow({ calc }: { calc: CalcItem }) {
     const naam = calc.rapport_naam ?? calc.postcode ?? 'Geen postcode';
+    const prepHref = `/project/${calc.id}/voorbereiding`;
+    const prepBits = [
+      calc.contractorInformed ? t('prep.contractorOk') : t('prep.contractorOpen'),
+      calc.executionDateConfirmed
+        ? t('prep.dateOk', { date: calc.plannedExecutionDate ? fmtDate(calc.plannedExecutionDate, l) : '—' })
+        : calc.plannedExecutionDate
+          ? t('prep.dateUnconfirmed', { date: fmtDate(calc.plannedExecutionDate, l) })
+          : t('prep.dateOpen'),
+    ].join(' · ');
     return (
       <li className="flex items-center gap-1.5 px-4 py-2 border-b border-white/5 last:border-0">
-        <Link href={`/pendiepte-rapport/${calc.id}`} className="flex-1 min-w-0">
+        <Link href={prepHref} className="flex-1 min-w-0">
+          <div className="mb-0.5">
+            <Badge label={t('prep.badge')} tone="brand" />
+          </div>
           <p className="text-sm font-semibold text-white truncate leading-tight">{naam}</p>
-          <DashboardMeta>{t('date.createdAt')} {fmtDate(calc.created_at, l)}</DashboardMeta>
+          <DashboardMeta>{prepBits}</DashboardMeta>
         </Link>
         <div className="flex items-center gap-0.5 shrink-0">
-          <ActionBtn onClick={e => { e.preventDefault(); router.push(`/pendiepte-rapport/${calc.id}`); }} title={t('actions.open')}>
+          <ActionBtn onClick={e => { e.preventDefault(); router.push(prepHref); }} title={t('actions.open')}>
             <IconEye />
           </ActionBtn>
           <ActionBtn onClick={e => openRename(e, calc.id, naam)} title={t('actions.rename')}>

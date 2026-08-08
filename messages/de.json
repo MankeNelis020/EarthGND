@@ -151,8 +151,8 @@
     "successBanner": "Zahlung erfolgreich — Credits wurden Ihrem Konto gutgeschrieben.",
     "more": "Mehr >",
     "sections": {
-      "calculations": "Berechnungen",
-      "calculationsSubtitle": "Stabtiefe — noch kein Monteur eingeladen",
+      "calculations": "Arbeitsvorbereitung",
+      "calculationsSubtitle": "Berechnung bereit — Ausführung vorbereiten",
       "measurements": "Feldmessungen",
       "measurementsSubtitle": "Offene und eingereichte Messungen",
       "reports": "Ablieferungsberichte",
@@ -216,6 +216,14 @@
       "revokeBody": "Sie widerrufen die Einladung für {naam}. Der Monteur wird nicht benachrichtigt.",
       "revokeConfirm": "Ja, widerrufen",
       "revokeCancel": "Abbrechen"
+    },
+    "prep": {
+      "badge": "Arbeitsvorbereitung",
+      "contractorOk": "Auftraggeber bereit",
+      "contractorOpen": "Auftraggeber offen",
+      "dateOk": "Ausführung {date}",
+      "dateUnconfirmed": "Datum {date} (unbestätigt)",
+      "dateOpen": "Datum offen"
     }
   },
   "auth": {
@@ -263,5 +271,162 @@
     "ctaTitle": "Selbst berechnen?",
     "ctaOhm": "Widerstandsrechner",
     "ctaDiepte": "Stabtiefe-Rechner"
+  },
+  "workPrep": {
+    "eyebrow": "Projekt",
+    "title": "Arbeitsvorbereitung",
+    "ready": {
+      "label": "Bereit zur Ausführung",
+      "all": "Alles bereit",
+      "partial": "{ready} von {total} bereit",
+      "badgeOk": "Bereit",
+      "badgeOpen": "Aktion nötig"
+    },
+    "execution": {
+      "label": "Ausführung",
+      "notPlanned": "Noch nicht geplant",
+      "plan": "Datum planen",
+      "change": "Ändern",
+      "save": "Speichern",
+      "confirm": "Datum bestätigen",
+      "confirmed": "Bestätigt"
+    },
+    "contractor": {
+      "label": "Auftraggeber informieren",
+      "hint": "Bestätigen Sie, dass Zielwiderstand und erwartete Erder-Tiefe kommuniziert wurden.",
+      "markManual": "Manuell bestätigen",
+      "done": "Auftraggeber informiert"
+    },
+    "klic": {
+      "label": "KLIC-Meldung",
+      "none": "Noch keine KLIC-Meldung registriert.",
+      "ready": "KLIC bereit — {ref}",
+      "processing": "KLIC in Bearbeitung",
+      "dateChanged": "Ausführungsdatum geändert — prüfen Sie die Meldung.",
+      "policyOff": "KLIC-Kontrolle durch Organisation deaktiviert",
+      "manualNote": "Manuell registriert",
+      "submitCta": "KLIC melden",
+      "manualCta": "Extern gemeldet",
+      "upgradeCta": "Upgrade für KLIC-Anbindung",
+      "refresh": "Status aktualisieren",
+      "settingsLink": "KLIC-Einstellungen",
+      "billingNote": "Kosten werden direkt vom Kadaster Ihrer Organisation berechnet."
+    },
+    "items": {
+      "calculation": "Berechnung bereit",
+      "contractor": "Auftraggeber informiert",
+      "klic": "KLIC-Meldung",
+      "executionDate": "Ausführungsdatum bestätigt",
+      "calculationDone": "Berechnung verfügbar",
+      "calculationPending": "Noch keine Berechnung",
+      "contractorDone": "Kommuniziert",
+      "contractorPending": "Noch nicht bestätigt",
+      "klicDone": "KLIC registriert",
+      "klicDisabled": "Durch Organisation deaktiviert",
+      "dateDone": "Datum bestätigt",
+      "dateUnconfirmed": "Datum gesetzt — noch bestätigen",
+      "dateMissing": "Noch nicht geplant"
+    },
+    "klicMsg": {
+      "policyDisabled": "KLIC-Kontrolle deaktiviert",
+      "dateChanged": "Datum nach Einreichung geändert",
+      "attention": "Aufmerksamkeit erforderlich",
+      "failed": "Einreichung fehlgeschlagen",
+      "ok": "KLIC bereit",
+      "override": "Fortsetzung mit Override",
+      "noDate": "Kein Ausführungsdatum",
+      "processingUrgent": "Noch in Bearbeitung — Ausführung nah",
+      "processing": "In Bearbeitung",
+      "pastDue": "Ausführungsdatum ohne KLIC überschritten",
+      "urgent": "KLIC braucht dringende Aufmerksamkeit",
+      "warning": "KLIC braucht Aufmerksamkeit",
+      "reminder": "KLIC noch offen",
+      "notStarted": "Noch nicht gestartet"
+    },
+    "status": {
+      "done": "Erledigt",
+      "pending": "Offen",
+      "attention": "Aktion nötig",
+      "urgent": "Dringend",
+      "na": "N. z."
+    },
+    "cta": {
+      "startMeting": "Feldmessung starten",
+      "dashboard": "Zum Dashboard"
+    },
+    "common": {
+      "cancel": "Abbrechen"
+    },
+    "toast": {
+      "dateUpdated": "Ausführungsdatum aktualisiert.",
+      "dateConfirmed": "Ausführungsdatum bestätigt.",
+      "contractorMarked": "Auftraggeber als informiert markiert.",
+      "klicManual": "KLIC-Meldung registriert.",
+      "klicSubmitted": "KLIC-Meldung eingereicht.",
+      "override": "Fortsetzung gespeichert."
+    },
+    "errors": {
+      "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
+      "klicSubmit": "KLIC-Meldung konnte nicht eingereicht werden."
+    },
+    "manual": {
+      "title": "Extern ausgeführt",
+      "subtitle": "EarthGND prüft den Inhalt nicht — nur Registrierung für Ihr Projektdossier.",
+      "ref": "KLIC-Meldenummer",
+      "date": "Meldedatum",
+      "save": "Speichern"
+    },
+    "submit": {
+      "title": "KLIC-Meldung",
+      "project": "Projekt",
+      "date": "Geplante Ausführung",
+      "work": "Arbeiten",
+      "workValue": "Erder installieren",
+      "confirmLocation": "Ich habe Standort und Grabungsbereich geprüft.",
+      "submit": "KLIC einreichen",
+      "submitting": "KLIC wird eingereicht…"
+    },
+    "override": {
+      "title": "KLIC-Status nicht bereit",
+      "body": "Für dieses Projekt ist noch keine fertige KLIC-Meldung registriert.",
+      "ack": "Ich bestätige, dass ich selbst geprüft habe, ob für diese Arbeiten eine KLIC-Meldung nötig ist, und übernehme die Verantwortung für das Fortfahren.",
+      "fixKlic": "KLIC regeln",
+      "continue": "Trotzdem fortfahren"
+    },
+    "settings": {
+      "policyTitle": "KLIC-Kontrolle",
+      "policyBody": "Wenn aktiv, prüft EarthGND, ob vor der Ausführung eine KLIC-Meldung registriert ist. Das ist eine Workflow-Kontrolle, keine rechtliche Feststellung.",
+      "policyOn": "Aktiviert",
+      "policyOff": "Deaktiviert",
+      "disableCta": "KLIC-Kontrolle deaktivieren",
+      "enableCta": "KLIC-Kontrolle aktivieren",
+      "disableTitle": "KLIC-Kontrolle deaktivieren?",
+      "disableBody": "EarthGND prüft dann nicht mehr, ob vor der Ausführung eine KLIC-Meldung registriert ist. Bei bestimmten Arbeiten, einschließlich maschineller Grabarbeiten, kann eine KLIC-Meldung gesetzlich vorgeschrieben sein. Die Verantwortung bleibt bei Ihrer Organisation.",
+      "disableAck": "Ich verstehe, dass EarthGND den KLIC-Status von Projekten dadurch nicht mehr überwacht.",
+      "disableConfirm": "Trotzdem deaktivieren",
+      "cancel": "Abbrechen",
+      "integrationTitle": "Kadaster KLIC",
+      "integrationBody": "Reichen Sie KLIC-Meldungen direkt aus EarthGND-Projekten ein. Ihre Organisation nutzt dabei ihr eigenes Kadaster-Konto und Abrechnungsverhältnis.",
+      "notEntitled": "KLIC-API-Integration ist ab Pro verfügbar. Manuelle Registrierung bleibt möglich.",
+      "upgrade": "Tarife ansehen →",
+      "connected": "Verbunden",
+      "disconnected": "Nicht verbunden",
+      "configRequired": "Konfiguration erforderlich — Live-BMKL noch nicht verfügbar.",
+      "org": "Organisation",
+      "lastChecked": "Zuletzt geprüft",
+      "connect": "Kadaster koppeln",
+      "verify": "Verbindung prüfen",
+      "disconnect": "Trennen",
+      "openKadaster": "Noch kein KLIC-Konto? Kadaster öffnen",
+      "bmklPending": "Live-BMKL bleibt deaktiviert bis zur offiziellen Kadaster-Konfiguration. Manuelle Registrierung bleibt verfügbar.",
+      "loadError": "Einstellungen konnten nicht geladen werden",
+      "saveError": "Speichern fehlgeschlagen",
+      "enabledOk": "KLIC-Kontrolle aktiviert.",
+      "disabledOk": "KLIC-Kontrolle deaktiviert.",
+      "connectedOk": "Kadaster-Kopplung gespeichert.",
+      "verifiedOk": "Verbindung geprüft.",
+      "verifyFail": "Verbindung nicht aktiv.",
+      "disconnectedOk": "Getrennt. Historische KLIC-Daten bleiben erhalten."
+    }
   }
 }
