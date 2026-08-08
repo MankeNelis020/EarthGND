@@ -63,14 +63,44 @@ export async function loadOwnedCalculation(
   calculationId: string,
   userId: string,
 ): Promise<CalcPrepRow | null> {
-  const { data } = await supabase
+  const withPrep = await supabase
     .from('calculations')
     .select(CALC_PREP_SELECT)
     .eq('id', calculationId)
     .eq('user_id', userId)
     .eq('tool', 'diepte')
     .maybeSingle();
-  return (data as CalcPrepRow | null) ?? null;
+
+  if (!withPrep.error && withPrep.data) {
+    return withPrep.data as unknown as CalcPrepRow;
+  }
+
+  // Migration not applied yet — load base columns and default prep fields.
+  const base = await supabase
+    .from('calculations')
+    .select('id, user_id, tool, postcode, rapport_naam, result')
+    .eq('id', calculationId)
+    .eq('user_id', userId)
+    .eq('tool', 'diepte')
+    .maybeSingle();
+
+  if (!base.data) return null;
+  const row = base.data as unknown as Pick<
+    CalcPrepRow,
+    'id' | 'user_id' | 'tool' | 'postcode' | 'rapport_naam' | 'result'
+  >;
+  return {
+    ...row,
+    planned_execution_date: null,
+    execution_date_confirmed_at: null,
+    execution_date_confirmed_by: null,
+    contractor_notification_status: 'not_sent',
+    contractor_notified_at: null,
+    contractor_notified_by: null,
+    klic_override_at: null,
+    klic_override_by: null,
+    klic_override_reason: null,
+  };
 }
 
 export async function loadKlicRequest(
@@ -78,31 +108,51 @@ export async function loadKlicRequest(
   calculationId: string,
   userId: string,
 ): Promise<KlicRequestRow | null> {
-  const { data } = await supabase
-    .from('klic_requests')
-    .select('*')
-    .eq('calculation_id', calculationId)
-    .eq('user_id', userId)
-    .maybeSingle();
-  return (data as KlicRequestRow | null) ?? null;
+  try {
+    const { data, error } = await supabase
+      .from('klic_requests')
+      .select('*')
+      .eq('calculation_id', calculationId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) return null; // table may not exist yet
+    return (data as KlicRequestRow | null) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function loadProfilePolicy(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<ProfileKlicPolicy> {
-  const { data } = await supabase
+  const withPolicy = await supabase
     .from('profiles')
     .select('plan, company_name, klic_readiness_check_enabled, klic_check_disabled_at')
     .eq('id', userId)
     .maybeSingle();
+
+  if (!withPolicy.error && withPolicy.data) {
+    const data = withPolicy.data as ProfileKlicPolicy;
+    return {
+      plan: data.plan ?? 'gratis',
+      company_name: data.company_name ?? null,
+      klic_readiness_check_enabled: data.klic_readiness_check_enabled ?? true,
+      klic_check_disabled_at: data.klic_check_disabled_at ?? null,
+    };
+  }
+
+  const base = await supabase
+    .from('profiles')
+    .select('plan, company_name')
+    .eq('id', userId)
+    .maybeSingle();
+
   return {
-    plan: (data as ProfileKlicPolicy | null)?.plan ?? 'gratis',
-    company_name: (data as ProfileKlicPolicy | null)?.company_name ?? null,
-    klic_readiness_check_enabled:
-      (data as ProfileKlicPolicy | null)?.klic_readiness_check_enabled ?? true,
-    klic_check_disabled_at:
-      (data as ProfileKlicPolicy | null)?.klic_check_disabled_at ?? null,
+    plan: (base.data as { plan?: string } | null)?.plan ?? 'gratis',
+    company_name: (base.data as { company_name?: string | null } | null)?.company_name ?? null,
+    klic_readiness_check_enabled: true,
+    klic_check_disabled_at: null,
   };
 }
 
@@ -131,7 +181,11 @@ export async function ensureKlicRequestRow(
   if (error || !data) {
     const again = await loadKlicRequest(supabase, calculationId, userId);
     if (again) return again;
-    throw new Error(error?.message ?? 'klic_requests upsert failed');
+    throw new Error(
+      error?.message?.includes('does not exist') || error?.code === '42P01'
+        ? 'KLIC-tabellen ontbreken — voer supabase/work_preparation_klic_migration.sql uit.'
+        : (error?.message ?? 'klic_requests upsert failed'),
+    );
   }
   return data as KlicRequestRow;
 }

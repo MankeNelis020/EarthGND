@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
@@ -19,7 +19,7 @@ function GoogleIcon() {
   );
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const t = useTranslations('auth');
   const searchParams = useSearchParams();
   const next = searchParams.get('next') ?? '';
@@ -64,7 +64,6 @@ export default function LoginPage() {
       setError(authError.message);
       setGoogleLoading(false);
     }
-    // On success the browser is redirected — no need to reset loading state
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -121,7 +120,6 @@ export default function LoginPage() {
         </div>
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-          {/* Google OAuth */}
           <button
             type="button"
             onClick={handleGoogleLogin}
@@ -139,14 +137,12 @@ export default function LoginPage() {
             {googleLoading ? 'Doorverbinden…' : 'Inloggen met Google'}
           </button>
 
-          {/* Divider */}
           <div className="my-5 flex items-center gap-3">
             <div className="h-px flex-1 bg-white/10" />
             <span className="text-xs text-white/30">of via e-mail</span>
             <div className="h-px flex-1 bg-white/10" />
           </div>
 
-          {/* Magic link form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -179,5 +175,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[70vh] items-center justify-center text-sm text-white/40">
+        Laden…
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

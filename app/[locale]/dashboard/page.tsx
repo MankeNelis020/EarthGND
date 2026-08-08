@@ -79,53 +79,92 @@ export default async function DashboardPage({
 
   const params = await searchParams;
 
-  const admin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const admin =
+    serviceKey && supabaseUrl
+      ? createAdminClient(supabaseUrl, serviceKey)
+      : null;
 
-  const [
-    { data: profileRaw },
-    { data: calculations },
-    { data: rapports },
-    { data: monteurJobsRaw },
-    { data: calcMetingenRaw },
-  ] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('plan, credits_left, credits_purchased, credits_reset, email, created_at')
-      .eq('id', user.id)
-      .single(),
-    supabase
+  const CALC_SELECT_WITH_PREP =
+    'id, tool, postcode, rapport_naam, pdf_url, created_at, planned_execution_date, execution_date_confirmed_at, contractor_notification_status';
+  const CALC_SELECT_BASE =
+    'id, tool, postcode, rapport_naam, pdf_url, created_at';
+
+  let calcs: Calculation[] = [];
+  let profile: Profile | null = null;
+  let rapporten: Rapport[] = [];
+  let monteurJobsRaw: MonteurJob[] | null = null;
+  let calcMetingenRaw: MetingInfo[] | null = null;
+
+  try {
+    // Prefer prep columns; fall back if migration not applied yet (preview/prod lag).
+    const withPrep = await supabase
       .from('calculations')
-      .select('id, tool, postcode, rapport_naam, pdf_url, created_at, planned_execution_date, execution_date_confirmed_at, contractor_notification_status')
+      .select(CALC_SELECT_WITH_PREP)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(20),
-    supabase
-      .from('inspection_reports')
-      .select('id, status, locatie, opdrachtgever, systeemtype, datum_uitvoering, updated_at')
-      .eq('user_id', user.id)
-      .order('updated_at', { ascending: false })
-      .limit(8),
-    admin
-      .from('pendiepte_metingen')
-      .select('calculation_id, status, postcode, straatnaam, woonplaats, created_at, submitted_at, confirmed_at')
-      .ilike('monteur_email', user.email ?? '')
-      .order('created_at', { ascending: false })
-      .limit(20),
-    admin
-      .from('pendiepte_metingen')
-      .select('calculation_id, status, monteur_email, submitted_at, confirmed_at')
-      .eq('calculator_user_id', user.id)
-      .limit(50),
-  ]);
+      .limit(20);
 
-  const profile   = profileRaw as Profile | null;
-  const calcs     = (calculations as Calculation[]) ?? [];
-  const rapporten = (rapports as Rapport[]) ?? [];
+    if (withPrep.error) {
+      console.warn('[dashboard] prep columns unavailable, falling back:', withPrep.error.message);
+      const base = await supabase
+        .from('calculations')
+        .select(CALC_SELECT_BASE)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      calcs = (base.data as Calculation[] | null) ?? [];
+    } else {
+      calcs = (withPrep.data as Calculation[] | null) ?? [];
+    }
 
-  const planConfig      = PLANS[(profile?.plan ?? 'gratis') as keyof typeof PLANS];
+    const [
+      { data: profileRaw },
+      { data: rapports },
+      monteurJobsData,
+      calcMetingenData,
+    ] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('plan, credits_left, credits_purchased, credits_reset, email, created_at')
+        .eq('id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('inspection_reports')
+        .select('id, status, locatie, opdrachtgever, systeemtype, datum_uitvoering, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(8),
+      admin
+        ? admin
+            .from('pendiepte_metingen')
+            .select('calculation_id, status, postcode, straatnaam, woonplaats, created_at, submitted_at, confirmed_at')
+            .ilike('monteur_email', user.email ?? '')
+            .order('created_at', { ascending: false })
+            .limit(20)
+            .then(r => r.data)
+        : Promise.resolve(null),
+      admin
+        ? admin
+            .from('pendiepte_metingen')
+            .select('calculation_id, status, monteur_email, submitted_at, confirmed_at')
+            .eq('calculator_user_id', user.id)
+            .limit(50)
+            .then(r => r.data)
+        : Promise.resolve(null),
+    ]);
+
+    profile = profileRaw as Profile | null;
+    rapporten = (rapports as Rapport[]) ?? [];
+    monteurJobsRaw = (monteurJobsData as MonteurJob[] | null) ?? null;
+    calcMetingenRaw = (calcMetingenData as MetingInfo[] | null) ?? null;
+  } catch (err) {
+    console.error('[dashboard] data load failed:', err instanceof Error ? err.message : err);
+  }
+
+  const planKey = (profile?.plan ?? 'gratis') as keyof typeof PLANS;
+  const planConfig      = PLANS[planKey] ?? PLANS.gratis;
   const totalCredits    = planConfig.credits;
   const creditsLeft     = profile?.credits_left ?? 0;
   const creditsPurchased = profile?.credits_purchased ?? 0;
