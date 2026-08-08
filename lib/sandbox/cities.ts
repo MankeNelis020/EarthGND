@@ -1,6 +1,8 @@
 /**
  * Public sandbox fixtures — static dummy data only.
  * No BRO calls, no credits, no DB writes.
+ *
+ * Shaped to mirror DiepteCalculator results + MonteurForm + OpleverrapportView.
  */
 
 export type SandboxCityId =
@@ -10,13 +12,31 @@ export type SandboxCityId =
   | 'eindhoven'
   | 'arnhem';
 
+export type SandboxSoilSample = {
+  depthM: number;
+  classLabel: string;
+  rho: number;
+};
+
 export type SandboxCityFixture = {
   id: SandboxCityId;
   name: string;
   province: string;
   soilHint: string;
-  /** Short value prop for installers evaluating ROI */
   valueNote: string;
+  /** Demo BRO-like soil panel (read-only) */
+  soil: {
+    riskClass: 'I' | 'II' | 'III' | 'IV';
+    riskLabel: string;
+    riskDescription: string;
+    samples: SandboxSoilSample[];
+    rhoDry: number;
+    rhoWet: number;
+    effectiveRho: number;
+    diameterLabel: string;
+    driveMethodUi: string;
+    targetCategoryLabel: string;
+  };
   calc: {
     id: string;
     postcode: string;
@@ -66,6 +86,23 @@ export const SANDBOX_CITIES: SandboxCityFixture[] = [
     province: 'Noord-Holland',
     soilHint: 'Kleibodem · relatief lage ρ',
     valueNote: 'Typisch: snellere diepte-inschatting + opleverdossier zonder handmatige tabellen.',
+    soil: {
+      riskClass: 'I',
+      riskLabel: 'Klasse I — Laag risico',
+      riskDescription: 'Zeer geleidende klei — aarding meestal eenvoudig haalbaar.',
+      samples: [
+        { depthM: 1, classLabel: 'klei', rho: 35 },
+        { depthM: 3, classLabel: 'klei', rho: 28 },
+        { depthM: 6, classLabel: 'klei', rho: 22 },
+        { depthM: 10, classLabel: 'klei', rho: 20 },
+      ],
+      rhoDry: 40,
+      rhoWet: 22,
+      effectiveRho: 28,
+      diameterLabel: 'Standaard grondpen (5/8″) — 14 mm',
+      driveMethodUi: 'SDS-breekhamer',
+      targetCategoryLabel: 'Overig · utiliteit ≤ 1,8 Ω',
+    },
     calc: {
       id: 'sandbox-ams-calc-0001',
       postcode: '1012 AB',
@@ -109,6 +146,23 @@ export const SANDBOX_CITIES: SandboxCityFixture[] = [
     province: 'Zuid-Holland',
     soilHint: 'Klei / veenmengsel · diepere pen vaak nodig',
     valueNote: 'ROI: minder retourritten door realistischere diepteverwachting op natte bodems.',
+    soil: {
+      riskClass: 'I',
+      riskLabel: 'Klasse I — Laag risico',
+      riskDescription: 'Natte klei/veen — lage ρ, diepere installatie door zachte lagen.',
+      samples: [
+        { depthM: 1, classLabel: 'veen', rho: 55 },
+        { depthM: 3, classLabel: 'klei', rho: 38 },
+        { depthM: 6, classLabel: 'klei', rho: 30 },
+        { depthM: 12, classLabel: 'klei', rho: 26 },
+      ],
+      rhoDry: 55,
+      rhoWet: 30,
+      effectiveRho: 42,
+      diameterLabel: 'Standaard grondpen (5/8″) — 14 mm',
+      driveMethodUi: 'Pneumatisch',
+      targetCategoryLabel: 'Overig · utiliteit ≤ 1,8 Ω',
+    },
     calc: {
       id: 'sandbox-rtm-calc-0001',
       postcode: '3011 AD',
@@ -152,6 +206,23 @@ export const SANDBOX_CITIES: SandboxCityFixture[] = [
     province: 'Utrecht',
     soilHint: 'Zand / klei overgang · gemiddelde ρ',
     valueNote: 'Voorbeeld van berekend vs gemeten in één opleverrapport — klaar voor dossier.',
+    soil: {
+      riskClass: 'II',
+      riskLabel: 'Klasse II — Gemiddeld risico',
+      riskDescription: 'Zand/klei-overgang — standaard pendiepte, controleer GWT.',
+      samples: [
+        { depthM: 1, classLabel: 'zand', rho: 80 },
+        { depthM: 3, classLabel: 'zand', rho: 60 },
+        { depthM: 6, classLabel: 'klei', rho: 40 },
+        { depthM: 10, classLabel: 'klei', rho: 35 },
+      ],
+      rhoDry: 80,
+      rhoWet: 40,
+      effectiveRho: 55,
+      diameterLabel: 'Standaard grondpen (5/8″) — 14 mm',
+      driveMethodUi: 'SDS-breekhamer',
+      targetCategoryLabel: 'Overig · utiliteit ≤ 1,8 Ω',
+    },
     calc: {
       id: 'sandbox-utr-calc-0001',
       postcode: '3511 CE',
@@ -195,6 +266,23 @@ export const SANDBOX_CITIES: SandboxCityFixture[] = [
     province: 'Noord-Brabant',
     soilHint: 'Zandbodem · hogere ρ, soms parallelpen',
     valueNote: 'Laat zien wanneer één pen niet genoeg is — demo met 2 pennen.',
+    soil: {
+      riskClass: 'III',
+      riskLabel: 'Klasse III — Verhoogd risico',
+      riskDescription: 'Droog zand — hogere ρ; parallelpennen of diepere installatie vaak nodig.',
+      samples: [
+        { depthM: 1, classLabel: 'zand', rho: 140 },
+        { depthM: 3, classLabel: 'zand', rho: 110 },
+        { depthM: 6, classLabel: 'zand', rho: 90 },
+        { depthM: 12, classLabel: 'zand', rho: 75 },
+      ],
+      rhoDry: 140,
+      rhoWet: 75,
+      effectiveRho: 95,
+      diameterLabel: 'Standaard grondpen (5/8″) — 14 mm',
+      driveMethodUi: 'Pneumatisch',
+      targetCategoryLabel: 'Overig · utiliteit ≤ 1,8 Ω',
+    },
     calc: {
       id: 'sandbox-ein-calc-0001',
       postcode: '5611 AZ',
@@ -241,6 +329,23 @@ export const SANDBOX_CITIES: SandboxCityFixture[] = [
     province: 'Gelderland',
     soilHint: 'Zand / grind · drogere bovenlaag',
     valueNote: 'Duidelijk verschil berekend vs gemeten — typisch oplevermoment voor de klant.',
+    soil: {
+      riskClass: 'II',
+      riskLabel: 'Klasse II — Gemiddeld risico',
+      riskDescription: 'Zand met drogere bovenlaag — snelle Ra-daling onder GWT.',
+      samples: [
+        { depthM: 1, classLabel: 'zand', rho: 100 },
+        { depthM: 3, classLabel: 'zand', rho: 75 },
+        { depthM: 6, classLabel: 'zand', rho: 55 },
+        { depthM: 10, classLabel: 'grind', rho: 90 },
+      ],
+      rhoDry: 100,
+      rhoWet: 55,
+      effectiveRho: 70,
+      diameterLabel: 'Standaard grondpen (5/8″) — 14 mm',
+      driveMethodUi: 'SDS-breekhamer',
+      targetCategoryLabel: 'Overig · utiliteit ≤ 1,8 Ω',
+    },
     calc: {
       id: 'sandbox-arn-calc-0001',
       postcode: '6811 EG',

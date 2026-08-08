@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
 import { OpleverrapportView } from '@/components/meting/OpleverrapportView';
+import { RodCurveChart } from '@/components/tools/RodCurveChart';
 import { HeroMetric, ScenarioMetric, InstrumentPanel } from '@/components/ui/instrument';
 import {
   SANDBOX_CITIES,
@@ -171,31 +172,20 @@ function DemoCalcResults({
         </div>
       </div>
 
-      {/* Depth curve preview — same visual language as rapport */}
-      <div className="rounded-2xl border border-white/8 bg-[#111] overflow-hidden">
-        <div className="border-b border-white/8 px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
-            {t('calcCurveTitle')}
-          </p>
-          <p className="mt-1 text-[11px] text-white/35">{t('calcCurveHint')}</p>
-        </div>
-        <div className="divide-y divide-white/5">
-          {(() => {
-            const maxRa = Math.max(...city.meting.depth_curve.map(pt => pt.ra), 1);
-            return city.meting.depth_curve.map((pt, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-2.5">
-                <span className="w-16 text-sm text-white/60">{pt.depth} m</span>
-                <div className="h-1.5 flex-1 rounded-full bg-white/5">
-                  <div
-                    className="h-full rounded-full bg-[#E8761A]/60"
-                    style={{ width: `${Math.min((pt.ra / maxRa) * 100, 100)}%` }}
-                  />
-                </div>
-                <span className="w-16 text-right text-sm font-semibold text-white">{pt.ra} Ω</span>
-              </div>
-            ));
-          })()}
-        </div>
+      {/* Interactive R-vs-depth — same RodCurveChart as real Pendiepte calculator */}
+      <div className="panel p-5">
+        <p className="mb-1 text-xs font-medium text-white/50">{t('calcCurveTitle')}</p>
+        <p className="mb-3 text-[11px] text-white/35">{t('calcCurveHint')}</p>
+        <RodCurveChart
+          key={city.id}
+          targetResistance={target}
+          rhoDry={city.soil.rhoDry}
+          rhoWet={city.soil.rhoWet}
+          gwGunstig={Math.max(0.3, gw - 0.4)}
+          gwGemiddeld={gw}
+          gwOngunstig={gw + 1.2}
+          computedDepth={dim}
+        />
       </div>
 
       <div className="rounded-2xl border border-[#E8761A]/25 bg-[#E8761A]/5 p-5">
