@@ -86,6 +86,7 @@ export function Navbar() {
         <div className="hidden items-center gap-1 md:flex">
           <NavLink href="/tool/ohm"   label={t('weerstand')} active={isActive('/tool/ohm')} />
           <NavLink href="/tool/diepte" label={t('pendiepte')} active={isActive('/tool/diepte')} locked={!user} />
+          <NavLink href="/sandbox"    label={t('sandbox')}   active={isActive('/sandbox')} />
           <NavLink href="/pricing"    label={t('pricing')}   active={isActive('/pricing')} />
         </div>
 
@@ -164,6 +165,7 @@ export function Navbar() {
           <div className="flex flex-col gap-1">
             <MobileLink href="/tool/ohm"    label={t('weerstand') + ' Calculator'} onClick={() => setMenuOpen(false)} />
             <MobileLink href="/tool/diepte" label={t('pendiepte') + ' Calculator' + (!user ? ` (${t('login').toLowerCase()} vereist)` : '')} onClick={() => setMenuOpen(false)} />
+            <MobileLink href="/sandbox"     label={t('sandbox')}                   onClick={() => setMenuOpen(false)} />
             <MobileLink href="/pricing"     label={t('pricing')}                   onClick={() => setMenuOpen(false)} />
             {user  && <MobileLink href="/dashboard" label={t('dashboard')} onClick={() => setMenuOpen(false)} />}
             {!user && <MobileLink href="/login"     label={t('login')}     onClick={() => setMenuOpen(false)} />}

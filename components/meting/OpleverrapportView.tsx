@@ -61,6 +61,8 @@ interface Props {
   calc:         Calc;
   meting:       Meting | null;
   isCalculator: boolean;
+  /** Public sandbox / demo: no API calls, no mutations, no invite UI. */
+  readOnly?:    boolean;
   profile?:     Pick<UserProfileSettings, 'company_name' | 'logo_url' | 'installateur_naam' | 'installateur_erkenning'> | null;
 }
 
@@ -84,7 +86,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }: Props) {
+export function OpleverrapportView({ uuid, calc, meting, isCalculator, readOnly = false, profile }: Props) {
   const router = useRouter();
   const locale = useLocale();
   const [confirming, setConfirming] = useState(false);
@@ -105,8 +107,10 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
   const input     = calc.input_values as Calc['input_values'];
   const resultaat = calc.result       as Calc['result'];
   const status    = meting?.status ?? 'draft';
+  const canMutate = isCalculator && !readOnly;
 
   useEffect(() => {
+    if (readOnly) return;
     if (!meting?.depth_curve?.length) return;
     if (status !== 'submitted' && status !== 'confirmed') return;
     fetch(`/api/meting/${uuid}/evidence`)
@@ -118,10 +122,10 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
         setSoilGw(data.gwDepthM ?? null);
       })
       .catch(() => {});
-  }, [uuid, meting?.depth_curve, status]);
+  }, [uuid, meting?.depth_curve, status, readOnly]);
 
   useEffect(() => {
-    if (!isCalculator) return;
+    if (readOnly || !isCalculator) return;
     setNenLoading(true);
     fetch(`/api/rapport/from-pendiepte/${uuid}`)
       .then(r => r.ok ? r.json() : null)
@@ -130,7 +134,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
       })
       .catch(() => {})
       .finally(() => setNenLoading(false));
-  }, [uuid, isCalculator, status]);
+  }, [uuid, isCalculator, status, readOnly]);
 
   async function handleCreateNenReport() {
     setNenCreating(true);
@@ -208,7 +212,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
           <p className="text-[11px] font-semibold uppercase tracking-widest text-[#E8761A]">Opleverrapport · Pendiepte</p>
 
           {/* Editable name (only when calculator + not yet confirmed) */}
-          {isCalculator && editingNaam ? (
+          {canMutate && editingNaam ? (
             <div className="mt-1 flex items-center gap-2">
               <input
                 autoFocus
@@ -230,7 +234,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
               <h1 className="truncate text-2xl font-bold text-[#F5EFE6]">
                 {calc.rapport_naam ?? locationTitle}
               </h1>
-              {isCalculator && status !== 'confirmed' && (
+              {canMutate && status !== 'confirmed' && (
                 <button
                   onClick={() => { setNaam(calc.rapport_naam ?? ''); setEditing(true); }}
                   className="shrink-0 rounded p-1 text-white/20 opacity-0 transition-opacity group-hover:opacity-100 hover:text-white/60"
@@ -488,7 +492,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
       </div>
 
       {/* Confirm action (only for calculator, only when submitted) */}
-      {isCalculator && status === 'submitted' && (
+      {canMutate && status === 'submitted' && (
         <div className="rounded-2xl border border-[#E8761A]/20 bg-[#E8761A]/5 p-5">
           <p className="mb-1 text-sm font-semibold text-[#E8761A]">Meting controleren en bevestigen</p>
           <p className="mb-4 text-xs text-white/60 leading-relaxed">
@@ -513,7 +517,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
             Berekening en meetgegevens zijn gekoppeld. U kunt dit rapport gebruiken of een NEN 1010-opleverrapport starten.
           </p>
 
-          {isCalculator && !nenLoading && nenInfo && (
+          {canMutate && !nenLoading && nenInfo && (
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
               {nenInfo.existingReport ? (
                 <a
@@ -540,7 +544,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
       )}
 
       {/* No meting yet — prompt to invite monteur */}
-      {isCalculator && !meting && (
+      {canMutate && !meting && (
         <div className="flex flex-col gap-4">
           <div className="rounded-xl border border-white/10 bg-white/3 p-6 text-center">
             <p className="mb-1 text-sm font-semibold text-white/70">Nog geen veldmeting gekoppeld</p>
@@ -559,7 +563,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
       )}
 
       {/* Calculator: switch to another veldmeting */}
-      {isCalculator && meting && (
+      {canMutate && meting && (
         <div className="border-t border-white/8 pt-4">
           <button
             type="button"
@@ -577,7 +581,7 @@ export function OpleverrapportView({ uuid, calc, meting, isCalculator, profile }
       )}
 
       {/* Meting invited but not yet submitted */}
-      {isCalculator && meting && status === 'invited' && (
+      {canMutate && meting && status === 'invited' && (
         <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-center">
           <p className="text-sm text-blue-400">Wachten op installateur</p>
           <p className="mt-1 text-xs text-white/50">

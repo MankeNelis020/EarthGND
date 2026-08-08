@@ -51,10 +51,15 @@ export default async function HomePage({ params }: Props) {
             <Link href="/tool/ohm" className="rounded-xl bg-[#E8761A] px-8 py-3.5 text-sm font-bold text-white hover:bg-[#d06510] transition-colors">
               {t('ctaPrimary')}
             </Link>
-            <Link href="/tool/diepte" className="rounded-xl border border-white/15 px-8 py-3.5 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white transition-colors">
-              {t('ctaSecondary')}
+            <Link href="/sandbox" className="rounded-xl border border-white/15 px-8 py-3.5 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white transition-colors">
+              {t('ctaSandbox')}
             </Link>
           </div>
+          <p className="mt-5 text-sm text-white/40">
+            <Link href="/sandbox" className="text-[#E8761A] hover:underline">
+              {t('showcaseLink')}
+            </Link>
+          </p>
         </div>
       </section>
 
@@ -120,7 +125,7 @@ export default async function HomePage({ params }: Props) {
               <Link href="/pricing" className="block w-full rounded-xl bg-[#E8761A] py-3 text-center text-sm font-bold text-white hover:bg-[#d06510] transition-colors">
                 {t('card2Cta')}
               </Link>
-              <Link href="/examples/pendiepte" className="block w-full rounded-xl py-2 text-center text-xs text-white/35 hover:text-white/60 transition-colors">
+              <Link href="/sandbox" className="block w-full rounded-xl py-2 text-center text-xs text-white/35 hover:text-white/60 transition-colors">
                 {t('showcaseLink')}
               </Link>
             </div>
