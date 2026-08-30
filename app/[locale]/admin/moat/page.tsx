@@ -94,6 +94,12 @@ export default function MoatAdminPage() {
           </div>
           <div className="flex flex-wrap gap-2 print:hidden">
             <Link
+              href="/admin/evidence-lab"
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
+            >
+              Evidence Lab
+            </Link>
+            <Link
               href="/admin/moat/sales"
               className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
             >
