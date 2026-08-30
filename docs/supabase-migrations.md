@@ -31,6 +31,7 @@ Na migratie schrijft de app alleen `input_values` / `result`. `getScanContext()`
 | `supabase/moat_data_spine_migration.sql` | Prediction accuracy columns, `regional_signatures`, moat RPCs |
 | `supabase/moat_labels_sprint2_migration.sql` | Moat-status labels (product ≠ data-claim) |
 | `supabase/fix_prior_rls_and_constraints.sql` | RLS policies service role |
+| `supabase/evidence_calibration_lab_migration.sql` | GeoTOP validation, empirical_weight_policy, Lab audit/jobs |
 
 ## 4. Overige patches
 

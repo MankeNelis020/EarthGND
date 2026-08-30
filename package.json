@@ -15,9 +15,12 @@
     "calibrate:depth": "npx tsx --tsconfig tsconfig.json scripts/fase0-depth-verify.ts",
     "import:metingen": "npx tsx --tsconfig tsconfig.json scripts/import-measurements.ts",
     "golden-set": "npx tsx --tsconfig tsconfig.json scripts/golden-set-verify.ts",
-    "test": "npm run golden-set && npm run test:pendiepte",
+    "test": "npm run golden-set && npm run test:pendiepte && npm run test:evidence-lab",
     "gate:depth": "npx tsx --tsconfig tsconfig.json scripts/fase0-depth-verify.ts",
     "gate:poort2": "npx tsx --tsconfig tsconfig.json scripts/gate-poort2-shadow.ts",
+    "gate:poort3-oos": "npx tsx --tsconfig tsconfig.json scripts/gate-poort3-oos.ts",
+    "test:evidence-lab": "npx tsx --tsconfig tsconfig.json scripts/tests/evidence-lab-check.ts",
+    "evidence-lab:geotop-backfill": "npx tsx --tsconfig tsconfig.json scripts/evidence-lab-geotop-backfill.ts",
     "i18n:check": "npx tsx scripts/check-i18n-keys.ts",
     "test:import": "npx tsx --tsconfig tsconfig.json scripts/test-import-local.ts",
     "validate:poort-c": "npx tsx --tsconfig tsconfig.json scripts/validate-poort-c-lolo.ts"
