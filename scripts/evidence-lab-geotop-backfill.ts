@@ -76,7 +76,7 @@ async function main() {
     const columnSamples = columnToDepthSamples(result.maaiveldNAP, result.column);
     const rows = buildGeotopValidationRows({
       metingId: m.id as string,
-      electrodeNo: m.electrode_no != null ? Number(m.electrode_no) : null,
+      electrodeNo: m.electrode_no != null ? Number(m.electrode_no) : 0,
       lat,
       lon,
       siteClusterId: clusterOf.get(m.id as string) ?? `meting:${m.id}`,
@@ -98,7 +98,7 @@ async function main() {
 
     const payload = rows.map(r => ({
       meting_id: r.metingId,
-      electrode_no: r.electrodeNo,
+      electrode_no: r.electrodeNo ?? 0,
       lat: r.lat,
       lon: r.lon,
       site_cluster_id: r.siteClusterId,

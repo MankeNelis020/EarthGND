@@ -7,7 +7,7 @@
 create table if not exists public.geotop_validation (
   id              uuid primary key default gen_random_uuid(),
   meting_id       uuid not null,
-  electrode_no    integer,
+  electrode_no    integer not null default 0,
   lat             double precision not null,
   lon             double precision not null,
   site_cluster_id text not null,

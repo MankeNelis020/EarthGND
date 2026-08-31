@@ -67,8 +67,8 @@ async function main() {
     { data: evidence },
     { data: metingen },
     { data: shadows },
-    geotopProbe,
-    policyProbe,
+    { data: geotopRows, count: geotopCount, error: geotopErr },
+    { count: policyCount, error: policyErr },
   ] = await Promise.all([
     db.from('global_prior').select('litho_class, welford_mean, welford_m2, total_weight'),
     db.from('soil_evidence').select(
@@ -78,7 +78,9 @@ async function main() {
       'id, lat, lon, straatnaam, huisnummer, woonplaats, postcode, status, depth_curve, electrode_no, electrode_count, aantal_pennen, elektrode_diameter_mm',
     ),
     db.from('shadow_predictions').select('id, actual_rho, relative_error, absolute_error'),
-    db.from('geotop_validation').select('id', { count: 'exact', head: true }),
+    db.from('geotop_validation').select(
+      'earthgnd_litho_class, agreement_score, geotop_probability, relative_error_pct, site_cluster_id, meting_id',
+    ),
     db.from('empirical_weight_policy').select('litho_class', { count: 'exact', head: true }),
   ]);
 
@@ -87,14 +89,8 @@ async function main() {
   console.log('soil_evidence', evidence?.length ?? 0);
   console.log('pendiepte_metingen', metingen?.length ?? 0);
   console.log('shadow_predictions', shadows?.length ?? 0);
-  console.log(
-    'geotop_validation',
-    geotopProbe.error?.message ?? `count=${geotopProbe.count}`,
-  );
-  console.log(
-    'empirical_weight_policy',
-    policyProbe.error?.message ?? `count=${policyProbe.count}`,
-  );
+  console.log('geotop_validation', geotopErr?.message ?? `rows=${geotopRows?.length ?? 0} count=${geotopCount}`);
+  console.log('empirical_weight_policy', policyErr?.message ?? `count=${policyCount}`);
 
   const sitePoints = (metingen ?? []).map(m => ({
     id: m.id as string,
@@ -225,13 +221,26 @@ async function main() {
     const bayes = computeAutoBayesianWeights(lithoClass, empiricalLevel ?? empiricalRaw);
     const uniqueSites = bucket.siteIds.size;
     const softN = welford.total_weight;
+    const geoForClass = (geotopRows ?? []).filter(
+      r => Number(r.earthgnd_litho_class) === lithoClass,
+    );
+    const classAgree = mean(
+      geoForClass.map(r => Number(r.agreement_score)).filter(n => Number.isFinite(n)),
+    );
+    const classGeotopConf = mean(
+      geoForClass
+        .map(r => (r.geotop_probability != null ? Number(r.geotop_probability) : null))
+        .filter((n): n is number => n != null && Number.isFinite(n)),
+    );
     const blockers: string[] = [];
     if (lithoClass === GRIND_CLASS) blockers.push('LEARNING BLOCKED — grind');
     if (softN < 5) blockers.push(`soft_n ${softN.toFixed(2)} < 5`);
     if (uniqueSites < 3) blockers.push(`unique sites ${uniqueSites} < 3`);
     if (!oos?.passedTechnical) blockers.push('Poort 3 OOS not passed');
-    blockers.push('geotop_validation table missing — no GeoTOP coverage yet');
-    blockers.push('empirical_weight_policy table missing — policy defaults only');
+    if (!(geotopRows?.length)) blockers.push('geotop_validation empty');
+    if (classAgree != null && classAgree < 0.55) {
+      blockers.push(`GeoTOP agreement ${classAgree.toFixed(2)} < 0.55`);
+    }
     blockers.push('PRODUCTION remains theory-only (SOIL_KNOWLEDGE_ACTIVE off)');
 
     const report = {
@@ -247,7 +256,11 @@ async function main() {
       uniqueSites,
       soft_n: softN,
       soft_n_site_adjusted: softNSiteAdjusted(softN, uniqueSites, Math.max(uniqueSites, softN)),
-      geotopValidationCoverage: 'UNAVAILABLE — migration tables not on this project',
+      geotopValidationCoverage: {
+        rows: geoForClass.length,
+        meanAgreement: classAgree,
+        meanGeotopProbability: classGeotopConf,
+      },
       empirical: {
         mu: empiricalRaw?.mu ?? (rhos.length ? mean(rhos) : null),
         median: rhos.length ? median(rhos) : null,
@@ -263,7 +276,7 @@ async function main() {
         posteriorMu: bayes.posterior?.mu ?? theory.mu,
         posteriorSigma: bayes.posterior?.sigma ?? theory.sigma,
       },
-      agreementScore: 'N/A — no geotop_validation rows',
+      agreementScore: classAgree,
       poort2: {
         shadowCount: shadows?.length ?? 0,
         groundTruthed: groundTruthed.length,
