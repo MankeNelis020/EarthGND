@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from '@/i18n/navigation';
 import type { MoatSpinePayload } from '@/lib/moat/types';
+import { AdminPageHeader } from '@/components/admin/AdminShell';
 import {
   PRODUCT_AVAILABILITY_LINE,
   dataClaimTierLabel,
@@ -80,54 +80,31 @@ export default function MoatAdminPage() {
   const claimReady = m?.moat_claim_ready_regions ?? m?.strong_regions ?? 0;
 
   return (
-    <div className="min-h-screen bg-canvas text-white print:bg-white print:text-black">
-      <div className="mx-auto max-w-4xl px-4 py-10 print:max-w-none print:px-6 print:py-4">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4 print:mb-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-white/30 print:text-black/50">
-              Directeur · Moat dashboard
-            </p>
-            <h1 className="font-condensed mt-1 text-3xl font-black print:text-black">EarthGND Moat</h1>
-            <p className="mt-2 max-w-xl text-sm text-white/50 print:text-black/60">
-              {PRODUCT_AVAILABILITY_LINE}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 print:hidden">
-            <Link
-              href="/admin/evidence-lab"
-              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
-            >
-              Evidence Lab
-            </Link>
-            <Link
-              href="/admin/moat/sales"
-              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
-            >
-              Sales
-            </Link>
-            <Link
-              href="/admin/moat/ops"
-              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
-            >
-              Operations
-            </Link>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
-            >
-              Print / PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => void refresh()}
-              disabled={refreshing}
-              className="rounded-lg border border-[#E8761A]/40 px-4 py-2 text-sm font-semibold text-[#E8761A] hover:bg-[#E8761A]/10 disabled:opacity-50"
-            >
-              {refreshing ? 'Herberekenen…' : 'Herbereken'}
-            </button>
-          </div>
-        </div>
+    <div className="print:text-black">
+        <AdminPageHeader
+          eyebrow="Moat · Directeur"
+          title="EarthGND Moat"
+          description={PRODUCT_AVAILABILITY_LINE}
+          actions={
+            <>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
+              >
+                Print / PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => void refresh()}
+                disabled={refreshing}
+                className="rounded-lg border border-[#E8761A]/40 px-4 py-2 text-sm font-semibold text-[#E8761A] hover:bg-[#E8761A]/10 disabled:opacity-50"
+              >
+                {refreshing ? 'Herberekenen…' : 'Herbereken'}
+              </button>
+            </>
+          }
+        />
 
         {loading && <p className="text-sm text-white/40">Laden…</p>}
         {error && (
@@ -335,7 +312,6 @@ export default function MoatAdminPage() {
             Snapshot: {new Date(data.queriedAt).toLocaleString('nl-NL')} · docs/moat-data-dictionary.md
           </p>
         )}
-      </div>
     </div>
   );
 }

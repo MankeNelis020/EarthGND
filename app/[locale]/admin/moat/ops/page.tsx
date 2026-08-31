@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from '@/i18n/navigation';
+import { AdminPageHeader } from '@/components/admin/AdminShell';
 import { PRODUCT_AVAILABILITY_LINE } from '@/lib/moat/labels';
 
 interface OpsPayload {
@@ -80,29 +80,21 @@ export default function MoatOpsPage() {
   const s = data?.summary;
 
   return (
-    <div className="min-h-screen bg-canvas text-white">
-      <div className="mx-auto max-w-4xl px-4 py-10">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-white/40">
-          <Link href="/admin/moat" className="hover:text-[#E8761A]">Directeur</Link>
-          <span>/</span>
-          <Link href="/admin/moat/sales" className="hover:text-[#E8761A]">Sales</Link>
-          <span>/</span>
-          <span className="text-white/70">Operations</span>
-        </div>
-
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="font-condensed text-3xl font-black">Operations</h1>
-            <p className="mt-2 max-w-xl text-sm text-white/50">{PRODUCT_AVAILABILITY_LINE}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
-          >
-            Vernieuwen
-          </button>
-        </div>
+    <div>
+        <AdminPageHeader
+          eyebrow="Moat · Operations"
+          title="Operations"
+          description={PRODUCT_AVAILABILITY_LINE}
+          actions={
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white"
+            >
+              Vernieuwen
+            </button>
+          }
+        />
 
         {loading && <p className="text-sm text-white/40">Laden…</p>}
         {error && (
@@ -228,7 +220,6 @@ export default function MoatOpsPage() {
             Snapshot: {new Date(data.queriedAt).toLocaleString('nl-NL')}
           </p>
         )}
-      </div>
     </div>
   );
 }

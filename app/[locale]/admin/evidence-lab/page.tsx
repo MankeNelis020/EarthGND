@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from '@/i18n/navigation';
 import type { EvidenceLabSnapshot } from '@/lib/evidence-lab/load-snapshot';
+import { AdminPageHeader } from '@/components/admin/AdminShell';
 import { InstrumentGauge, WeightBar } from '@/components/evidence-lab/InstrumentGauge';
 import { ManualSimulator } from '@/components/evidence-lab/ManualSimulator';
 import { FormulaDrawer } from '@/components/evidence-lab/FormulaDrawer';
@@ -66,25 +66,17 @@ export default function EvidenceLabPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#1C1917] px-4 py-16 text-center text-white/50">
-        Evidence Lab laden…
-      </div>
-    );
+    return <p className="py-16 text-center text-white/50">Evidence Lab laden…</p>;
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-[#1C1917] px-4 py-16">
-        <p className="text-center text-red-300">{error || 'Geen data'}</p>
-        <p className="mt-4 text-center text-sm text-white/40">
-          Inloggen vereist · e-mail in ADMIN_EMAILS
-        </p>
-        <div className="mt-6 text-center">
-          <button type="button" onClick={() => void load()} className="text-[#E8761A]">
-            Opnieuw
-          </button>
-        </div>
+      <div className="py-16 text-center">
+        <p className="text-red-300">{error || 'Geen data'}</p>
+        <p className="mt-4 text-sm text-white/40">Inloggen vereist · e-mail in ADMIN_EMAILS</p>
+        <button type="button" onClick={() => void load()} className="mt-6 text-[#E8761A]">
+          Opnieuw
+        </button>
       </div>
     );
   }
@@ -93,36 +85,21 @@ export default function EvidenceLabPage() {
     data;
 
   return (
-    <div className="min-h-screen bg-[#1C1917] text-white">
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#E8761A]">
-              EarthGND instrument
-            </p>
-            <h1 className="font-condensed mt-1 text-4xl font-black tracking-tight sm:text-5xl">
-              Evidence & Calibration Lab
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-white/50">
-              Shadow → OOS → Controlled Activation. Theory, Bayesian AUTO en productie blijven
-              gescheiden. Geen stille productie-wijzigingen.
-            </p>
-          </div>
-          <nav className="flex flex-wrap gap-3 text-sm text-white/50">
-            <Link href="/admin/moat" className="hover:text-white">
-              Moat
-            </Link>
-            <Link href="/admin/pipeline" className="hover:text-white">
-              Pipeline
-            </Link>
-            <Link href="/admin/soil-monitoring" className="hover:text-white">
-              Soil monitoring
-            </Link>
-            <button type="button" onClick={() => void load()} className="text-[#E8761A]">
+    <div>
+        <AdminPageHeader
+          eyebrow="Instrumentatie"
+          title="Evidence & Calibration Lab"
+          description="Shadow → OOS → Controlled Activation. Theory, Bayesian AUTO en productie blijven gescheiden. Geen stille productie-wijzigingen."
+          actions={
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="rounded-lg border border-[#E8761A]/40 px-4 py-2 text-sm font-semibold text-[#E8761A] hover:bg-[#E8761A]/10"
+            >
               Vernieuwen
             </button>
-          </nav>
-        </header>
+          }
+        />
 
         {/* Safety banner */}
         <div className="mb-8 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100/90">
@@ -453,7 +430,6 @@ export default function EvidenceLabPage() {
           Queried {data.queriedAt} · unique sites {siteSummary.uniqueSites} / metingen{' '}
           {siteSummary.metingCount} · cluster radius {siteSummary.clusterRadiusM} m
         </footer>
-      </div>
     </div>
   );
 }
