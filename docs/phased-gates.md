@@ -54,9 +54,12 @@ Acceptatiecriteria voor het gefaseerde validatieplan. Poort 1 + P1 zijn afgerond
 | Flag default uit | `lib/soil-knowledge/active-prior.ts` |
 | `empirical_weight = 0` in shadow | `shadow-logger.ts` |
 | Holdout-split velddata | `lib/calibration/field-data.ts` (5 locaties) |
-| OOS script met exit code | Toekomst: `gate:poort3-oos` |
+| OOS script met exit code | `npm run gate:poort3-oos` + `/admin/evidence-lab` |
+| Site-grouped LOO | `lib/evidence-lab/oos.ts` |
 
 **Niet doen vóór Poort 3:** live `rhoWetOverride` uit L2/L3 in productie.
+
+See `docs/poort3-oos-validation.md`, `docs/evidence-calibration-lab.md`.
 
 ---
 
@@ -66,9 +69,12 @@ Acceptatiecriteria voor het gefaseerde validatieplan. Poort 1 + P1 zijn afgerond
 
 | Criterium | Status |
 |-----------|--------|
-| `empirical_weight > 0` beslissing | schema-kolom aanwezig, code pinned op 0 |
+| `empirical_weight > 0` beslissing | shadow column pinned 0; env blend only if flag on |
+| Policy table | `empirical_weight_policy` — defaults shadow/disabled |
 | L4 lokale observaties | types/schema only |
-| Admin observability | pipeline-status admin, geen shadow-metrics UI |
+| Admin observability | `/admin/pipeline` + `/admin/evidence-lab` |
+
+See `docs/empirical-activation-policy.md`.
 
 ---
 
