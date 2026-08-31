@@ -25,7 +25,7 @@ const SOURCE_META: Record<string, { label: string; description: string; role: st
   },
   geotop: {
     label: 'GeoTOP',
-    description: 'publiek.broservices.nl/sr/geotop/v1',
+    description: 'dinodata.nl OPeNDAP GeoTOP v1.6.1',
     role: 'TNO voxelmodel 100×100m — dekt ~85% NL (±30%)',
   },
   bodemkaart: {

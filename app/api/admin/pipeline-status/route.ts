@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createAnonClient } from '@supabase/supabase-js';
+import { GEOTOP } from '@/lib/geotop-config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -87,13 +88,21 @@ async function checkBhrGt(): Promise<SourceResult> {
 
 async function checkGeoTop(): Promise<SourceResult> {
   const t0 = Date.now();
+  // Health-check the OPeNDAP endpoint the app actually uses (lib/geotop.ts),
+  // not the legacy broservices geotop REST which currently returns 503.
   try {
-    const res = await fetch('https://publiek.broservices.nl/sr/geotop/v1/voxelmodels', {
-      signal: AbortSignal.timeout(6000),
+    const res = await fetch(`${GEOTOP.endpoint}.dds`, {
+      signal: AbortSignal.timeout(GEOTOP.timeoutMs),
     });
     const latencyMs = Date.now() - t0;
     if (!res.ok) return { status: 'down', latencyMs, detail: `HTTP ${res.status}` };
-    return { status: 'ok', latencyMs };
+    const text = await res.text();
+    const hasDataset = /Dataset\s*\{/i.test(text) || /geotop/i.test(text);
+    return {
+      status: hasDataset ? 'ok' : 'no_data',
+      latencyMs,
+      detail: hasDataset ? GEOTOP.version : 'OPeNDAP DDS leeg/onverwacht',
+    };
   } catch (e) {
     return { status: 'timeout', latencyMs: Date.now() - t0, detail: String(e) };
   }
