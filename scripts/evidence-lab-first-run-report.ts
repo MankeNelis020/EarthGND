@@ -248,7 +248,7 @@ async function main() {
       lithoClass,
       theory: { mu: theory.mu, sigma: theory.sigma, nVirtual: theory.nVirtual },
       rawObservations: rhos.length,
-      electrodeCountProxy: [...bucket.metingIds].reduce((s, id) => {
+      electrodeCountProxy: Array.from(bucket.metingIds).reduce((s, id) => {
         const m = (metingen ?? []).find(x => x.id === id);
         const n = Number(m?.electrode_count ?? m?.aantal_pennen ?? 1);
         return s + (Number.isFinite(n) && n > 0 ? n : 1);
