@@ -82,7 +82,7 @@ async function main() {
     const lon = Number(m.lon);
     const curve =
       (m.depth_curve as
-        | { depth_m?: number; depth?: number; ra_ohm?: number; R?: number }[]
+        | { depth_m?: number; depth?: number; ra_ohm?: number; ra?: number; R?: number }[]
         | null) ?? [];
     const normalized = curve
       .map(p => ({
