@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createAnonClient } from '@supabase/supabase-js';
+import { GEOTOP } from '@/lib/geotop-config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -87,13 +88,21 @@ async function checkBhrGt(): Promise<SourceResult> {
 
 async function checkGeoTop(): Promise<SourceResult> {
   const t0 = Date.now();
+  // Health-check the OPeNDAP endpoint the app actually uses (lib/geotop.ts),
+  // not the legacy broservices geotop REST which currently returns 503.
   try {
-    const res = await fetch('https://publiek.broservices.nl/sr/geotop/v1/voxelmodels', {
-      signal: AbortSignal.timeout(6000),
+    const res = await fetch(`${GEOTOP.endpoint}.dds`, {
+      signal: AbortSignal.timeout(GEOTOP.timeoutMs),
     });
     const latencyMs = Date.now() - t0;
     if (!res.ok) return { status: 'down', latencyMs, detail: `HTTP ${res.status}` };
-    return { status: 'ok', latencyMs };
+    const text = await res.text();
+    const hasDataset = /Dataset\s*\{/i.test(text) || /geotop/i.test(text);
+    return {
+      status: hasDataset ? 'ok' : 'no_data',
+      latencyMs,
+      detail: hasDataset ? GEOTOP.version : 'OPeNDAP DDS leeg/onverwacht',
+    };
   } catch (e) {
     return { status: 'timeout', latencyMs: Date.now() - t0, detail: String(e) };
   }
@@ -106,8 +115,10 @@ async function checkBodemkaart(): Promise<SourceResult> {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     );
-    const { data, error } = await supabase
-      .rpc('get_bodemkaart_at_point', { rd_x: TEST_RD_X, rd_y: TEST_RD_Y });
+    // Arnhem area: CPT/BHR/PDOK use city centre; Bodemkaart uses a nearby
+  // covered RD point (urban 192000/445000 sits in a map gap).
+  const { data, error } = await supabase
+    .rpc('get_bodemkaart_at_point', { rd_x: 190000, rd_y: 446000 });
     const latencyMs = Date.now() - t0;
     if (error) return { status: 'down', latencyMs, detail: error.message };
     if (!data?.length) return { status: 'no_data', latencyMs, detail: 'RPC actief maar geen data op testlocatie' };
