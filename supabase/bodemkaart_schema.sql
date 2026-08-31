@@ -53,6 +53,11 @@ alter table public.bodemkaart disable row level security;
 
 -- ─── RPC function ─────────────────────────────────────────────────────────────
 -- Called from lib/bodemkaart.ts as: supabase.rpc('get_bodemkaart_at_point', {rd_x, rd_y})
+-- DROP first: older installs used param names x/y (PostgREST cannot rename in place).
+
+drop function if exists public.get_bodemkaart_at_point(double precision, double precision);
+drop function if exists public.get_bodemkaart_at_point(float, float);
+drop function if exists public.get_bodemkaart_at_point(numeric, numeric);
 
 create or replace function public.get_bodemkaart_at_point(rd_x float, rd_y float)
 returns table (bodemcode text)
