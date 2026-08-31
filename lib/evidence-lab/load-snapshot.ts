@@ -82,8 +82,8 @@ export async function loadEvidenceLabSnapshot() {
   ] = await Promise.all([
     db.from('shadow_predictions').select('id, absolute_error, relative_error, actual_rho, created_at'),
     db.from('global_prior').select('litho_class, welford_mean, welford_m2, total_weight'),
-    db.from('soil_evidence').select('meting_id, depth_m, rho_apparent, zone, confidence, flagged_inconsistent'),
-    db.from('pendiepte_metingen').select('id, lat, lon, adres, plaats, status, depth_curve, electrode_no, elektrode_diameter_mm').limit(500),
+    db.from('soil_evidence').select('meting_id, depth_m, rho_apparent, zone, flagged_inconsistent, p_klei, p_leem, p_zand, p_grind, p_veen'),
+    db.from('pendiepte_metingen').select('id, lat, lon, straatnaam, huisnummer, woonplaats, postcode, status, depth_curve, electrode_no, elektrode_diameter_mm, electrode_count, aantal_pennen').limit(500),
     db.from('empirical_weight_policy').select('*'),
     db.from('geotop_validation').select('earthgnd_litho_class, agreement_score, geotop_probability, relative_error_pct, site_cluster_id, meting_id').limit(5000),
   ]);
@@ -115,7 +115,8 @@ export async function loadEvidenceLabSnapshot() {
     id: m.id as string,
     lat: m.lat != null ? Number(m.lat) : null,
     lon: m.lon != null ? Number(m.lon) : null,
-    siteKey: [m.adres, m.plaats].filter(Boolean).join(', ') || null,
+    siteKey:
+      [m.straatnaam, m.huisnummer, m.woonplaats, m.postcode].filter(Boolean).join(', ') || null,
   }));
   const clusters = clusterSites(sitePoints);
   const metingToCluster = new Map<string, string>();
@@ -143,19 +144,16 @@ export async function loadEvidenceLabSnapshot() {
     const rho = Number(ev.rho_apparent);
     if (!(rho > 0)) continue;
     const clusterId = metingToCluster.get(ev.meting_id as string) ?? `meting:${ev.meting_id}`;
-    // Soft assign litho by nearest literature mu (display-only for OOS grouping —
-    // production learning still uses soft P(k|ρ) in accumulator)
-    let bestClass = 3;
-    let bestDist = Infinity;
-    for (const cls of EARTHGND_LITHO_CLASSES) {
-      if (cls === GRIND_CLASS) continue;
-      const mu = LITERATURE_PRIOR[cls]?.mu ?? 45;
-      const d = Math.abs(Math.log(rho) - Math.log(mu));
-      if (d < bestDist) {
-        bestDist = d;
-        bestClass = cls;
-      }
-    }
+    // Dominant soft class from stored P(k) — not a GeoTOP inference
+    const probs: [number, number][] = [
+      [1, Number(ev.p_klei ?? 0)],
+      [2, Number(ev.p_leem ?? 0)],
+      [3, Number(ev.p_zand ?? 0)],
+      [4, Number(ev.p_grind ?? 0)],
+      [5, Number(ev.p_veen ?? 0)],
+    ];
+    probs.sort((a, b) => b[1] - a[1]);
+    const bestClass = (probs[0]?.[0] ?? 3) as number;
     const key = `${clusterId}::${bestClass}`;
     const cur = siteRhoByLitho.get(key) ?? { lithoClass: bestClass, rhos: [] };
     cur.rhos.push(rho);
@@ -281,10 +279,10 @@ export async function loadEvidenceLabSnapshot() {
     sampleStrength: scoreSampleStrength(totalSoftN, POORT3.minSoftN),
     siteIndependence: scoreSiteIndependence(totalSites, Math.max(metingen.length, 1)),
     geographicCoverage: scoreGeographicCoverage(
-      new Set(metingen.map(m => (m.plaats as string) || 'onbekend')).size,
+      new Set(metingen.map(m => (m.woonplaats as string) || 'onbekend')).size,
     ),
     measurementQuality: scoreMeasurementQuality(
-      (evidenceRes.data ?? []).filter(e => e.confidence === 'high' || e.confidence === 'hoog').length /
+      (evidenceRes.data ?? []).filter(e => !e.flagged_inconsistent).length /
         Math.max(1, (evidenceRes.data ?? []).length),
     ),
     geotopConfidence: scoreGeotopConfidence(geotopConf ?? 0),

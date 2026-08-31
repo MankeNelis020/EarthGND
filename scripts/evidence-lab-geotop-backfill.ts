@@ -26,7 +26,7 @@ async function main() {
   const db = createClient(url, key, { auth: { persistSession: false } });
   const { data: metingen, error } = await db
     .from('pendiepte_metingen')
-    .select('id, lat, lon, adres, plaats, depth_curve, electrode_no, elektrode_diameter_mm')
+    .select('id, lat, lon, straatnaam, huisnummer, woonplaats, postcode, depth_curve, electrode_no, elektrode_diameter_mm')
     .not('lat', 'is', null)
     .not('lon', 'is', null)
     .limit(200);
@@ -37,7 +37,8 @@ async function main() {
     id: m.id as string,
     lat: Number(m.lat),
     lon: Number(m.lon),
-    siteKey: [m.adres, m.plaats].filter(Boolean).join(', ') || null,
+    siteKey:
+      [m.straatnaam, m.huisnummer, m.woonplaats, m.postcode].filter(Boolean).join(', ') || null,
   }));
   const clusters = clusterSites(points);
   const clusterOf = new Map<string, string>();
@@ -51,12 +52,12 @@ async function main() {
     const lon = Number(m.lon);
     const curve =
       (m.depth_curve as
-        | { depth_m?: number; depth?: number; ra_ohm?: number; R?: number }[]
+        | { depth_m?: number; depth?: number; ra_ohm?: number; ra?: number; R?: number }[]
         | null) ?? [];
     const normalized = curve
       .map(p => ({
         depth_m: Number(p.depth_m ?? p.depth),
-        ra_ohm: Number(p.ra_ohm ?? p.R),
+        ra_ohm: Number(p.ra_ohm ?? p.ra ?? p.R),
       }))
       .filter(p => p.depth_m > 0 && p.ra_ohm > 0);
 
