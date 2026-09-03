@@ -20,6 +20,7 @@
     "gate:poort2": "npx tsx --tsconfig tsconfig.json scripts/gate-poort2-shadow.ts",
     "gate:poort3-oos": "npx tsx --tsconfig tsconfig.json scripts/gate-poort3-oos.ts",
     "test:evidence-lab": "npx tsx --tsconfig tsconfig.json scripts/tests/evidence-lab-check.ts",
+    "test:depth-curve": "npx tsx --tsconfig tsconfig.json scripts/tests/depth-curve-check.ts",
     "evidence-lab:geotop-backfill": "npx tsx --tsconfig tsconfig.json scripts/evidence-lab-geotop-backfill.ts",
     "i18n:check": "npx tsx scripts/check-i18n-keys.ts",
     "test:import": "npx tsx --tsconfig tsconfig.json scripts/test-import-local.ts",

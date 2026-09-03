@@ -15,8 +15,12 @@ import {
   normalizeStopreden,
   presetIdForDiameterMm,
 } from '@/lib/electrode-diameter';
+import {
+  formatDepthLabel,
+  resolveInitialCurve,
+  type DepthPoint,
+} from '@/lib/meting/depth-curve';
 
-interface DepthPoint { depth: number; ra: number }
 interface RodMeting  { rod_number: number; installed_depth: string; achieved_ra: string }
 
 export interface SavedMeting {
@@ -49,14 +53,6 @@ interface Props {
   recommendedDrijfmethode?:  string;
   initialElectrodeDiameterMm?: number;
   savedMeting?:              SavedMeting | null;
-}
-
-function buildInitialCurve(maxDepth: number): DepthPoint[] {
-  const rows: DepthPoint[] = [];
-  for (let d = 3; d <= Math.ceil(maxDepth) + 3; d += 3) {
-    rows.push({ depth: d, ra: 0 });
-  }
-  return rows;
 }
 
 function buildInitialRods(n: number): RodMeting[] {
@@ -124,11 +120,11 @@ export function MonteurForm({
     : (ELECTRODE_DIAMETER_PRESETS.find(p => p.id === diameterPreset)?.mm ?? DEFAULT_ELECTRODE_DIAMETER_MM);
 
   // ── Single-rod measurements (depth_curve + final) ─────────────────────────
-  const [depthCurve, setDepthCurve] = useState<DepthPoint[]>(() => {
-    if (savedMeting?.depth_curve?.length) return savedMeting.depth_curve;
-    if (expectedDepth) return buildInitialCurve(expectedDepth);
-    return [{ depth: 3, ra: 0 }];
-  });
+  const [depthCurve, setDepthCurve] = useState<DepthPoint[]>(() =>
+    resolveInitialCurve(savedMeting?.depth_curve, expectedDepth),
+  );
+  const raInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const eindRaRef = useRef<HTMLInputElement | null>(null);
   const [achievedRa,     setAchievedRa]     = useState(savedMeting?.achieved_ra?.toString() ?? '');
   const [installedDepth, setInstalledDepth] = useState(
     savedMeting?.installed_depth?.toString() ?? (expectedDepth?.toFixed(2) ?? ''),
@@ -282,8 +278,19 @@ export function MonteurForm({
   function removeRow(i: number) {
     setDepthCurve(prev => prev.filter((_, idx) => idx !== i));
   }
-  function updateRow(i: number, field: keyof DepthPoint, value: number) {
-    setDepthCurve(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
+  function updateRa(i: number, value: number) {
+    setDepthCurve(prev => prev.map((r, idx) => (idx === i ? { ...r, ra: value } : r)));
+  }
+  /** Mobile keyboards: Enter / "volgende" → next Ra field (or eindmeting). */
+  function focusNextRaField(fromIndex: number) {
+    const next = raInputRefs.current[fromIndex + 1];
+    if (next) {
+      next.focus();
+      next.select();
+      return;
+    }
+    eindRaRef.current?.focus();
+    eindRaRef.current?.select();
   }
 
   // ── Rod helpers (multi-rod) ───────────────────────────────────────────────
@@ -639,21 +646,41 @@ export function MonteurForm({
             <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-white/60">
               Dieptecurve — meting per 3 m
             </p>
-            <p className="mb-4 text-[10px] text-white/40">Voer Ra (Ω) in per diepte stap</p>
+            <p className="mb-1 text-[10px] text-white/40">Voer Ra (Ω) in per diepte stap. Enter / Volgende → volgend veld.</p>
+            {expectedDepth != null && expectedDepth > 0 ? (
+              <p className="mb-4 text-[10px] text-[#E8761A]/80">
+                Vooringevuld tot {formatDepthLabel(depthCurve[depthCurve.length - 1]?.depth ?? 0)} op basis van
+                verwachte diepte ({expectedDepth.toFixed(1)} m). Voeg een meetpunt toe als het dieper blijkt.
+              </p>
+            ) : (
+              <div className="mb-4" />
+            )}
             <div className="flex flex-col gap-2">
               {depthCurve.map((row, i) => (
-                <div key={i} className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+                <div key={`${row.depth}-${i}`} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-3">
+                  <span className="font-mono text-sm tabular-nums text-white/70">
+                    {formatDepthLabel(row.depth)}
+                  </span>
                   <div className="flex items-center gap-1.5">
-                    <input type="number" min="0.5" step="0.5" value={row.depth}
-                      onChange={e => updateRow(i, 'depth', Number(e.target.value))}
-                      className="w-16 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none" />
-                    <span className="text-xs text-white/50">m</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <input type="number" min="0" step="0.1" value={row.ra || ''}
-                      onChange={e => updateRow(i, 'ra', Number(e.target.value))}
+                    <input
+                      ref={el => { raInputRefs.current[i] = el; }}
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.1"
+                      value={row.ra || ''}
+                      onChange={e => updateRa(i, Number(e.target.value))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          focusNextRaField(i);
+                        }
+                      }}
+                      enterKeyHint={i < depthCurve.length - 1 ? 'next' : 'done'}
                       placeholder="Ra (Ω)"
-                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none" />
+                      aria-label={`Ra bij ${formatDepthLabel(row.depth)}`}
+                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                    />
                     <span className="text-xs text-white/50">Ω</span>
                   </div>
                   {depthCurve.length > 1 && (
@@ -672,7 +699,7 @@ export function MonteurForm({
               <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
-              Meetpunt toevoegen
+              Meetpunt toevoegen (+3 m)
             </button>
           </div>
 
@@ -683,9 +710,18 @@ export function MonteurForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-xs text-white/70">Gemeten Ra (Ω)</label>
-                <input type="number" min="0" step="0.01" value={achievedRa}
-                  onChange={e => setAchievedRa(e.target.value)} placeholder="bijv. 8.5"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none" />
+                <input
+                  ref={eindRaRef}
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={achievedRa}
+                  onChange={e => setAchievedRa(e.target.value)}
+                  placeholder="bijv. 8.5"
+                  enterKeyHint="done"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-[#E8761A] focus:outline-none"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-xs text-white/70">Geïnstalleerde diepte (m)</label>
