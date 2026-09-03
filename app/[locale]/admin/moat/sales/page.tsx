@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import { Link } from '@/i18n/navigation';
+import { AdminPageHeader } from '@/components/admin/AdminShell';
 import { PRODUCT_AVAILABILITY_LINE } from '@/lib/moat/labels';
 
 interface SalesResponse {
@@ -78,20 +78,14 @@ export default function MoatSalesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas text-white">
-      <div className="mx-auto max-w-4xl px-4 py-10">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-white/40">
-          <Link href="/admin/moat" className="hover:text-[#E8761A]">Directeur</Link>
-          <span>/</span>
-          <span className="text-white/70">Sales</span>
-          <span className="text-white/20">·</span>
-          <Link href="/admin/moat/ops" className="hover:text-[#E8761A]">Operations</Link>
-        </div>
+    <div>
+        <AdminPageHeader
+          eyebrow="Moat · Sales"
+          title="Sales battlefield"
+          description={PRODUCT_AVAILABILITY_LINE}
+        />
 
-        <h1 className="font-condensed text-3xl font-black">Sales battlefield</h1>
-        <p className="mt-2 max-w-2xl text-sm text-white/50">{PRODUCT_AVAILABILITY_LINE}</p>
-
-        <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
             <label className="mb-1 block text-[11px] uppercase tracking-widest text-white/35">
               Klantadres / postcode
@@ -236,7 +230,6 @@ export default function MoatSalesPage() {
             Geen confirmed outcomes binnen {data.radiusM} m. Product blijft beschikbaar; vergende radius of verzamel meer metingen.
           </p>
         )}
-      </div>
     </div>
   );
 }

@@ -8,36 +8,35 @@ import type {
   RecentCalculation,
   Alarm,
 } from '@/app/api/admin/soil-monitoring/route';
-
-// ─── Config card ──────────────────────────────────────────────────────────────
+import { AdminPageHeader } from '@/components/admin/AdminShell';
 
 function ConfigCard({ config }: { config: MonitoringConfig }) {
   const rows: { label: string; value: string; warn?: boolean }[] = [
     {
       label: 'SOIL_KNOWLEDGE_ACTIVE',
       value: config.soilKnowledgeActive ? 'true ✓' : 'false — L1 only',
-      warn:  !config.soilKnowledgeActive,
+      warn: !config.soilKnowledgeActive,
     },
     {
       label: 'EMERGENCY_ROLLBACK',
       value: config.emergencyRollback ? 'true ⚠ actief' : 'false',
-      warn:  config.emergencyRollback,
+      warn: config.emergencyRollback,
     },
-    { label: 'EMPIRICAL_WEIGHT',     value: String(config.empiricalWeight) },
-    { label: 'ENABLED_CLASSES',      value: config.enabledClasses },
+    { label: 'EMPIRICAL_WEIGHT', value: String(config.empiricalWeight) },
+    { label: 'ENABLED_CLASSES', value: config.enabledClasses },
     { label: 'CONFIDENCE_THRESHOLD', value: String(config.confidenceThreshold) },
   ];
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-2">
-      <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+    <div className="space-y-2 rounded-xl border border-white/10 bg-black/20 p-4">
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-white/40">
         Configuratie (env)
       </h2>
-      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+      <div className="divide-y divide-white/8">
         {rows.map(({ label, value, warn }) => (
-          <div key={label} className="flex justify-between py-1.5 gap-4">
-            <span className="text-xs font-mono text-gray-600 dark:text-gray-400">{label}</span>
-            <span className={`text-xs font-mono font-medium ${warn ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100'}`}>
+          <div key={label} className="flex justify-between gap-4 py-1.5">
+            <span className="font-mono text-xs text-white/45">{label}</span>
+            <span className={`font-mono text-xs font-medium ${warn ? 'text-amber-300' : 'text-stone-100'}`}>
               {value}
             </span>
           </div>
@@ -47,12 +46,10 @@ function ConfigCard({ config }: { config: MonitoringConfig }) {
   );
 }
 
-// ─── Alarm list ───────────────────────────────────────────────────────────────
-
 function AlarmList({ alarms }: { alarms: Alarm[] }) {
   if (alarms.length === 0) {
     return (
-      <div className="rounded-xl border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30 px-4 py-3 text-sm text-green-700 dark:text-green-400">
+      <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
         Geen actieve alarmen — alles groen.
       </div>
     );
@@ -65,10 +62,10 @@ function AlarmList({ alarms }: { alarms: Alarm[] }) {
           key={i}
           className={`rounded-xl border px-4 py-3 text-sm ${
             alarm.type === 'rollback_active'
-              ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950/30 text-red-700 dark:text-red-400'
+              ? 'border-red-500/30 bg-red-500/10 text-red-300'
               : alarm.type === 'low_confidence'
-              ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
-              : 'border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-400'
+                ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+                : 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200'
           }`}
         >
           {alarm.message}
@@ -78,12 +75,10 @@ function AlarmList({ alarms }: { alarms: Alarm[] }) {
   );
 }
 
-// ─── Daily aggregates table ───────────────────────────────────────────────────
-
 function DailyTable({ rows }: { rows: DailyAggregate[] }) {
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+      <p className="text-sm italic text-white/40">
         Nog geen berekeningen met empirische blend. Activeer SOIL_KNOWLEDGE_ACTIVE=true op staging.
       </p>
     );
@@ -91,38 +86,38 @@ function DailyTable({ rows }: { rows: DailyAggregate[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-xs text-left">
+      <table className="w-full text-left text-xs">
         <thead>
-          <tr className="border-b border-gray-200 dark:border-gray-700">
-            <th className="py-2 pr-4 font-semibold text-gray-500 dark:text-gray-400">Dag</th>
-            <th className="py-2 pr-4 font-semibold text-gray-500 dark:text-gray-400">N</th>
-            <th className="py-2 pr-4 font-semibold text-gray-500 dark:text-gray-400">Blend toegepast</th>
-            <th className="py-2 pr-4 font-semibold text-gray-500 dark:text-gray-400">Gem. confidence</th>
-            <th className="py-2 pr-4 font-semibold text-gray-500 dark:text-gray-400">Min. confidence</th>
-            <th className="py-2 font-semibold text-gray-500 dark:text-gray-400">Bronnen</th>
+          <tr className="border-b border-white/10">
+            <th className="py-2 pr-4 font-semibold text-white/40">Dag</th>
+            <th className="py-2 pr-4 font-semibold text-white/40">N</th>
+            <th className="py-2 pr-4 font-semibold text-white/40">Blend toegepast</th>
+            <th className="py-2 pr-4 font-semibold text-white/40">Gem. confidence</th>
+            <th className="py-2 pr-4 font-semibold text-white/40">Min. confidence</th>
+            <th className="py-2 font-semibold text-white/40">Bronnen</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+        <tbody className="divide-y divide-white/8">
           {rows.map((row) => {
-            const avgOk  = row.avgConfidence !== null && row.avgConfidence >= 0.3;
-            const minOk  = row.minConfidence !== null && row.minConfidence >= 0.3;
+            const avgOk = row.avgConfidence !== null && row.avgConfidence >= 0.3;
+            const minOk = row.minConfidence !== null && row.minConfidence >= 0.3;
             const sourceSummary = Object.entries(row.sources)
               .map(([src, n]) => `${src.replace('l', 'L').replace('_', ' ')}(${n})`)
               .join(', ');
             return (
-              <tr key={row.dag} className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
-                <td className="py-2 pr-4 font-mono text-gray-700 dark:text-gray-300">{row.dag}</td>
-                <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">{row.n}</td>
-                <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+              <tr key={row.dag} className="hover:bg-white/5">
+                <td className="py-2 pr-4 font-mono text-white/70">{row.dag}</td>
+                <td className="py-2 pr-4 text-white/70">{row.n}</td>
+                <td className="py-2 pr-4 text-white/70">
                   {row.blendApplied}/{row.n}
                 </td>
-                <td className={`py-2 pr-4 font-medium ${avgOk ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                <td className={`py-2 pr-4 font-medium ${avgOk ? 'text-emerald-400' : 'text-red-400'}`}>
                   {row.avgConfidence !== null ? `${(row.avgConfidence * 100).toFixed(0)}%` : '—'}
                 </td>
-                <td className={`py-2 pr-4 font-medium ${minOk ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                <td className={`py-2 pr-4 font-medium ${minOk ? 'text-emerald-400' : 'text-red-400'}`}>
                   {row.minConfidence !== null ? `${(row.minConfidence * 100).toFixed(0)}%` : '—'}
                 </td>
-                <td className="py-2 text-gray-500 dark:text-gray-400 truncate max-w-xs">{sourceSummary || '—'}</td>
+                <td className="max-w-xs truncate py-2 text-white/40">{sourceSummary || '—'}</td>
               </tr>
             );
           })}
@@ -132,12 +127,10 @@ function DailyTable({ rows }: { rows: DailyAggregate[] }) {
   );
 }
 
-// ─── Recent calculations ──────────────────────────────────────────────────────
-
 function RecentCalcTable({ calcs }: { calcs: RecentCalculation[] }) {
   if (calcs.length === 0) {
     return (
-      <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+      <p className="text-sm italic text-white/40">
         Geen berekeningen met empirische data in de afgelopen 24 uur.
       </p>
     );
@@ -145,51 +138,58 @@ function RecentCalcTable({ calcs }: { calcs: RecentCalculation[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-xs text-left">
+      <table className="w-full text-left text-xs">
         <thead>
-          <tr className="border-b border-gray-200 dark:border-gray-700">
-            <th className="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400">Tijd</th>
-            <th className="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400">PC</th>
-            <th className="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400">Bron</th>
-            <th className="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400">Conf.</th>
-            <th className="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400">ρ L1</th>
-            <th className="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400">ρ Emp.</th>
-            <th className="py-2 pr-3 font-semibold text-gray-500 dark:text-gray-400">ρ Blend</th>
-            <th className="py-2 font-semibold text-gray-500 dark:text-gray-400">Blend</th>
+          <tr className="border-b border-white/10">
+            <th className="py-2 pr-3 font-semibold text-white/40">Tijd</th>
+            <th className="py-2 pr-3 font-semibold text-white/40">PC</th>
+            <th className="py-2 pr-3 font-semibold text-white/40">Bron</th>
+            <th className="py-2 pr-3 font-semibold text-white/40">Conf.</th>
+            <th className="py-2 pr-3 font-semibold text-white/40">ρ L1</th>
+            <th className="py-2 pr-3 font-semibold text-white/40">ρ Emp.</th>
+            <th className="py-2 pr-3 font-semibold text-white/40">ρ Blend</th>
+            <th className="py-2 font-semibold text-white/40">Blend</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+        <tbody className="divide-y divide-white/8">
           {calcs.map((calc) => (
-            <tr key={calc.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
-              <td className="py-1.5 pr-3 font-mono text-gray-500 dark:text-gray-400">
-                {new Date(calc.createdAt).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+            <tr key={calc.id} className="hover:bg-white/5">
+              <td className="py-1.5 pr-3 font-mono text-white/40">
+                {new Date(calc.createdAt).toLocaleTimeString('nl-NL', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
               </td>
-              <td className="py-1.5 pr-3 font-mono text-gray-700 dark:text-gray-300">
-                {calc.postcode ?? '—'}
-              </td>
-              <td className="py-1.5 pr-3 text-gray-600 dark:text-gray-400 font-mono">
+              <td className="py-1.5 pr-3 font-mono text-white/70">{calc.postcode ?? '—'}</td>
+              <td className="py-1.5 pr-3 font-mono text-white/50">
                 {calc.empiricalSource.replace('l', 'L').replace('_', ' ')}
               </td>
-              <td className={`py-1.5 pr-3 font-medium ${
-                calc.empiricalConfidence !== null && calc.empiricalConfidence >= 0.5
-                  ? 'text-green-700 dark:text-green-400'
-                  : 'text-amber-600 dark:text-amber-400'
-              }`}>
-                {calc.empiricalConfidence !== null ? `${(calc.empiricalConfidence * 100).toFixed(0)}%` : '—'}
+              <td
+                className={`py-1.5 pr-3 font-medium ${
+                  calc.empiricalConfidence !== null && calc.empiricalConfidence >= 0.5
+                    ? 'text-emerald-400'
+                    : 'text-amber-300'
+                }`}
+              >
+                {calc.empiricalConfidence !== null
+                  ? `${(calc.empiricalConfidence * 100).toFixed(0)}%`
+                  : '—'}
               </td>
-              <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+              <td className="py-1.5 pr-3 text-white/70">
                 {calc.l1Rho !== null ? `${calc.l1Rho} Ω` : '—'}
               </td>
-              <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">
+              <td className="py-1.5 pr-3 text-white/70">
                 {calc.empiricalRho !== null ? `${calc.empiricalRho} Ω` : '—'}
               </td>
-              <td className="py-1.5 pr-3 font-medium text-blue-700 dark:text-blue-400">
+              <td className="py-1.5 pr-3 font-medium text-[#E8761A]">
                 {calc.blendedRho !== null ? `${calc.blendedRho} Ω` : '—'}
               </td>
               <td className="py-1.5">
-                {calc.blendApplied
-                  ? <span className="text-green-700 dark:text-green-400">✓</span>
-                  : <span className="text-gray-400">—</span>}
+                {calc.blendApplied ? (
+                  <span className="text-emerald-400">✓</span>
+                ) : (
+                  <span className="text-white/30">—</span>
+                )}
               </td>
             </tr>
           ))}
@@ -199,34 +199,31 @@ function RecentCalcTable({ calcs }: { calcs: RecentCalculation[] }) {
   );
 }
 
-// ─── Rollback instructions ────────────────────────────────────────────────────
-
 function RollbackPanel({ active }: { active: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className={`rounded-xl border p-4 space-y-3 ${
-      active
-        ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950/30'
-        : 'border-gray-200 dark:border-gray-700'
-    }`}>
-      <div className="flex items-center justify-between">
+    <div
+      className={`space-y-3 rounded-xl border p-4 ${
+        active ? 'border-red-500/30 bg-red-500/10' : 'border-white/10 bg-black/20'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            Emergency Rollback
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <h2 className="text-sm font-semibold text-stone-100">Emergency Rollback</h2>
+          <p className="mt-0.5 text-xs text-white/45">
             {active
               ? 'Rollback is ACTIEF — alle berekeningen gebruiken L1.'
               : 'Niet actief. Gebruik dit bij onverwacht gedrag.'}
           </p>
         </div>
         <button
-          onClick={() => setOpen(o => !o)}
-          className={`px-3 py-1.5 text-xs rounded-lg font-medium ${
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
             active
               ? 'bg-red-600 text-white'
-              : 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+              : 'border border-white/15 text-white/70 hover:border-white/30 hover:text-white'
           }`}
         >
           {open ? 'Verberg instructies' : 'Toon instructies'}
@@ -235,10 +232,12 @@ function RollbackPanel({ active }: { active: boolean }) {
 
       {open && (
         <div className="space-y-2 text-sm">
-          <p className="text-gray-700 dark:text-gray-300">
-            Zet <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded font-mono text-xs">EMERGENCY_ROLLBACK=true</code> in de omgevingsvariabelen van je deployment:
+          <p className="text-white/70">
+            Zet{' '}
+            <code className="rounded bg-white/10 px-1 font-mono text-xs">EMERGENCY_ROLLBACK=true</code>{' '}
+            in de omgevingsvariabelen van je deployment:
           </p>
-          <pre className="bg-gray-900 text-green-400 rounded-lg px-4 py-3 text-xs overflow-x-auto">
+          <pre className="overflow-x-auto rounded-lg bg-black/40 px-4 py-3 font-mono text-xs text-emerald-400">
 {`# Vercel / hosting platform
 EMERGENCY_ROLLBACK=true
 
@@ -246,7 +245,7 @@ EMERGENCY_ROLLBACK=true
 # Alle berekeningen gebruiken automatisch L1 literatuurprior.
 # Herstel: zet EMERGENCY_ROLLBACK=false of verwijder de variabele.`}
           </pre>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-white/40">
             Geen herstart nodig — de waarde wordt per request gelezen.
           </p>
         </div>
@@ -255,12 +254,10 @@ EMERGENCY_ROLLBACK=true
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-
 export default function SoilMonitoringPage() {
-  const [data,    setData]    = useState<SoilMonitoringData | null>(null);
+  const [data, setData] = useState<SoilMonitoringData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -273,7 +270,7 @@ export default function SoilMonitoringPage() {
         setError((json as { error?: string }).error ?? `HTTP ${res.status}`);
         return;
       }
-      setData(await res.json() as SoilMonitoringData);
+      setData((await res.json()) as SoilMonitoringData);
       setLastFetch(new Date());
     } catch (e) {
       setError(String(e));
@@ -282,92 +279,73 @@ export default function SoilMonitoringPage() {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-              Soil Knowledge — Monitoring
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Poort D staging — empirische blend van geleidende klasse
-              {lastFetch && (
-                <> · bijgewerkt {lastFetch.toLocaleTimeString('nl-NL')}</>
-              )}
-            </p>
-          </div>
+    <div className="space-y-6">
+      <AdminPageHeader
+        eyebrow="Instrumentatie"
+        title="Soil Knowledge — Monitoring"
+        description={
+          <>
+            Poort D staging — empirische blend van geleidende klasse
+            {lastFetch && <> · bijgewerkt {lastFetch.toLocaleTimeString('nl-NL')}</>}
+          </>
+        }
+        actions={
           <button
+            type="button"
             onClick={fetchData}
             disabled={loading}
-            className="px-3 py-1.5 text-sm rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 disabled:opacity-50 flex items-center gap-2"
+            className="rounded-lg border border-[#E8761A]/40 px-4 py-2 text-sm font-semibold text-[#E8761A] hover:bg-[#E8761A]/10 disabled:opacity-50"
           >
-            {loading ? (
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            )}
             {loading ? 'Bezig…' : 'Vernieuwen'}
           </button>
+        }
+      />
+
+      {error && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}
         </div>
+      )}
 
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 px-4 py-3 text-sm text-red-700 dark:text-red-400">
-            {error}
+      {loading && !data && (
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl border border-white/10 bg-white/5" />
+          ))}
+        </div>
+      )}
+
+      {data && (
+        <>
+          <div>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">Alarms</h2>
+            <AlarmList alarms={data.alarms} />
           </div>
-        )}
 
-        {loading && !data && (
-          <div className="space-y-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="rounded-xl border border-gray-200 dark:border-gray-700 h-24 animate-pulse bg-gray-100 dark:bg-gray-900" />
-            ))}
+          <ConfigCard config={data.config} />
+
+          <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-4">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-white/40">
+              Dagelijks overzicht — laatste 14 dagen
+            </h2>
+            <DailyTable rows={data.dailyAggs} />
           </div>
-        )}
 
-        {data && (
-          <>
-            {/* Alarms */}
-            <div>
-              <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-                Alarms
-              </h2>
-              <AlarmList alarms={data.alarms} />
-            </div>
+          <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-4">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-white/40">
+              Recente berekeningen met empirische data — afgelopen 24u
+            </h2>
+            <RecentCalcTable calcs={data.recentCalcs} />
+          </div>
 
-            {/* Config */}
-            <ConfigCard config={data.config} />
-
-            {/* Daily table */}
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-              <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Dagelijks overzicht — laatste 14 dagen
-              </h2>
-              <DailyTable rows={data.dailyAggs} />
-            </div>
-
-            {/* Recent calcs */}
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-              <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Recente berekeningen met empirische data — afgelopen 24u
-              </h2>
-              <RecentCalcTable calcs={data.recentCalcs} />
-            </div>
-
-            {/* Rollback */}
-            <RollbackPanel active={data.config.emergencyRollback} />
-          </>
-        )}
-      </div>
+          <RollbackPanel active={data.config.emergencyRollback} />
+        </>
+      )}
     </div>
   );
 }
